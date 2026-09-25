@@ -1,0 +1,8 @@
+{
+  "name": "SC Basimbuzi Receipt Management System",
+  "description": "Digital payment and receipt management system for SC Basimbuzi with Google Sheets database, atomic receipt numbering, and automated email receipts.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
