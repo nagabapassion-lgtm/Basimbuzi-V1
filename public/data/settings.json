@@ -1,0 +1,27 @@
+{
+  "organizationName": "SC Basimbuzi",
+  "organizationEmail": "sc.basimbuzi1925@gmail.com",
+  "organizationPhone": "703643759",
+  "organizationAddress": "Kampala, Uganda",
+  "receiptPrefix": "SB",
+  "receiptFooter": "Thank you for your payment to SC Basimbuzi.",
+  "logoUrl": "/logo.png",
+  "paymentCategories": [
+    "Membership",
+    "Contribution",
+    "Event",
+    "Registration",
+    "Fundraising",
+    "Merchandise",
+    "Other",
+    "Drive"
+  ],
+  "paymentMethods": [
+    "Mobile Money",
+    "Bank Transfer",
+    "Cash",
+    "Other"
+  ],
+  "currency": "UGX",
+  "updatedAt": "2026-10-11T07:07:22.799Z"
+}
