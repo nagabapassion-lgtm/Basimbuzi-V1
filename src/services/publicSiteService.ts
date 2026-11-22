@@ -1,4 +1,5 @@
 import { Member, MemberClaimInfo, MemberGender, MemberPaymentSummary, PublicSiteContent, SupporterInquiry } from '../types';
+import { safeFetchJson, safeFetchMutation } from '../utils/apiFetch';
 
 export interface PublicOrgProfile {
   organizationName: string;
@@ -121,31 +122,35 @@ export const DEFAULT_PUBLIC_SITE_CONTENT: PublicSiteContent = {
       isHome: true,
       status: 'COMPLETED',
       homeScore: 3,
-      awayScore: 1,
-      summary: 'Strong second-half display with goals in the 38th, 61st, and 77th minutes.'
-    },
-    {
-      id: 'fix-4',
-      opponent: 'Bugolobi Athletic',
-      competition: 'Regional League',
-      date: '2026-11-08',
-      time: '16:00',
-      venue: 'Bugolobi Ground',
-      isHome: false,
-      status: 'COMPLETED',
-      homeScore: 1,
-      awayScore: 2,
-      summary: 'Crucial away victory secured with an 84th-minute winner.'
+      awayScore: 1
     }
   ],
   merch: [
     {
       id: 'merch-1',
-      name: 'Official 2026 Home Jersey',
-      priceUgx: 65000,
-      description: 'Breathable royal blue matchday jersey with gold trim and woven SC Basimbuzi crest.',
-      imageUrl: 'preset:jersey',
-      sizes: ['S', 'M', 'L', 'XL', 'XXL'],
+      name: '2026 Official Home Match Jersey',
+      priceUgx: 95000,
+      category: 'Apparel',
+      image: 'preset:jersey',
+      description: 'High-performance breathable fabric featuring club crest and official sponsor branding. Available in S, M, L, XL, XXL.',
+      inStock: true
+    },
+    {
+      id: 'merch-2',
+      name: 'SC Basimbuzi Supporters Scarf',
+      priceUgx: 35000,
+      category: 'Accessories',
+      image: 'preset:supporters',
+      description: 'Traditional knit club scarf with team colors and crest.',
+      inStock: true
+    },
+    {
+      id: 'merch-3',
+      name: 'Official Club Baseball Cap',
+      priceUgx: 30000,
+      category: 'Accessories',
+      image: 'preset:hero',
+      description: 'Embroidered crest cap with adjustable strap.',
       inStock: true
     }
   ]
@@ -159,8 +164,7 @@ export const publicSiteService = {
         headers['X-Operator-Email'] = operatorEmail;
       }
       const url = includeDrafts ? '/api/public-site?mode=admin' : '/api/public-site';
-      const res = await fetch(url, { headers });
-      const json = await res.json();
+      const json = await safeFetchJson<any>(url, { headers });
       if (json && json.success && json.data) {
         return json.data as PublicSitePayload;
       }
@@ -183,22 +187,14 @@ export const publicSiteService = {
     content: PublicSiteContent,
     operatorEmail: string
   ): Promise<{ success: boolean; data?: PublicSiteContent; error?: string }> {
-    try {
-      const res = await fetch('/api/public-site', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Operator-Email': operatorEmail
-        },
-        body: JSON.stringify({ content })
-      });
-      return await res.json();
-    } catch (err: unknown) {
-      return {
-        success: false,
-        error: err instanceof Error ? err.message : 'Failed to save website content'
-      };
-    }
+    return safeFetchMutation('/api/public-site', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Operator-Email': operatorEmail
+      },
+      body: JSON.stringify({ content })
+    });
   },
 
   async submitInquiry(payload: {
@@ -208,33 +204,18 @@ export const publicSiteService = {
     interest: SupporterInquiry['interest'];
     message: string;
   }): Promise<{ success: boolean; error?: string }> {
-    try {
-      const res = await fetch('/api/public-inquiries', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      return await res.json();
-    } catch (err: unknown) {
-      return {
-        success: false,
-        error: err instanceof Error ? err.message : 'Failed to send inquiry'
-      };
-    }
+    return safeFetchMutation('/api/public-inquiries', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
   },
 
   async fetchInquiries(operatorEmail: string): Promise<{ success: boolean; data?: SupporterInquiry[]; error?: string }> {
-    try {
-      const res = await fetch('/api/public-inquiries', {
-        headers: { 'X-Operator-Email': operatorEmail }
-      });
-      return await res.json();
-    } catch (err: unknown) {
-      return {
-        success: false,
-        error: err instanceof Error ? err.message : 'Failed to load inquiries'
-      };
-    }
+    const json = await safeFetchJson<any>('/api/public-inquiries', {
+      headers: { 'X-Operator-Email': operatorEmail }
+    });
+    return json || { success: false, error: 'Static hosting mode or service unavailable' };
   },
 
   async updateInquiryStatus(
@@ -242,86 +223,53 @@ export const publicSiteService = {
     status: 'NEW' | 'CONTACTED',
     operatorEmail: string
   ): Promise<{ success: boolean; data?: SupporterInquiry; error?: string }> {
-    try {
-      const res = await fetch(`/api/public-inquiries/${encodeURIComponent(id)}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Operator-Email': operatorEmail
-        },
-        body: JSON.stringify({ status })
-      });
-      return await res.json();
-    } catch (err: unknown) {
-      return {
-        success: false,
-        error: err instanceof Error ? err.message : 'Failed to update inquiry'
-      };
-    }
+    return safeFetchMutation(`/api/public-inquiries/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Operator-Email': operatorEmail
+      },
+      body: JSON.stringify({ status })
+    });
   },
 
   async sendMemberLoginCode(email: string): Promise<{ success: boolean; message?: string; error?: string }> {
-    try {
-      const res = await fetch('/api/me/send-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
-      });
-      return await res.json();
-    } catch {
-      return {
-        success: false,
-        error: 'Unable to send sign-in code right now. Please check your connection and try again.'
-      };
+    const res = await safeFetchMutation('/api/me/send-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    if (!res.success && res.error?.includes('unavailable')) {
+      return { success: false, error: 'Member login requires the backend server or email service to be configured.' };
     }
+    return res;
   },
 
   async verifyMemberLoginCode(
     email: string,
     code: string
   ): Promise<{ success: boolean; token?: string; member?: MemberAuthSession['member']; error?: string }> {
-    try {
-      const res = await fetch('/api/me/verify-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, code })
-      });
-      return await res.json();
-    } catch {
-      return {
-        success: false,
-        error: 'Unable to verify sign-in code right now. Please try again.'
-      };
+    const res = await safeFetchMutation('/api/me/verify-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, code })
+    });
+    if (!res.success && res.error?.includes('unavailable')) {
+      return { success: false, error: 'Member login requires the backend server.' };
     }
+    return res;
   },
 
   async fetchMyPayments(token: string): Promise<MemberPaymentSummary & { unauthorized?: boolean }> {
-    try {
-      const res = await fetch('/api/me/payments', {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-      const json = await res.json();
-      if (res.status === 401) {
-        return {
-          found: false,
-          unauthorized: true,
-          query: '',
-          expectedTargetUgx: 0,
-          totalPaidUgx: 0,
-          pendingUgx: 0,
-          remainingUgx: 0,
-          progressPercent: 0,
-          overallStatus: 'NOT_FOUND',
-          payments: [],
-          message: json?.message || 'Your session expired. Please sign in again.'
-        };
+    const json = await safeFetchJson<any>('/api/me/payments', {
+      headers: {
+        Authorization: `Bearer ${token}`
       }
-      return json;
-    } catch {
+    });
+    if (!json) {
       return {
         found: false,
+        unauthorized: true,
         query: '',
         expectedTargetUgx: 0,
         totalPaidUgx: 0,
@@ -330,23 +278,17 @@ export const publicSiteService = {
         progressPercent: 0,
         overallStatus: 'NOT_FOUND',
         payments: [],
-        message: 'Unable to load your payments right now. Please try again shortly.'
+        message: 'Backend session service unavailable.'
       };
     }
+    return json;
   },
 
   async fetchClaimProfile(
     token: string
   ): Promise<{ success: boolean; data?: MemberClaimInfo; error?: string }> {
-    try {
-      const res = await fetch(`/api/me/claim/${encodeURIComponent(token)}`);
-      return await res.json();
-    } catch {
-      return {
-        success: false,
-        error: 'Unable to load your profile completion link right now.'
-      };
-    }
+    const json = await safeFetchJson<any>(`/api/me/claim/${encodeURIComponent(token)}`);
+    return json || { success: false, error: 'Unable to load profile claim link.' };
   },
 
   async submitClaimProfile(
@@ -361,19 +303,11 @@ export const publicSiteService = {
       house?: string;
     }
   ): Promise<{ success: boolean; message?: string; error?: string }> {
-    try {
-      const res = await fetch(`/api/me/claim/${encodeURIComponent(token)}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      return await res.json();
-    } catch {
-      return {
-        success: false,
-        error: 'Unable to submit your details right now. Please try again.'
-      };
-    }
+    return safeFetchMutation(`/api/me/claim/${encodeURIComponent(token)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
   },
 
   async updateMyProfile(
@@ -387,59 +321,34 @@ export const publicSiteService = {
       house?: string;
     }
   ): Promise<{ success: boolean; message?: string; data?: Member; error?: string; unauthorized?: boolean }> {
-    try {
-      const res = await fetch('/api/me/profile', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(payload)
-      });
-      const json = await res.json();
-      if (res.status === 401) {
-        return {
-          success: false,
-          unauthorized: true,
-          error: json?.error || 'Your session expired. Please sign in again.'
-        };
-      }
-      return json;
-    } catch {
-      return {
-        success: false,
-        error: 'Unable to save your profile changes right now.'
-      };
-    }
+    const res = await safeFetchMutation('/api/me/profile', {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(payload)
+    });
+    return res;
   },
 
   async verifyMyReceipt(token: string, receiptNumber: string): Promise<ReceiptVerificationResult & { unauthorized?: boolean }> {
-    try {
-      const res = await fetch('/api/me/verify-receipt', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ receiptNumber })
-      });
-      const json = await res.json();
-      if (res.status === 401) {
-        return {
-          found: false,
-          unauthorized: true,
-          receiptNumber,
-          message: json?.message || 'Your session expired. Please sign in again.'
-        };
-      }
-      return json;
-    } catch {
+    const json = await safeFetchJson<any>('/api/me/verify-receipt', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ receiptNumber })
+    });
+    if (!json) {
       return {
         found: false,
         receiptNumber,
-        message: 'Unable to verify receipt right now. Please try again shortly.'
+        message: 'Unable to verify receipt in static hosting mode.'
       };
     }
+    return json;
   },
 
   async uploadImage(
@@ -462,7 +371,7 @@ export const publicSiteService = {
         reader.readAsDataURL(file);
       });
 
-      const res = await fetch('/api/public-site/upload-image', {
+      return safeFetchMutation('/api/public-site/upload-image', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -470,7 +379,6 @@ export const publicSiteService = {
         },
         body: JSON.stringify({ dataUrl, filename: file.name })
       });
-      return await res.json();
     } catch (err: unknown) {
       return {
         success: false,

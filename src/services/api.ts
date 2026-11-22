@@ -23,6 +23,7 @@ import {
   PRE_CSV_COVERED_RECEIPT_SET,
   resolveCanonicalMemberNameKey
 } from '../utils/ledgerReconciliation';
+import { safeFetchJson, safeFetchMutation } from '../utils/apiFetch';
 
 const STORAGE_KEYS = {
   GAS_URL: 'sc_basimbuzi_gas_url',
@@ -249,9 +250,9 @@ class ApiClient {
     const runner = (async () => {
       try {
         const [configRes, usersRes, settingsRes] = await Promise.all([
-          fetch('/api/config').then(r => r.json()).catch(() => null),
-          fetch('/api/users').then(r => r.json()).catch(() => null),
-          fetch('/api/settings').then(r => r.json()).catch(() => null)
+          safeFetchJson<any>('/api/config'),
+          safeFetchJson<any>('/api/users'),
+          safeFetchJson<any>('/api/settings')
         ]);
 
         // 1. Sync Config (GAS URL)
@@ -262,7 +263,7 @@ class ApiClient {
             localStorage.setItem(STORAGE_KEYS.GAS_URL, remoteGasUrl);
           }
         } else if (this.gasUrl && this.gasUrl.startsWith('https://script.google.com/macros/s/')) {
-          fetch('/api/config', {
+          safeFetchMutation('/api/config', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ gasUrl: this.gasUrl })
@@ -296,7 +297,7 @@ class ApiClient {
           localStorage.setItem(STORAGE_KEYS.LOCAL_USERS, JSON.stringify(merged));
         } else {
           const localUsers = this.getStoredUsers();
-          fetch('/api/users', {
+          safeFetchMutation('/api/users', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ users: localUsers })
@@ -315,7 +316,7 @@ class ApiClient {
           };
           localStorage.setItem(STORAGE_KEYS.LOCAL_SETTINGS, JSON.stringify(mergedSettings));
           if (!serverSettings.logoUrl && localSettings.logoUrl) {
-            fetch('/api/settings', {
+            safeFetchMutation('/api/settings', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ settings: mergedSettings })
@@ -323,7 +324,7 @@ class ApiClient {
           }
         } else {
           const localSettings = this.getStoredSettings();
-          fetch('/api/settings', {
+          safeFetchMutation('/api/settings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ settings: localSettings })
@@ -571,7 +572,7 @@ class ApiClient {
     // 1. Check shared server database if not found locally
     if (!matched) {
       try {
-        const usersRes = await fetch('/api/users').then(r => r.json()).catch(() => null);
+        const usersRes = await safeFetchJson<any>('/api/users');
         if (usersRes?.success && Array.isArray(usersRes.data)) {
           const found = usersRes.data.find((u: any) => (u.email || '').trim().toLowerCase() === cleanEmail);
           if (found) {
@@ -788,11 +789,11 @@ class ApiClient {
     // Ensures that ANY staff member added by the administrator can immediately log in from ANY device or browser!
     let srvErrorMessage: string | null = null;
     try {
-      const srvRes = await fetch('/api/auth/login', {
+      const srvRes = await safeFetchMutation('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: cleanEmail, password: cleanPassword })
-      }).then(r => r.json());
+      });
 
       if (srvRes) {
         if (srvRes.success && srvRes.authorized && srvRes.user) {
@@ -1030,11 +1031,11 @@ class ApiClient {
 
     // 1. Check Authoritative Server Database
     try {
-      const srvCheck = await fetch('/api/auth/check', {
+      const srvCheck = await safeFetchMutation('/api/auth/check', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: cleanEmail })
-      }).then(r => r.json());
+      });
 
       if (srvCheck && srvCheck.success && srvCheck.authorized && srvCheck.user) {
         return {
@@ -1140,9 +1141,9 @@ class ApiClient {
 
     const runner = (async () => {
       try {
-        const res = await fetch('/api/historical-transactions', {
+        const res = await safeFetchJson<any>('/api/historical-transactions', {
           headers: { 'X-Operator-Email': cleanOp }
-        }).then(r => r.json());
+        });
         if (res && res.success && Array.isArray(res.data)) {
           if (Array.isArray(res.coveredGasReceipts) && res.coveredGasReceipts.length > 0) {
             this.coveredGasReceipts = new Set(
@@ -1339,7 +1340,7 @@ class ApiClient {
             users: User[];
             auditLogs: AuditLogEntry[];
           }>(url),
-          fetch('/api/users').then(r => r.json()).catch(() => null)
+          safeFetchJson<any>('/api/users')
         ]);
 
         if (res.success && res.data) {
@@ -1852,56 +1853,43 @@ class ApiClient {
   // --- Member Directory & Self-Cleaning Administration APIs ---
 
   public async getDirectoryMembers(operatorEmail: string): Promise<BackendResponse<MembersDirectoryPayload>> {
-    try {
-      const res = await fetch('/api/admin/members', {
-        headers: { 'X-Operator-Email': operatorEmail.trim().toLowerCase() }
-      });
-      return await res.json();
-    } catch (err: unknown) {
-      return { success: false, error: err instanceof Error ? err.message : 'Failed to fetch members directory' };
-    }
+    const json = await safeFetchJson<BackendResponse<MembersDirectoryPayload>>('/api/admin/members', {
+      headers: { 'X-Operator-Email': operatorEmail.trim().toLowerCase() }
+    });
+    return json || { success: false, error: 'Static hosting mode - members directory offline' };
   }
 
   public async saveDirectoryMember(
     member: Partial<Member> & { name: string },
     operatorEmail: string
   ): Promise<BackendResponse<Member> & { summary?: MembersDirectoryPayload['summary'] }> {
-    try {
-      const res = await fetch('/api/admin/members', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Operator-Email': operatorEmail.trim().toLowerCase()
-        },
-        body: JSON.stringify({ member })
-      });
-      const json = await res.json();
-      if (json?.success) {
-        this.historicalCache = null;
-      }
-      return json;
-    } catch (err: unknown) {
-      return { success: false, error: err instanceof Error ? err.message : 'Failed to save member profile' };
+    const json = await safeFetchMutation('/api/admin/members', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Operator-Email': operatorEmail.trim().toLowerCase()
+      },
+      body: JSON.stringify({ member })
+    });
+    if (json?.success) {
+      this.historicalCache = null;
     }
+    return json || { success: false, error: 'Static hosting mode' };
   }
 
   public async importMembersCsv(
     payload: { csvText?: string; useBundledTreasuryCsv?: boolean },
     operatorEmail: string
   ): Promise<BackendResponse<{ addedCount: number; updatedCount: number; summary: unknown }>> {
-    try {
-      const res = await fetch('/api/admin/members/import-csv', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Operator-Email': operatorEmail.trim().toLowerCase()
-        },
-        body: JSON.stringify(payload)
-      });
-      return await res.json();
-    } catch (err: unknown) {
-      return { success: false, error: err instanceof Error ? err.message : 'CSV import failed' };
-    }
+    const json = await safeFetchMutation('/api/admin/members/import-csv', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Operator-Email': operatorEmail.trim().toLowerCase()
+      },
+      body: JSON.stringify(payload)
+    });
+    return json || { success: false, error: 'Static hosting mode' };
   }
 
   public async mergeDirectoryMembers(
@@ -1909,34 +1897,26 @@ class ApiClient {
     duplicateMemberIds: string[],
     operatorEmail: string
   ): Promise<BackendResponse<void>> {
-    try {
-      const res = await fetch('/api/admin/members/merge', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Operator-Email': operatorEmail.trim().toLowerCase()
-        },
-        body: JSON.stringify({ primaryMemberId, duplicateMemberIds })
-      });
-      return await res.json();
-    } catch (err: unknown) {
-      return { success: false, error: err instanceof Error ? err.message : 'Member merge failed' };
-    }
+    const json = await safeFetchMutation('/api/admin/members/merge', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Operator-Email': operatorEmail.trim().toLowerCase()
+      },
+      body: JSON.stringify({ primaryMemberId, duplicateMemberIds })
+    });
+    return json || { success: false, error: 'Static hosting mode' };
   }
 
   public async generateMemberClaimLink(
     memberId: string,
     operatorEmail: string
   ): Promise<BackendResponse<{ token: string; expiresAt: string; memberName: string }>> {
-    try {
-      const res = await fetch(`/api/admin/members/${encodeURIComponent(memberId)}/claim-link`, {
-        method: 'POST',
-        headers: { 'X-Operator-Email': operatorEmail.trim().toLowerCase() }
-      });
-      return await res.json();
-    } catch (err: unknown) {
-      return { success: false, error: err instanceof Error ? err.message : 'Failed to generate link' };
-    }
+    const json = await safeFetchMutation(`/api/admin/members/${encodeURIComponent(memberId)}/claim-link`, {
+      method: 'POST',
+      headers: { 'X-Operator-Email': operatorEmail.trim().toLowerCase() }
+    });
+    return json || { success: false, error: 'Static hosting mode' };
   }
 
   public async reviewMemberSubmission(
@@ -1945,31 +1925,23 @@ class ApiClient {
     reviewNotes: string,
     operatorEmail: string
   ): Promise<BackendResponse<MemberProfileSubmission>> {
-    try {
-      const res = await fetch(`/api/admin/members/submissions/${encodeURIComponent(submissionId)}/review`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Operator-Email': operatorEmail.trim().toLowerCase()
-        },
-        body: JSON.stringify({ decision, reviewNotes })
-      });
-      return await res.json();
-    } catch (err: unknown) {
-      return { success: false, error: err instanceof Error ? err.message : 'Failed to review submission' };
-    }
+    const json = await safeFetchMutation(`/api/admin/members/submissions/${encodeURIComponent(submissionId)}/review`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Operator-Email': operatorEmail.trim().toLowerCase()
+      },
+      body: JSON.stringify({ decision, reviewNotes })
+    });
+    return json || { success: false, error: 'Static hosting mode' };
   }
 
   public async reconcileMembersLedger(operatorEmail: string): Promise<BackendResponse<ReconciliationSummary>> {
-    try {
-      const res = await fetch('/api/admin/members/reconcile-ledger', {
-        method: 'POST',
-        headers: { 'X-Operator-Email': operatorEmail.trim().toLowerCase() }
-      });
-      return await res.json();
-    } catch (err: unknown) {
-      return { success: false, error: err instanceof Error ? err.message : 'Ledger reconciliation failed' };
-    }
+    const json = await safeFetchMutation('/api/admin/members/reconcile-ledger', {
+      method: 'POST',
+      headers: { 'X-Operator-Email': operatorEmail.trim().toLowerCase() }
+    });
+    return json || { success: false, error: 'Static hosting mode' };
   }
 
   public async syncMembersAndHistoricalToGas(

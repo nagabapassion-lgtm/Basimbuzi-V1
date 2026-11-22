@@ -266,9 +266,11 @@ export interface ClubMerchItem {
   id: string;
   name: string;
   priceUgx: number;
+  category?: string;
+  image?: string;
+  imageUrl?: string;
+  sizes?: string[];
   description: string;
-  imageUrl: string;
-  sizes: string[];
   inStock: boolean;
 }
 
