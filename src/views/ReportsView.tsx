@@ -29,6 +29,13 @@ import {
 
 const BLUE_PALETTE = ['#2563eb', '#0284c7', '#4f46e5', '#0891b2', '#3b82f6', '#6366f1', '#64748b'];
 
+const toLocalDateKey = (d: Date = new Date()): string => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
 export const ReportsView: React.FC = () => {
   const { transactions, settings, currentUser } = useApp();
   
@@ -41,7 +48,7 @@ export const ReportsView: React.FC = () => {
   const rangeLabel = useMemo(() => {
     const now = new Date();
     switch (rangeType) {
-      case 'TODAY': return `Today (${now.toISOString().split('T')[0]})`;
+      case 'TODAY': return `Today (${toLocalDateKey(now)})`;
       case 'THIS_WEEK': return 'This Current Week';
       case 'THIS_MONTH': return `This Month (${now.toLocaleString('default', { month: 'long', year: 'numeric' })})`;
       case 'LAST_MONTH': {
@@ -55,28 +62,29 @@ export const ReportsView: React.FC = () => {
     }
   }, [rangeType, customStart, customEnd]);
 
-  // Date Filtering Calculation
+  // Date Filtering Calculation (excluding cancelled transactions)
   const filteredData = useMemo(() => {
     const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
+    const todayStr = toLocalDateKey(now);
     
-    // Calculate week start
+    // Calculate week start (Monday)
     const dayOfWeek = now.getDay();
     const weekStart = new Date(now);
     weekStart.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
-    const weekStartStr = weekStart.toISOString().split('T')[0];
+    const weekStartStr = toLocalDateKey(weekStart);
 
     // Current Month
     const thisMonthStr = todayStr.substring(0, 7);
 
     // Last Month
     const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const lastMonthStr = lastMonthDate.toISOString().substring(0, 7);
+    const lastMonthStr = toLocalDateKey(lastMonthDate).substring(0, 7);
 
     // Current Year
     const thisYearStr = todayStr.substring(0, 4);
 
     return transactions.filter(tx => {
+      if (tx.paymentStatus === 'CANCELLED') return false;
       if (rangeType === 'ALL') return true;
       if (rangeType === 'TODAY') return tx.date === todayStr;
       if (rangeType === 'THIS_WEEK') return tx.date >= weekStartStr && tx.date <= todayStr;
@@ -186,10 +194,10 @@ export const ReportsView: React.FC = () => {
     })).sort((a, b) => b.value - a.value);
   }, [filteredData]);
 
-  // 3. Chart: Payments by Payment Method
+  // 3. Chart: Collections by Payment Method (Inflows Only)
   const methodData = useMemo(() => {
     const map = new Map<string, number>();
-    filteredData.forEach(tx => {
+    filteredData.filter(tx => tx.type !== 'OUTFLOW').forEach(tx => {
       const cur = map.get(tx.paymentMethod) || 0;
       map.set(tx.paymentMethod, cur + (Number(tx.amount) || 0));
     });
@@ -200,10 +208,10 @@ export const ReportsView: React.FC = () => {
     }));
   }, [filteredData]);
 
-  // 4. Chart: Breakdown by Operator / Admin
+  // 4. Chart: Receipts Breakdown by Operator / Admin (Inflows Only)
   const operatorData = useMemo(() => {
     const map = new Map<string, { count: number; total: number }>();
-    filteredData.forEach(tx => {
+    filteredData.filter(tx => tx.type !== 'OUTFLOW').forEach(tx => {
       const op = tx.generatedBy || 'Unknown';
       const cur = map.get(op) || { count: 0, total: 0 };
       map.set(op, {
@@ -222,55 +230,66 @@ export const ReportsView: React.FC = () => {
   const handleExportCSV = () => {
     if (filteredData.length === 0) return;
 
+    const esc = (val: unknown) => `"${String(val ?? '').replace(/"/g, '""')}"`;
     const orgName = settings.organizationName || 'SC Basimbuzi';
-    const nowStr = new Date().toISOString();
+    const now = new Date();
+    const nowStr = `${toLocalDateKey(now)} ${now.toTimeString().split(' ')[0]}`;
     
     const metaHeaders = [
-      `"ORGANIZATION:","${orgName}"`,
-      `"DOCUMENT:","Executive Financial Analytics & Audit Ledger"`,
-      `"PERIOD:","${rangeLabel}"`,
-      `"GENERATED AT:","${nowStr}"`,
-      `"TOTAL REVENUE:","${metrics.totalRevenue} UGX"`,
-      `"TOTAL RECEIPTS:","${metrics.count}"`,
-      `"AVERAGE TICKET:","${metrics.average} UGX"`,
-      `""` // blank line
+      `${esc('ORGANIZATION:')},${esc(orgName)}`,
+      `${esc('DOCUMENT:')},${esc('Executive Financial Analytics & Audit Ledger')}`,
+      `${esc('PERIOD:')},${esc(rangeLabel)}`,
+      `${esc('GENERATED AT:')},${esc(nowStr)}`,
+      `${esc('TOTAL INFLOW:')},${esc(`${metrics.totalInflow} UGX`)}`,
+      `${esc('TOTAL OUTFLOW:')},${esc(`${metrics.totalOutflow} UGX`)}`,
+      `${esc('NET CASHFLOW:')},${esc(`${metrics.netBalance} UGX`)}`,
+      `${esc('TOTAL RECORDS:')},${esc(`${metrics.count} (${metrics.inflowCount} inflows, ${metrics.outflowCount} outflows)`)}`,
+      `${esc('AVERAGE INFLOW TICKET:')},${esc(`${metrics.average} UGX`)}`,
+      `""`
     ];
 
     const dataHeaders = [
-      'Receipt #', 
-      'Date', 
-      'Time', 
-      'Payer Name', 
-      'Phone', 
-      'Email', 
-      'Amount (UGX)', 
-      'Purpose / Category', 
-      'Payment Method', 
-      'Reference', 
-      'Issued By', 
+      'Type',
+      'Receipt / Voucher #',
+      'Date',
+      'Time',
+      'Payer / Payee',
+      'Phone',
+      'Email',
+      'Amount (UGX)',
+      'Purpose / Category',
+      'Payment Method',
+      'Reference',
+      'Issued By',
       'Status'
     ];
 
-    const rows = filteredData.map(tx => [
-      `"${tx.receiptNumber}"`,
-      `"${tx.date}"`,
-      `"${tx.time || ''}"`,
-      `"${tx.payerName}"`,
-      `"${tx.phone || ''}"`,
-      `"${tx.email || ''}"`,
-      tx.amount,
-      `"${tx.paymentPurpose}"`,
-      `"${tx.paymentMethod}"`,
-      `"${tx.paymentReference || ''}"`,
-      `"${tx.generatedBy || ''}"`,
-      `"${tx.paymentStatus}"`
-    ]);
+    const rows = filteredData.map(tx => {
+      const isOutflow = tx.type === 'OUTFLOW';
+      const partyName = isOutflow ? (tx.payee || tx.payerName) : tx.payerName;
+      const cat = isOutflow ? (tx.category || tx.paymentPurpose) : tx.paymentPurpose;
+      return [
+        esc(isOutflow ? 'OUTFLOW' : 'INFLOW'),
+        esc(tx.receiptNumber),
+        esc(tx.date),
+        esc(tx.time || ''),
+        esc(partyName),
+        esc(tx.phone || ''),
+        esc(tx.email || ''),
+        isOutflow ? -Number(tx.amount) : Number(tx.amount),
+        esc(cat),
+        esc(tx.paymentMethod),
+        esc(tx.paymentReference || ''),
+        esc(tx.generatedBy || ''),
+        esc(tx.paymentStatus)
+      ];
+    });
 
     const csvContent = 'data:text/csv;charset=utf-8,' + [...metaHeaders, dataHeaders.join(','), ...rows.map(r => r.join(','))].join('\n');
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `SC_Basimbuzi_Financial_Report_${rangeType}_${nowStr.split('T')[0]}.csv`);
+    link.setAttribute('download', `SC_Basimbuzi_Financial_Report_${rangeType}_${toLocalDateKey(now)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

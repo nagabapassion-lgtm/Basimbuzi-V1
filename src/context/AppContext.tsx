@@ -55,6 +55,8 @@ interface AppContextType {
   logout: () => void;
   refreshData: () => Promise<void>;
   refreshMembers: () => Promise<void>;
+  syncMembersSnapshot: (membersList: Member[]) => void;
+  syncTransactionsSnapshot: (txs: Transaction[]) => void;
   recordTransaction: (payload: {
     type?: TransactionType;
     payerName?: string;
@@ -273,49 +275,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } catch {}
   }, [settings.logoUrl]);
 
-  // Synchronize shared server settings (logoUrl & branding) and shared users across all devices
-  useEffect(() => {
-    let isMounted = true;
-    (async () => {
-      try {
-        const sRes = await fetch('/api/settings').then(r => r.json());
-        if (isMounted && sRes && sRes.success && sRes.data) {
-          setSettings(prev => ({
-            ...prev,
-            ...sRes.data,
-            logoUrl: (sRes.data.logoUrl && sRes.data.logoUrl.trim()) ? sRes.data.logoUrl.trim() : (prev.logoUrl || HARDCODED_LOGO_URL)
-          }));
-        }
-      } catch {
-        // Non-blocking
-      }
-
-      try {
-        const uRes = await fetch('/api/users').then(r => r.json());
-        if (isMounted && uRes && uRes.success && Array.isArray(uRes.data) && uRes.data.length > 0) {
-          setUsers(prev => {
-            const map = new Map<string, User>();
-            for (const u of prev) {
-              if (u.email) map.set(u.email.toLowerCase().trim(), u);
-            }
-            for (const u of uRes.data) {
-              if (u.email) {
-                const k = u.email.toLowerCase().trim();
-                const exist = map.get(k);
-                map.set(k, exist ? { ...exist, ...u, password: u.password || exist.password } : u);
-              }
-            }
-            return Array.from(map.values());
-          });
-        }
-      } catch {
-        // Non-blocking
-      }
-    })();
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  // Shared server settings & users are synced via api.syncSharedConfigAndUsers() in checkSavedSession
 
   // Dynamically synchronize document title with the active admin page
   useEffect(() => {
@@ -377,17 +337,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       } else {
         setIsSyncing(true);
       }
-      const data = await api.getInitialData(user.email, 200);
+      const [data, membersRes] = await Promise.all([
+        api.getInitialData(user.email, 0),
+        api.getMembers(user.email).catch(() => ({ success: false as const, data: undefined }))
+      ]);
       setSettings(data.settings);
       setTransactions(data.transactions);
       setUsers(data.users);
       setAuditLogs(data.auditLogs);
-      // Fetch cached members for smart autofill
-      api.getMembers(user.email).then(mRes => {
-        if (mRes.success && mRes.data) {
-          setMembers(mRes.data);
-        }
-      }).catch(() => {});
+      if (membersRes && membersRes.success && membersRes.data) {
+        setMembers(membersRes.data);
+      }
       setLastSyncedAt(new Date());
     } catch {
       if (showFullSpinner) {
@@ -523,12 +483,35 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setIsLoading(false);
       }
 
-      // Sync shared configuration and users across instances in the background
+      // Sync shared configuration, users, settings and validate session in parallel when connected
+      const canCheckAuthInParallel = Boolean(savedEmail && api.isConnectedToLiveBackend());
+      let parallelAuthResult: AuthCheckResult | null = null;
       try {
-        await api.syncSharedConfigAndUsers();
+        if (canCheckAuthInParallel && savedEmail) {
+          setIsSyncing(true);
+          const [, authRes] = await Promise.all([
+            api.syncSharedConfigAndUsers(),
+            api.checkAuth(savedEmail).catch(() => null)
+          ]);
+          parallelAuthResult = authRes;
+        } else {
+          await api.syncSharedConfigAndUsers();
+        }
         if (isMounted) {
           setGasUrlState(api.getGasUrl());
           setIsLiveBackend(api.isConnectedToLiveBackend());
+          const syncedSettings = api.getStoredSettings();
+          setSettings(prev => ({
+            ...prev,
+            ...syncedSettings,
+            logoUrl: (syncedSettings.logoUrl && syncedSettings.logoUrl.trim())
+              ? syncedSettings.logoUrl.trim()
+              : (prev.logoUrl || HARDCODED_LOGO_URL)
+          }));
+          const syncedUsers = api.getStoredUsers();
+          if (syncedUsers.length > 0) {
+            setUsers(syncedUsers);
+          }
         }
       } catch {
         // Ignore
@@ -538,7 +521,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (savedEmail) {
         try {
           setIsSyncing(true);
-          const authResult = await api.checkAuth(savedEmail);
+          const authResult = parallelAuthResult || await api.checkAuth(savedEmail);
           if (isMounted) {
             if (authResult.authorized && authResult.user) {
               setCurrentUser(authResult.user);
@@ -584,14 +567,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } catch {}
   }, [currentUser?.email]);
 
-  // Initial load of members
-  useEffect(() => {
-    api.getMembers().then(res => {
-      if (res.success && res.data) {
-        setMembers(res.data);
-      }
-    }).catch(() => {});
+  const syncMembersSnapshot = useCallback((membersList: Member[]) => {
+    if (Array.isArray(membersList)) {
+      setMembers(membersList);
+    }
   }, []);
+
+  const syncTransactionsSnapshot = useCallback((txs: Transaction[]) => {
+    setTransactions(txs);
+  }, []);
+
+  // Reset cached member directory on logout so no data lingers between accounts
+  useEffect(() => {
+    if (!currentUser?.email) {
+      setMembers([]);
+    }
+  }, [currentUser?.email]);
 
   const recordTransaction = async (
     payload: {
@@ -623,14 +614,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const res = await api.recordTransaction(fullPayload);
     if (res.success && res.data) {
-      setTransactions(prev => [res.data!, ...prev]);
+      setTransactions(prev => [res.data!, ...prev.filter(t => t.receiptNumber !== res.data!.receiptNumber)]);
       if (res.data.type !== 'OUTFLOW') {
         setLastGeneratedReceipt(res.data);
       }
       addToast(res.message || `${res.data.type === 'OUTFLOW' ? 'Expense voucher' : 'Receipt'} recorded!`, 'success');
-      refreshMembers();
+      void refreshMembers();
       if (currentUser.role === 'OWNER' || userPermissions.canViewReports) {
-        api.getInitialData(currentUser.email).then(d => {
+        api.getInitialData(currentUser.email, 0).then(d => {
           setAuditLogs(d.auditLogs);
         }).catch(() => {});
       }
@@ -686,10 +677,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setSelectedReceipt(null);
       }
       addToast(res.message || `Receipt ${receiptNumber} deleted successfully`, 'success');
+      void refreshMembers();
       // Refresh audit logs
-      api.getInitialData(currentUser.email).then(d => {
+      api.getInitialData(currentUser.email, 0).then(d => {
         setAuditLogs(d.auditLogs);
-      });
+      }).catch(() => {});
     } else {
       addToast(res.error || 'Failed to delete receipt', 'error');
     }
@@ -824,7 +816,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const res = await api.saveSettings(newSettings, currentUser.email);
     if (res.success && res.data) {
       setSettings(res.data);
-      addToast('Settings updated and saved successfully', 'success');
+      if (res.sheetsSynced === false) {
+        addToast(res.message || 'Settings saved locally, but Google Sheets sync failed.', 'info');
+      } else {
+        addToast('Settings updated and saved successfully', 'success');
+      }
     } else {
       addToast(res.error || 'Saved locally. Backend sync failed.', 'info');
     }
@@ -864,6 +860,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         logout,
         refreshData,
         refreshMembers,
+        syncMembersSnapshot,
+        syncTransactionsSnapshot,
         recordTransaction,
         recordOutflow,
         generateReceipt,

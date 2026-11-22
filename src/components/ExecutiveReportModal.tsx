@@ -25,8 +25,13 @@ import {
 interface ExecutiveReportModalProps {
   filteredData: Transaction[];
   metrics: {
-    totalRevenue: number;
+    totalRevenue?: number;
+    totalInflow?: number;
+    totalOutflow?: number;
+    netBalance?: number;
     count: number;
+    inflowCount?: number;
+    outflowCount?: number;
     average: number;
     largest: number;
     smallest: number;
@@ -59,9 +64,15 @@ export const ExecutiveReportModal: React.FC<ExecutiveReportModalProps> = ({
   const [isPrinting, setIsPrinting] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
 
-  const reportId = `SCB-REP-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}`;
+  const inflowTotal = Number(metrics.totalInflow ?? metrics.totalRevenue ?? 0);
+  const outflowTotal = Number(metrics.totalOutflow ?? 0);
+  const netTotal = Number(metrics.netBalance ?? (inflowTotal - outflowTotal));
+  const receiptCount = Number(metrics.inflowCount ?? metrics.count ?? 0);
+
   const now = new Date();
-  const generationTimestamp = `${now.toISOString().split('T')[0]} ${now.toTimeString().split(' ')[0]}`;
+  const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const reportId = `SCB-REP-${now.getFullYear()}-${String(Date.now()).slice(-5)}`;
+  const generationTimestamp = `${localDate} ${now.toTimeString().split(' ')[0]}`;
 
   const generateReportCanvas = async (): Promise<HTMLCanvasElement> => {
     if (!reportRef.current) throw new Error('Report element ref not found');
@@ -348,14 +359,19 @@ export const ExecutiveReportModal: React.FC<ExecutiveReportModalProps> = ({
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5">
                   <div className="text-[10px] uppercase text-slate-500 font-bold">Total Inflow Collected</div>
                   <div className="text-xl font-extrabold text-emerald-700 mt-1">
-                    {Number(metrics.totalRevenue).toLocaleString()} <span className="text-xs font-normal text-slate-500">UGX</span>
+                    {inflowTotal.toLocaleString()} <span className="text-xs font-normal text-slate-500">UGX</span>
                   </div>
+                  {outflowTotal > 0 && (
+                    <div className="text-[10px] text-rose-600 font-semibold mt-0.5">
+                      Outflow: -{outflowTotal.toLocaleString()} UGX
+                    </div>
+                  )}
                 </div>
 
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5">
                   <div className="text-[10px] uppercase text-slate-500 font-bold">Total Receipts Issued</div>
                   <div className="text-xl font-extrabold text-blue-700 mt-1">
-                    {metrics.count} <span className="text-xs font-normal text-slate-500">Receipts</span>
+                    {receiptCount} <span className="text-xs font-normal text-slate-500">Receipts</span>
                   </div>
                 </div>
 
@@ -378,7 +394,35 @@ export const ExecutiveReportModal: React.FC<ExecutiveReportModalProps> = ({
             {/* 3. Category & Method Breakdowns Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
               {/* Category Breakdown Table */}
-              
+              <div className="border border-slate-200 rounded-xl overflow-hidden">
+                <div className="bg-slate-100 px-3.5 py-2 font-bold text-[11px] uppercase tracking-wider text-slate-700 border-b border-slate-200 flex justify-between">
+                  <span>Collections by Purpose</span>
+                  <span>Count &bull; Share</span>
+                </div>
+                <div className="divide-y divide-slate-100 max-h-56 overflow-y-auto print:max-h-none">
+                  {purposeData.length === 0 ? (
+                    <div className="p-3 text-slate-400 italic text-center">No inflow categories recorded</div>
+                  ) : (
+                    purposeData.map((item, idx) => {
+                      const pct = inflowTotal > 0
+                        ? Math.round((item.value / inflowTotal) * 100)
+                        : 0;
+                      return (
+                        <div key={idx} className="px-3.5 py-2 flex items-center justify-between text-[11px]">
+                          <div>
+                            <span className="font-semibold text-slate-800">{item.name}</span>
+                            <span className="text-slate-400 ml-1.5">({item.count})</span>
+                          </div>
+                          <div className="text-right">
+                            <span className="font-bold text-slate-900">{Number(item.value).toLocaleString()} UGX</span>
+                            <span className="text-slate-500 ml-2 font-sans">[{pct}%]</span>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
 
               {/* Payment Methods Breakdown Table */}
               <div className="border border-slate-200 rounded-xl overflow-hidden">
@@ -391,8 +435,8 @@ export const ExecutiveReportModal: React.FC<ExecutiveReportModalProps> = ({
                     <div className="p-3 text-slate-400 italic text-center">No payment channels recorded</div>
                   ) : (
                     methodData.map((item, idx) => {
-                      const pct = metrics.totalRevenue > 0 
-                        ? Math.round((item.value / metrics.totalRevenue) * 100) 
+                      const pct = inflowTotal > 0 
+                        ? Math.round((item.value / inflowTotal) * 100) 
                         : 0;
                       return (
                         <div key={idx} className="px-3.5 py-2 flex items-center justify-between text-[11px]">
@@ -442,28 +486,40 @@ export const ExecutiveReportModal: React.FC<ExecutiveReportModalProps> = ({
                         </td>
                       </tr>
                     ) : (
-                      filteredData.slice(0, 100).map((tx, idx) => (
-                        <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
-                          <td className="py-2 px-3 text-slate-400 font-sans">{idx + 1}</td>
-                          <td className="py-2 px-3 font-bold font-sans text-blue-700">{tx.receiptNumber}</td>
-                          <td className="py-2 px-3 text-slate-600 font-sans">{tx.date}</td>
-                          <td className="py-2 px-3 font-semibold text-slate-900">{tx.payerName}</td>
-                          <td className="py-2 px-3 text-slate-600">{tx.paymentPurpose}</td>
-                          <td className="py-2 px-3 text-slate-600">{tx.paymentMethod}</td>
-                          <td className="py-2 px-3 text-right font-bold text-slate-900">
-                            {Number(tx.amount).toLocaleString()}
-                          </td>
-                        </tr>
-                      ))
+                      filteredData.slice(0, 100).map((tx, idx) => {
+                        const isOutflow = tx.type === 'OUTFLOW';
+                        const displayParty = isOutflow ? (tx.payee || tx.payerName) : tx.payerName;
+                        const displayCat = isOutflow ? (tx.category || tx.paymentPurpose) : tx.paymentPurpose;
+                        return (
+                          <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
+                            <td className="py-2 px-3 text-slate-400 font-sans">{idx + 1}</td>
+                            <td className={`py-2 px-3 font-bold font-sans ${isOutflow ? 'text-rose-700' : 'text-blue-700'}`}>
+                              {tx.receiptNumber}
+                            </td>
+                            <td className="py-2 px-3 text-slate-600 font-sans">{tx.date}</td>
+                            <td className="py-2 px-3 font-semibold text-slate-900">
+                              {displayParty}
+                              {isOutflow && (
+                                <span className="ml-1.5 text-[9px] font-bold uppercase text-rose-600">[OUTFLOW]</span>
+                              )}
+                            </td>
+                            <td className="py-2 px-3 text-slate-600">{displayCat}</td>
+                            <td className="py-2 px-3 text-slate-600">{tx.paymentMethod}</td>
+                            <td className={`py-2 px-3 text-right font-bold ${isOutflow ? 'text-rose-700' : 'text-slate-900'}`}>
+                              {isOutflow ? '-' : ''}{Number(tx.amount).toLocaleString()}
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                   <tfoot>
                     <tr className="bg-slate-100 font-bold text-slate-900 border-t-2 border-slate-300 text-xs">
                       <td colSpan={6} className="py-3 px-3 uppercase tracking-wider text-right">
-                        Total Sum ({filteredData.length} Transactions):
+                        Net Cashflow ({filteredData.length} Transactions):
                       </td>
-                      <td className="py-3 px-3 text-right text-emerald-800 text-sm">
-                        {Number(metrics.totalRevenue).toLocaleString()} UGX
+                      <td className={`py-3 px-3 text-right text-sm ${netTotal >= 0 ? 'text-emerald-800' : 'text-rose-700'}`}>
+                        {netTotal.toLocaleString()} UGX
                       </td>
                     </tr>
                   </tfoot>
@@ -480,16 +536,18 @@ export const ExecutiveReportModal: React.FC<ExecutiveReportModalProps> = ({
                 <div className="border-t border-slate-400 pt-3">
                   <div className="font-bold text-slate-900">{currentUser?.name || 'Authorized Officer'}</div>
                   <div className="text-[10px] text-slate-500 uppercase mt-0.5">Prepared By ({currentUser?.role || 'OPERATOR'})</div>
-                  <div className="text-[9px] text-slate-400 mt-2 font-sans">Date: {now.toISOString().split('T')[0]}</div>
+                  <div className="text-[9px] text-slate-400 mt-2 font-sans">Date: {localDate}</div>
                 </div>
 
                 <div className="border-t border-slate-400 pt-3">
                   <div className="font-bold text-slate-900">Financial Secretary</div>
                   <div className="text-[10px] text-slate-500 uppercase mt-0.5">Audited &amp; Reconciled</div>
-
                 </div>
 
-                
+                <div className="border-t border-slate-400 pt-3">
+                  <div className="font-bold text-slate-900">Club Treasurer / Chairman</div>
+                  <div className="text-[10px] text-slate-500 uppercase mt-0.5">Verified &amp; Approved</div>
+                </div>
               </div>
 
               <div className="text-[10px] text-slate-400 text-center mt-6 pt-3 border-t border-slate-100 leading-relaxed font-sans">

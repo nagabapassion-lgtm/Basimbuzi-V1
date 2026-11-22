@@ -216,3 +216,116 @@ export function resolveCanonicalMemberNameKey(rawName: unknown): string {
   const norm = normalizePersonName(rawName);
   return PAYER_NAME_ALIASES[norm] || norm;
 }
+
+export interface PureTransactionInput {
+  receiptNumber?: string;
+  type?: 'INFLOW' | 'OUTFLOW' | string;
+  amount: number | string;
+  paymentStatus?: string;
+  syncStatus?: string;
+}
+
+export function computeLedgerMetrics(
+  transactions: PureTransactionInput[],
+  openingBalanceRaw: number = 0
+) {
+  const openingBalance = Number(openingBalanceRaw) || 0;
+  let totalInflow = 0;
+  let totalOutflow = 0;
+  let inflowCount = 0;
+  let outflowCount = 0;
+  let syncedCount = 0;
+  let pendingSyncCount = 0;
+  let failedSyncCount = 0;
+
+  for (const tx of transactions) {
+    if (tx.paymentStatus === 'CANCELLED') continue;
+    const rec = String(tx.receiptNumber || '').trim().toUpperCase();
+    const isOutflow = String(tx.type || '').toUpperCase() === 'OUTFLOW' || rec.startsWith('EXP-');
+    const amount = Number(tx.amount) || 0;
+    if (isOutflow) {
+      totalOutflow += amount;
+      outflowCount++;
+    } else {
+      totalInflow += amount;
+      inflowCount++;
+    }
+    if (tx.syncStatus === 'SYNCED') syncedCount++;
+    else if (tx.syncStatus === 'FAILED') failedSyncCount++;
+    else if (tx.syncStatus === 'PENDING') pendingSyncCount++;
+  }
+
+  return {
+    openingBalance,
+    totalInflow,
+    totalOutflow,
+    netBalance: openingBalance + totalInflow - totalOutflow,
+    inflowCount,
+    outflowCount,
+    syncedCount,
+    pendingSyncCount,
+    failedSyncCount
+  };
+}
+
+export interface SortableTransactionLike {
+  date?: string;
+  time?: string;
+  createdAt?: string;
+  receiptNumber?: string;
+}
+
+function normalizeTimeStr(rawTime?: string): string {
+  const clean = String(rawTime || '').trim();
+  const match = clean.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (!match) return '00:00:00';
+  const hh = match[1].padStart(2, '0');
+  const mm = match[2].padStart(2, '0');
+  const ss = (match[3] || '00').padStart(2, '0');
+  return `${hh}:${mm}:${ss}`;
+}
+
+export function getTransactionSortTimestampMs(tx: SortableTransactionLike): number {
+  const dateStr = String(tx?.date || '').trim();
+  const createdStr = String(tx?.createdAt || '').trim();
+  if (createdStr) {
+    const parsedCreated = Date.parse(createdStr);
+    if (!Number.isNaN(parsedCreated)) {
+      if (!dateStr) return parsedCreated;
+      const createdDateUtc = new Date(parsedCreated).toISOString().slice(0, 10);
+      // Only trust createdAt when it corresponds to the transaction's nominal date (±1 day for TZ)
+      const nominalDayMs = Date.parse(`${dateStr}T12:00:00Z`);
+      const createdDayMs = Date.parse(`${createdDateUtc}T12:00:00Z`);
+      if (!Number.isNaN(nominalDayMs) && Math.abs(createdDayMs - nominalDayMs) <= 86_400_000) {
+        return parsedCreated;
+      }
+    }
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    const timeStr = normalizeTimeStr(tx?.time);
+    const parsedLocal = Date.parse(`${dateStr}T${timeStr}Z`);
+    if (!Number.isNaN(parsedLocal)) return parsedLocal;
+  }
+  return 0;
+}
+
+export function compareTransactions(
+  a: SortableTransactionLike,
+  b: SortableTransactionLike,
+  order: 'asc' | 'desc' = 'desc'
+): number {
+  const tsA = getTransactionSortTimestampMs(a);
+  const tsB = getTransactionSortTimestampMs(b);
+  if (tsA !== tsB) {
+    return order === 'asc' ? tsA - tsB : tsB - tsA;
+  }
+  const dtA = `${String(a?.date || '').trim()} ${normalizeTimeStr(a?.time)}`;
+  const dtB = `${String(b?.date || '').trim()} ${normalizeTimeStr(b?.time)}`;
+  if (dtA !== dtB) {
+    return order === 'asc' ? dtA.localeCompare(dtB) : dtB.localeCompare(dtA);
+  }
+  const recA = String(a?.receiptNumber || '');
+  const recB = String(b?.receiptNumber || '');
+  return order === 'asc' ? recA.localeCompare(recB) : recB.localeCompare(recA);
+}
+

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { useApp } from '../context/AppContext';
 import { usePaymentHistory } from '../hooks/usePaymentHistory';
@@ -35,6 +35,7 @@ import {
 import { WhatsAppShareModal } from '../components/WhatsAppShareModal';
 import { ReceiptList } from '../components/ReceiptList';
 import { ExpenseVoucherModal } from '../components/ExpenseVoucherModal';
+import { compareTransactions } from '../utils/ledgerReconciliation';
 
 const listContainerVariants = {
   hidden: { opacity: 0 },
@@ -58,6 +59,13 @@ const cardItemVariants = {
       stiffness: 260 
     } 
   }
+};
+
+const toLocalDateKey = (d: Date = new Date()): string => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 };
 
 export const TransactionsView: React.FC = () => {
@@ -125,7 +133,7 @@ export const TransactionsView: React.FC = () => {
 
   // Filter & Sort Pipeline
   const filteredTransactions = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = toLocalDateKey();
     const currentMonth = today.substring(0, 7);
     const currentYear = today.substring(0, 4);
 
@@ -184,13 +192,12 @@ export const TransactionsView: React.FC = () => {
       if (sortField === 'receiptNumber') {
         return sortOrder === 'asc' ? a.receiptNumber.localeCompare(b.receiptNumber) : b.receiptNumber.localeCompare(a.receiptNumber);
       }
-      // Default: date + time
-      const dateTimeA = `${a.date} ${a.time}`;
-      const dateTimeB = `${b.date} ${b.time}`;
-      return sortOrder === 'asc' ? dateTimeA.localeCompare(dateTimeB) : dateTimeB.localeCompare(dateTimeA);
+      // Default: deterministic chronological date/time/createdAt sort
+      return compareTransactions(a, b, sortOrder);
     });
   }, [
-    transactions, 
+    transactions,
+    filterType,
     searchQuery, 
     filterPurpose, 
     filterMethod, 
@@ -204,6 +211,12 @@ export const TransactionsView: React.FC = () => {
 
   // Pagination calculation
   const totalPages = Math.ceil(filteredTransactions.length / pageSize) || 1;
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
   const paginatedTransactions = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
     return filteredTransactions.slice(start, start + pageSize);
@@ -291,13 +304,14 @@ export const TransactionsView: React.FC = () => {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `SC_Basimbuzi_Transactions_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `SC_Basimbuzi_Transactions_${toLocalDateKey()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
   const resetFilters = () => {
+    setFilterType('ALL');
     setSearchQuery('');
     setFilterPurpose('ALL');
     setFilterMethod('ALL');
@@ -320,6 +334,7 @@ export const TransactionsView: React.FC = () => {
   };
 
   const hasActiveFilters = 
+    filterType !== 'ALL' ||
     searchQuery !== '' || 
     filterPurpose !== 'ALL' || 
     filterMethod !== 'ALL' || 
@@ -380,7 +395,7 @@ export const TransactionsView: React.FC = () => {
           </div>
 
           <button
-            onClick={() => refetch()}
+            onClick={() => refetch(true)}
             disabled={isLoading}
             className="px-3.5 py-2 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-xl transition inline-flex items-center gap-1.5 cursor-pointer"
             title="Refresh payment records from Google Sheets"
@@ -426,6 +441,9 @@ export const TransactionsView: React.FC = () => {
           </div>
           <div className="mt-1 text-[11px] text-indigo-200/70">
             Total Inflow minus Outflow ({filteredLedger.inflowCount + filteredLedger.outflowCount} records)
+            {!hasActiveFilters && (settings.openingBalance || 0) !== 0 && (
+              <> &bull; Closing w/ Opening: UGX {((settings.openingBalance || 0) + filteredLedger.netBalance).toLocaleString()}</>
+            )}
           </div>
         </div>
 
@@ -473,7 +491,7 @@ export const TransactionsView: React.FC = () => {
             </div>
           </div>
           <button
-            onClick={() => refetch()}
+            onClick={() => refetch(true)}
             className="shrink-0 font-semibold underline hover:text-amber-900 dark:hover:text-amber-100"
           >
             Retry Now
@@ -492,7 +510,7 @@ export const TransactionsView: React.FC = () => {
             </div>
           </div>
           <button
-            onClick={() => refetch()}
+            onClick={() => refetch(true)}
             className="shrink-0 font-semibold underline hover:text-red-900 dark:hover:text-red-100"
           >
             Retry
@@ -705,7 +723,6 @@ export const TransactionsView: React.FC = () => {
         /* Modern Credit Card Grid View with Staggered Entrance */
         <div className="space-y-6">
           <ReceiptList
-            key={`cards-grid-${currentPage}-${filterPurpose}-${filterMethod}`}
             receipts={paginatedTransactions}
             onSelectReceipt={(tx) => setSelectedReceipt(tx)}
             onResendReceipt={(num) => resendReceipt(num)}
@@ -851,7 +868,7 @@ export const TransactionsView: React.FC = () => {
                             </span>
                           )}
                         </div>
-                        {tx.email && !tx.email.toLowerCase().includes('no-reply') && !tx.email.toLowerCase().includes('whatsapp.direct') ? (
+                        {tx.email && !tx.email.toLowerCase().includes('no-reply') && !tx.email.toLowerCase().includes('noreply') && !tx.email.toLowerCase().includes('whatsapp.direct') ? (
                           <div className="text-[11px] text-slate-500 dark:text-slate-400 font-sans">{tx.email}</div>
                         ) : !isOutflow ? (
                           <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
@@ -884,7 +901,7 @@ export const TransactionsView: React.FC = () => {
                             <Check className="w-3 h-3 text-emerald-500" />
                             <span>VOUCHER</span>
                           </span>
-                        ) : tx.emailStatus === 'SENT' && tx.email && !tx.email.toLowerCase().includes('no-reply') && !tx.email.toLowerCase().includes('whatsapp.direct') ? (
+                        ) : tx.emailStatus === 'SENT' && tx.email && !tx.email.toLowerCase().includes('no-reply') && !tx.email.toLowerCase().includes('noreply') && !tx.email.toLowerCase().includes('whatsapp.direct') ? (
                           <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-sans">
                             <Check className="w-3 h-3 text-blue-600" />
                             <span>SENT</span>

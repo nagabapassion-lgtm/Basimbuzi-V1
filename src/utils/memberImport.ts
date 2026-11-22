@@ -1,5 +1,10 @@
-import { DuesStatus, Member, MembershipTier, Transaction } from '../types';
-import { cleanPhoneNumber, isStaffOrPlaceholderEmail } from './ledgerReconciliation';
+import { DuesStatus, Member, MemberGender, MemberSchoolPreset, Transaction } from '../types';
+import {
+  cleanPhoneNumber,
+  isStaffOrPlaceholderEmail,
+  normalizePersonName,
+  resolveCanonicalMemberNameKey
+} from './ledgerReconciliation';
 
 export interface ParsedTreasuryCsvResult {
   members: Member[];
@@ -17,13 +22,98 @@ export interface ParsedTreasuryCsvResult {
   };
 }
 
-const VALID_TIERS = new Set<MembershipTier>(['Supporter', 'Player', 'Executive', 'Academy', 'Other']);
+export const NTARE_SCHOOL = 'Ntare School' as const;
+export const BWERANYAGYI_SCHOOL = "Bweranyagyi Girls' Secondary School" as const;
+export const GENDER_OPTIONS: readonly MemberGender[] = ['Male', 'Female'];
+export const SCHOOL_PRESET_OPTIONS: readonly MemberSchoolPreset[] = [
+  NTARE_SCHOOL,
+  BWERANYAGYI_SCHOOL,
+  'Other'
+];
+export const HOUSE_OPTIONS = [
+  'Africa House',
+  'Aggrey House',
+  'Bangizi Jed',
+  'Crichton House',
+  'Golden House',
+  'Kamugungunu',
+  'Mbaguta House',
+  'New House',
+  'Nile House',
+  'Pearl House',
+  'Pioneer House'
+] as const;
 
-export function normalizeMembershipTier(raw: unknown): MembershipTier {
-  const clean = String(raw || '').trim();
-  if (!clean) return 'Supporter';
-  const match = Array.from(VALID_TIERS).find(t => t.toLowerCase() === clean.toLowerCase());
-  return match || 'Supporter';
+export type MemberHouseOption = (typeof HOUSE_OPTIONS)[number];
+
+export function isHouseEligibleSchool(school?: unknown): boolean {
+  const clean = String(school || '').trim().toLowerCase().replace(/[\u2018\u2019`]/g, "'");
+  if (!clean) return false;
+  return (
+    clean === 'ntare school' ||
+    clean === 'ntare' ||
+    clean === "bweranyagyi girls' secondary school" ||
+    clean === 'bweranyagyi girls secondary school' ||
+    clean === 'bweranyagyi'
+  );
+}
+
+export function normalizeMemberGender(raw: unknown): MemberGender | '' {
+  const clean = String(raw || '').trim().toLowerCase();
+  if (clean === 'male' || clean === 'm') return 'Male';
+  if (clean === 'female' || clean === 'f') return 'Female';
+  return '';
+}
+
+export function normalizeMemberSchool(rawSchool: unknown, rawOtherSchool?: unknown): string {
+  const clean = String(rawSchool || '').trim().replace(/[\u2018\u2019`]/g, "'");
+  if (!clean) return '';
+  const lower = clean.toLowerCase();
+  if (lower === 'ntare school' || lower === 'ntare') {
+    return NTARE_SCHOOL;
+  }
+  if (
+    lower === "bweranyagyi girls' secondary school" ||
+    lower === 'bweranyagyi girls secondary school' ||
+    lower === 'bweranyagyi'
+  ) {
+    return BWERANYAGYI_SCHOOL;
+  }
+  if (lower === 'other') {
+    return String(rawOtherSchool || '').trim().slice(0, 120);
+  }
+  return clean.slice(0, 120);
+}
+
+export function resolveSchoolFormState(storedSchool?: unknown): {
+  schoolChoice: '' | MemberSchoolPreset;
+  otherSchool: string;
+} {
+  const clean = normalizeMemberSchool(storedSchool);
+  if (!clean) return { schoolChoice: '', otherSchool: '' };
+  if (clean === NTARE_SCHOOL) return { schoolChoice: NTARE_SCHOOL, otherSchool: '' };
+  if (clean === BWERANYAGYI_SCHOOL) return { schoolChoice: BWERANYAGYI_SCHOOL, otherSchool: '' };
+  return { schoolChoice: 'Other', otherSchool: clean };
+}
+
+export function normalizeMemberHouse(rawHouse: unknown, resolvedSchool?: unknown): string {
+  if (!isHouseEligibleSchool(resolvedSchool)) {
+    return '';
+  }
+  const clean = String(rawHouse || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  if (!clean) return '';
+
+  const exactMatch = HOUSE_OPTIONS.find(opt => opt.toLowerCase() === clean);
+  if (exactMatch) return exactMatch;
+
+  // Match shorthand names (e.g. "Aggrey" -> "Aggrey House", "Bangizi" -> "Bangizi Jed")
+  const normalizedNoSuffix = clean.replace(/\s+house$/i, '').trim();
+  const aliasMatch = HOUSE_OPTIONS.find(opt => {
+    const optLower = opt.toLowerCase();
+    const optNoSuffix = optLower.replace(/\s+house$/i, '').trim();
+    return optNoSuffix === normalizedNoSuffix || (optLower === 'bangizi jed' && normalizedNoSuffix === 'bangizi');
+  });
+  return aliasMatch || '';
 }
 
 export function parseUgxAmount(raw: unknown): number {
@@ -151,7 +241,9 @@ export function parseTreasuryMembersCsv(
     phone: -1,
     email: -1,
     address: -1,
-    tier: -1
+    gender: -1,
+    school: -1,
+    house: -1
   };
 
   for (let i = 0; i < Math.min(rows.length, 10); i++) {
@@ -168,7 +260,9 @@ export function parseTreasuryMembersCsv(
       colMap.phone = normalized.findIndex(c => c.includes('PHONE') || c.includes('WHATSAPP') || c.includes('TEL'));
       colMap.email = normalized.findIndex(c => c.includes('EMAIL'));
       colMap.address = normalized.findIndex(c => c.includes('ADDRESS') || c.includes('RESIDENCE') || c.includes('LOCATION'));
-      colMap.tier = normalized.findIndex(c => c.includes('TIER') || c.includes('MEMBERSHIP'));
+      colMap.gender = normalized.findIndex(c => c === 'GENDER' || c === 'SEX');
+      colMap.school = normalized.findIndex(c => c.includes('SCHOOL'));
+      colMap.house = normalized.findIndex(c => c === 'HOUSE' || c.includes('DORMITORY'));
       break;
     }
   }
@@ -244,7 +338,9 @@ export function parseTreasuryMembersCsv(
     const rawEmail = colMap.email >= 0 ? String(row[colMap.email] || '').trim().toLowerCase() : '';
     const email = isStaffOrPlaceholderEmail(rawEmail, rawName) ? '' : rawEmail;
     const address = colMap.address >= 0 ? String(row[colMap.address] || '').trim() : '';
-    const tier = colMap.tier >= 0 ? normalizeMembershipTier(row[colMap.tier]) : 'Supporter';
+    const gender = colMap.gender >= 0 ? normalizeMemberGender(row[colMap.gender]) : '';
+    const school = colMap.school >= 0 ? normalizeMemberSchool(row[colMap.school]) : '';
+    const house = colMap.house >= 0 ? normalizeMemberHouse(row[colMap.house], school) : '';
 
     const profileComplete = isMemberProfileComplete({ name: rawName, email, phone, address });
     const remainingUgx = defaultTargetUgx > 0 ? Math.max(0, defaultTargetUgx - effectiveTotal) : 0;
@@ -256,7 +352,9 @@ export function parseTreasuryMembersCsv(
       phone,
       email,
       address,
-      tier,
+      gender,
+      school,
+      house,
       preNllPaid: preNll,
       spotPaid: spot,
       paidAfter,
@@ -369,3 +467,256 @@ export function csvEscapeSafe(value: unknown): string {
   }
   return str;
 }
+
+export interface MergedDirectoryResult {
+  members: any[];
+  changed: boolean;
+  contactUpdatedMemberIds: string[];
+}
+
+function parseIsoTimeMs(raw: unknown): number {
+  const ms = Date.parse(String(raw || ''));
+  return Number.isFinite(ms) ? ms : 0;
+}
+
+function stripLegacyTierField<T extends Record<string, any>>(record: T): Omit<T, 'tier'> {
+  const { tier: _legacyTier, ...rest } = record || ({} as T);
+  return rest;
+}
+
+export function mergeMemberDirectories(
+  localMembers: any[],
+  remoteMembers: any[],
+  defaultTargetUgx: number = 100000,
+  staffEmails: string[] = []
+): MergedDirectoryResult {
+  if (!Array.isArray(remoteMembers) || remoteMembers.length === 0) {
+    return { members: Array.isArray(localMembers) ? localMembers : [], changed: false, contactUpdatedMemberIds: [] };
+  }
+
+  const merged = (Array.isArray(localMembers) ? localMembers : []).map(m => stripLegacyTierField({ ...m }));
+  const idIndex = new Map<string, number>();
+  const emailIndex = new Map<string, number>();
+  const canonicalIndex = new Map<string, number>();
+  const normalizedNameIndex = new Map<string, number>();
+
+  const registerIndices = (m: any, idx: number) => {
+    const id = String(m?.id || m?.memberId || '').trim().toLowerCase();
+    if (id && !id.startsWith('sb-live-') && !idIndex.has(id)) {
+      idIndex.set(id, idx);
+    }
+    const name = String(m?.name || '').trim();
+    const email = isStaffOrPlaceholderEmail(m?.email, name, staffEmails)
+      ? ''
+      : String(m?.email || '').trim().toLowerCase();
+    if (email && !emailIndex.has(email)) {
+      emailIndex.set(email, idx);
+    }
+    const canon = resolveCanonicalMemberNameKey(name);
+    if (canon && !canonicalIndex.has(canon)) {
+      canonicalIndex.set(canon, idx);
+    }
+    const norm = normalizePersonName(name);
+    if (norm && !normalizedNameIndex.has(norm)) {
+      normalizedNameIndex.set(norm, idx);
+    }
+  };
+
+  merged.forEach((m, idx) => registerIndices(m, idx));
+
+  let changed = false;
+  const contactUpdatedIds = new Set<string>();
+
+  for (const rawRemote of remoteMembers) {
+    if (!rawRemote || typeof rawRemote !== 'object') continue;
+    const remoteName = String(rawRemote.name || '').trim();
+    if (!remoteName) continue;
+
+    const remoteIdRaw = String(rawRemote.id || rawRemote.memberId || '').trim();
+    const remoteIdKey = remoteIdRaw.toLowerCase();
+    const remoteEmail = isStaffOrPlaceholderEmail(rawRemote.email, remoteName, staffEmails)
+      ? ''
+      : String(rawRemote.email || '').trim().toLowerCase();
+    const remotePhone = cleanPhoneNumber(rawRemote.phone || '');
+    const remoteAddress = String(rawRemote.address || '').trim();
+    const remoteGender = normalizeMemberGender(rawRemote.gender);
+    const remoteSchool = normalizeMemberSchool(rawRemote.school);
+    const remoteHouse = normalizeMemberHouse(rawRemote.house, remoteSchool);
+    const remoteCanon = resolveCanonicalMemberNameKey(remoteName);
+    const remoteNorm = normalizePersonName(remoteName);
+
+    let matchIdx: number | undefined;
+    if (remoteIdKey && !remoteIdKey.startsWith('sb-live-')) {
+      matchIdx = idIndex.get(remoteIdKey);
+    }
+    if (matchIdx === undefined && remoteEmail) {
+      matchIdx = emailIndex.get(remoteEmail);
+    }
+    if (matchIdx === undefined && remoteCanon) {
+      matchIdx = canonicalIndex.get(remoteCanon);
+    }
+    if (matchIdx === undefined && remoteNorm) {
+      matchIdx = normalizedNameIndex.get(remoteNorm);
+    }
+
+    if (matchIdx !== undefined) {
+      const local = merged[matchIdx];
+      const localName = String(local.name || '').trim();
+      const localEmail = isStaffOrPlaceholderEmail(local.email, localName, staffEmails)
+        ? ''
+        : String(local.email || '').trim().toLowerCase();
+      const localPhone = cleanPhoneNumber(local.phone || '');
+      const localAddress = String(local.address || '').trim();
+      const localGender = normalizeMemberGender(local.gender);
+      const localSchool = normalizeMemberSchool(local.school);
+      const localHouse = normalizeMemberHouse(local.house, localSchool);
+
+      const localTs = parseIsoTimeMs(local.updatedAt);
+      const remoteTs = parseIsoTimeMs(rawRemote.updatedAt);
+      const remoteNewer = remoteTs > localTs;
+
+      const pickStr = (localVal: string, remoteVal: string): string => {
+        if (remoteNewer) return remoteVal || localVal;
+        return localVal || remoteVal;
+      };
+
+      const nextName = pickStr(localName, remoteName);
+      const nextEmail = pickStr(localEmail, remoteEmail);
+      const nextPhone = pickStr(localPhone, remotePhone);
+      const nextAddress = pickStr(localAddress, remoteAddress);
+      const nextGender = (remoteNewer ? (remoteGender || localGender) : (localGender || remoteGender)) as MemberGender | '';
+      const nextSchool = pickStr(localSchool, remoteSchool);
+      const rawHousePick =
+        remoteNewer && remoteSchool
+          ? remoteHouse
+          : !remoteNewer && localSchool
+          ? localHouse
+          : pickStr(localHouse, remoteHouse);
+      const nextHouse = normalizeMemberHouse(rawHousePick, nextSchool);
+
+      const localHist = Math.max(0, Number(local.historicalPaid ?? local.totalContributed) || 0);
+      const remoteHist = Math.max(0, Number(rawRemote.historicalPaid ?? rawRemote.totalContributed) || 0);
+      const nextPreNll = Math.max(0, Number(local.preNllPaid) || Number(rawRemote.preNllPaid) || 0);
+      const nextSpot = Math.max(0, Number(local.spotPaid) || Number(rawRemote.spotPaid) || 0);
+      const nextPaidAfter = Math.max(0, Number(local.paidAfter) || Number(rawRemote.paidAfter) || 0);
+      const nextHist = localHist > 0 ? localHist : remoteHist;
+      const nextLive = Math.max(0, Number(local.livePaid) || Number(rawRemote.livePaid) || 0);
+      const nextTarget =
+        remoteNewer && rawRemote.expectedTargetUgx !== undefined && Number(rawRemote.expectedTargetUgx) >= 0
+          ? Number(rawRemote.expectedTargetUgx)
+          : local.expectedTargetUgx !== undefined && Number(local.expectedTargetUgx) >= 0
+          ? Number(local.expectedTargetUgx)
+          : Math.max(0, Number(rawRemote.expectedTargetUgx ?? defaultTargetUgx) || 0);
+      const nextTotal = nextHist + nextLive;
+      const nextProfileStatus = isMemberProfileComplete({
+        name: nextName,
+        email: nextEmail,
+        phone: nextPhone,
+        address: nextAddress
+      })
+        ? 'COMPLETE'
+        : 'INCOMPLETE';
+      const nextUpdatedAt = remoteNewer ? String(rawRemote.updatedAt) : String(local.updatedAt || rawRemote.updatedAt || '');
+
+      const contactOrProfileDiffers =
+        nextName !== localName ||
+        nextEmail !== localEmail ||
+        nextPhone !== localPhone ||
+        nextAddress !== localAddress ||
+        nextGender !== localGender ||
+        nextSchool !== localSchool ||
+        nextHouse !== localHouse ||
+        nextTarget !== (Number(local.expectedTargetUgx) || 0) ||
+        nextProfileStatus !== String(local.profileStatus || 'INCOMPLETE') ||
+        'tier' in (localMembers[matchIdx] || {});
+
+      if (contactOrProfileDiffers) {
+        changed = true;
+        if (nextName !== localName || nextEmail !== localEmail || nextPhone !== localPhone) {
+          contactUpdatedIds.add(String(local.id || local.memberId || ''));
+        }
+        merged[matchIdx] = stripLegacyTierField({
+          ...local,
+          name: nextName,
+          email: nextEmail,
+          phone: nextPhone,
+          address: nextAddress,
+          gender: nextGender,
+          school: nextSchool,
+          house: nextHouse,
+          preNllPaid: nextPreNll,
+          spotPaid: nextSpot,
+          paidAfter: nextPaidAfter,
+          historicalPaid: nextHist,
+          livePaid: nextLive,
+          totalContributed: nextTotal,
+          expectedTargetUgx: nextTarget,
+          remainingUgx: nextTarget > 0 ? Math.max(0, nextTarget - nextTotal) : 0,
+          duesStatus: computeDuesStatus(nextTotal, nextTarget),
+          profileStatus: nextProfileStatus,
+          updatedAt: nextUpdatedAt
+        });
+        registerIndices(merged[matchIdx], matchIdx);
+      }
+    } else {
+      const assignedId =
+        remoteIdRaw && !remoteIdRaw.toUpperCase().startsWith('SB-LIVE-')
+          ? remoteIdRaw
+          : `SB-M-${String(merged.length + 1).padStart(4, '0')}`;
+      const preNllPaid = Math.max(0, Number(rawRemote.preNllPaid) || 0);
+      const spotPaid = Math.max(0, Number(rawRemote.spotPaid) || 0);
+      const paidAfter = Math.max(0, Number(rawRemote.paidAfter) || 0);
+      const historicalPaid = Math.max(0, Number(rawRemote.historicalPaid ?? (preNllPaid + spotPaid + paidAfter)) || 0);
+      const livePaid = Math.max(0, Number(rawRemote.livePaid) || 0);
+      const totalContributed = historicalPaid + livePaid;
+      const expectedTargetUgx = Math.max(0, Number(rawRemote.expectedTargetUgx ?? defaultTargetUgx) || 0);
+      const nowIso = String(rawRemote.updatedAt || new Date().toISOString());
+
+      const added = stripLegacyTierField({
+        id: assignedId,
+        memberId: assignedId,
+        name: remoteName,
+        phone: remotePhone,
+        email: remoteEmail,
+        address: remoteAddress,
+        gender: remoteGender,
+        school: remoteSchool,
+        house: remoteHouse,
+        preNllPaid,
+        spotPaid,
+        paidAfter,
+        historicalPaid,
+        livePaid,
+        totalContributed,
+        expectedTargetUgx,
+        remainingUgx: expectedTargetUgx > 0 ? Math.max(0, expectedTargetUgx - totalContributed) : 0,
+        duesStatus: computeDuesStatus(totalContributed, expectedTargetUgx),
+        profileStatus: isMemberProfileComplete({
+          name: remoteName,
+          email: remoteEmail,
+          phone: remotePhone,
+          address: remoteAddress
+        })
+          ? 'COMPLETE'
+          : 'INCOMPLETE',
+        paymentCount: (preNllPaid > 0 ? 1 : 0) + (spotPaid > 0 ? 1 : 0) + (paidAfter > 0 ? 1 : 0),
+        lastPaymentDate: '',
+        lastPurpose: '',
+        source: String(rawRemote.source || 'CSV_IMPORT'),
+        createdAt: nowIso,
+        updatedAt: nowIso
+      });
+      const newIdx = merged.length;
+      merged.push(added);
+      registerIndices(added, newIdx);
+      changed = true;
+    }
+  }
+
+  return {
+    members: merged,
+    changed,
+    contactUpdatedMemberIds: Array.from(contactUpdatedIds).filter(Boolean)
+  };
+}
+

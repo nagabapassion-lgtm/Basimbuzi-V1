@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../context/AppContext';
+import { compareTransactions } from '../utils/ledgerReconciliation';
 import { 
   TrendingUp, 
   Receipt, 
@@ -116,7 +117,8 @@ export const DashboardView: React.FC = () => {
 
   // Compute Integrated Financial Ledger KPI metrics dynamically
   const metrics = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const currentMonth = today.substring(0, 7); // YYYY-MM
 
     let todayInflow = 0;
@@ -206,11 +208,7 @@ export const DashboardView: React.FC = () => {
   }, [transactions]);
 
   const recentTransactions = useMemo(() => {
-    const sorted = [...transactions].sort((a, b) => {
-      const timeA = `${a.date || ''} ${a.time || ''} ${a.createdAt || ''}`;
-      const timeB = `${b.date || ''} ${b.time || ''} ${b.createdAt || ''}`;
-      return timeB.localeCompare(timeA);
-    });
+    const sorted = [...transactions].sort((a, b) => compareTransactions(a, b, 'desc'));
     return sorted.slice(0, 8);
   }, [transactions]);
 
@@ -247,7 +245,7 @@ export const DashboardView: React.FC = () => {
               
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 font-serif mt-0.5">
-              Live ledger management &bull; {metrics.totalCount} official receipts issued &bull; Currency: <span className="font-heading font-semibold text-slate-700 dark:text-slate-300">UGX</span>
+              Live ledger management &bull; {metrics.inflowCount} receipts &bull; {metrics.outflowCount} vouchers &bull; Currency: <span className="font-heading font-semibold text-slate-700 dark:text-slate-300">UGX</span>
             </p>
           </div>
         </div>
@@ -622,7 +620,9 @@ export const DashboardView: React.FC = () => {
                           {displayName}
                         </div>
                         <div className="text-[11px] text-slate-500 dark:text-slate-400 font-sans truncate max-w-[150px]">
-                          {tx.email && !tx.email.includes('no-reply') ? tx.email : (tx.phone || 'Cash / Voucher')}
+                          {tx.email && !tx.email.includes('no-reply') && !tx.email.includes('noreply') && !tx.email.includes('whatsapp.direct')
+                            ? tx.email
+                            : (tx.phone || 'Cash / Voucher')}
                         </div>
                       </td>
 

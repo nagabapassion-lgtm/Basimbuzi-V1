@@ -12,15 +12,19 @@ import {
   Phone,
   X,
   Trash2,
-  Wallet
+  Wallet,
+  AlertTriangle,
+  Loader2
 } from 'lucide-react';
 
 export const SearchReceiptView: React.FC = () => {
-  const { transactions, setSelectedReceipt, resendReceipt, deleteTransaction, currentUser } = useApp();
+  const { transactions, setSelectedReceipt, resendReceipt, deleteTransaction, currentUser, userPermissions } = useApp();
   const [query, setQuery] = useState('');
   const [targetUgx, setTargetUgx] = useState<number>(100000);
   const [targetLabel, setTargetLabel] = useState<string>('2026 Season Membership Contribution');
-  const isOwner = currentUser?.role === 'OWNER';
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const canDelete = currentUser?.role === 'OWNER' || userPermissions.canDeleteTransactions;
 
   useEffect(() => {
     publicSiteService.fetchPublicSite(false).then(payload => {
@@ -53,7 +57,9 @@ export const SearchReceiptView: React.FC = () => {
   }, [transactions, query]);
 
   const payerSummary = useMemo(() => {
-    const inflows = searchResults.filter(tx => tx.type !== 'OUTFLOW' && !tx.receiptNumber.startsWith('EXP-'));
+    const inflows = searchResults.filter(
+      tx => tx.type !== 'OUTFLOW' && !tx.receiptNumber.startsWith('EXP-') && tx.paymentStatus !== 'CANCELLED'
+    );
     if (inflows.length === 0) return null;
     const distinctNames = new Set(inflows.map(tx => tx.payerName.trim().toLowerCase()));
     if (distinctNames.size !== 1) return null;
@@ -200,33 +206,46 @@ export const SearchReceiptView: React.FC = () => {
                   </div>
                 </div>
               )}
-              {searchResults.map(tx => (
+              {searchResults.map(tx => {
+                const isOutflow = tx.type === 'OUTFLOW' || tx.receiptNumber.startsWith('EXP-');
+                return (
                 <div
                   key={tx.receiptNumber}
                   className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-slate-300 dark:hover:border-slate-700 transition flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                 >
                   <div className="space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-sans font-bold text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2.5 py-1 rounded-lg border border-blue-200 dark:border-blue-800">
+                      <span className={`font-sans font-bold text-xs px-2.5 py-1 rounded-lg border ${
+                        isOutflow
+                          ? 'text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/60 border-rose-200 dark:border-rose-800'
+                          : 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 border-blue-200 dark:border-blue-800'
+                      }`}>
                         {tx.receiptNumber}
                       </span>
+                      {isOutflow && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
+                          OUTFLOW
+                        </span>
+                      )}
                       <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
                         <Clock className="w-3.5 h-3.5" />
                         {tx.date} at {tx.time}
                       </span>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        tx.emailStatus === 'SENT' 
-                          ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800' 
-                          : 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
-                      }`}>
-                        Email: {tx.emailStatus}
-                      </span>
+                      {!isOutflow && (
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          tx.emailStatus === 'SENT' 
+                            ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800' 
+                            : 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+                        }`}>
+                          Email: {tx.emailStatus}
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-xs text-slate-600 dark:text-slate-300">
                       <div className="flex items-center gap-1">
                         <User className="w-3.5 h-3.5 text-slate-400" />
-                        <strong className="text-slate-800 dark:text-white">{tx.payerName}</strong>
+                        <strong className="text-slate-800 dark:text-white">{isOutflow ? (tx.payee || tx.payerName) : tx.payerName}</strong>
                       </div>
                       <div className="flex items-center gap-1 font-sans text-slate-500 dark:text-slate-400">
                         <Mail className="w-3.5 h-3.5 text-slate-400" />
@@ -246,7 +265,7 @@ export const SearchReceiptView: React.FC = () => {
 
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-slate-400 pt-1">
                       <span className="bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-slate-700 dark:text-slate-300 font-medium">
-                        {tx.paymentPurpose}
+                        {isOutflow ? (tx.category || tx.paymentPurpose) : tx.paymentPurpose}
                       </span>
                       <span>Method: <strong className="text-slate-700 dark:text-slate-200">{tx.paymentMethod}</strong></span>
                       {tx.paymentReference && (
@@ -256,8 +275,8 @@ export const SearchReceiptView: React.FC = () => {
                   </div>
 
                   <div className="flex flex-col sm:items-end justify-between gap-3 shrink-0 pt-3 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-800">
-                    <div className="text-lg sm:text-xl font-extrabold text-blue-600 dark:text-blue-400 font-sans">
-                      {Number(tx.amount).toLocaleString()} UGX
+                    <div className={`text-lg sm:text-xl font-extrabold font-sans ${isOutflow ? 'text-rose-600 dark:text-rose-400' : 'text-blue-600 dark:text-blue-400'}`}>
+                      {isOutflow ? '-' : ''}{Number(tx.amount).toLocaleString()} UGX
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -277,22 +296,20 @@ export const SearchReceiptView: React.FC = () => {
                         <span>Print</span>
                       </button>
 
-                      <button
-                        onClick={() => resendReceipt(tx.receiptNumber)}
-                        className="px-3 py-1.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 text-xs font-semibold rounded-xl transition inline-flex items-center gap-1 cursor-pointer"
-                      >
-                        <RotateCw className="w-3.5 h-3.5" />
-                        <span>Resend</span>
-                      </button>
-
-                      {isOwner && (
+                      {!isOutflow && (
                         <button
-                          onClick={() => {
-                            if (confirm(`Delete receipt ${tx.receiptNumber}?`)) {
-                              deleteTransaction(tx.receiptNumber);
-                            }
-                          }}
-                          title="Delete Receipt"
+                          onClick={() => resendReceipt(tx.receiptNumber)}
+                          className="px-3 py-1.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 text-xs font-semibold rounded-xl transition inline-flex items-center gap-1 cursor-pointer"
+                        >
+                          <RotateCw className="w-3.5 h-3.5" />
+                          <span>Resend</span>
+                        </button>
+                      )}
+
+                      {canDelete && (
+                        <button
+                          onClick={() => setDeleteTarget(tx.receiptNumber)}
+                          title="Delete Record"
                           className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 rounded-xl transition cursor-pointer"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -301,9 +318,59 @@ export const SearchReceiptView: React.FC = () => {
                     </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 max-w-md w-full p-6 shadow-xl">
+            <div className="flex items-center gap-3 text-red-600 dark:text-red-400 mb-4">
+              <div className="p-2.5 rounded-xl bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-900/60">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-bold text-base text-slate-900 dark:text-white">Delete Transaction</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Record {deleteTarget}</p>
+              </div>
+            </div>
+
+            <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-6">
+              Are you sure you want to permanently remove record <span className="font-mono font-bold text-slate-900 dark:text-white">{deleteTarget}</span> from the ledger?
+            </p>
+
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                disabled={isDeleting}
+                className="px-4 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  setIsDeleting(true);
+                  try {
+                    await deleteTransaction(deleteTarget);
+                    setDeleteTarget(null);
+                  } finally {
+                    setIsDeleting(false);
+                  }
+                }}
+                disabled={isDeleting}
+                className="px-4 py-2.5 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl transition inline-flex items-center gap-2 shadow-sm cursor-pointer disabled:opacity-50"
+              >
+                {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                <span>{isDeleting ? 'Deleting...' : 'Confirm Delete'}</span>
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

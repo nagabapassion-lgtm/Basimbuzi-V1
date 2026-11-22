@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../context/AppContext';
 import { isValidEmail, isValidPhone, isValidAmount } from '../utils/security';
 import { isStaffOrPlaceholderEmail } from '../utils/ledgerReconciliation';
-import { openWhatsAppChat, generateWhatsAppMessage } from '../utils/whatsappReceipt';
 import { SmartMemberAutofill } from '../components/SmartMemberAutofill';
 import { ExpenseVoucherModal } from '../components/ExpenseVoucherModal';
 import { Member, Transaction } from '../types';
@@ -310,6 +309,7 @@ export const GenerateReceiptView: React.FC = () => {
     try {
       const res = await generateReceipt({
         payerName: payerName.trim(),
+        memberId: autofilledMember?.id || autofilledMember?.memberId,
         phone: phone.trim(),
         email: email.trim().toLowerCase(),
         amount: Number(amount),
@@ -321,10 +321,6 @@ export const GenerateReceiptView: React.FC = () => {
 
       if (!res.success) {
         setFormError(res.error || 'Failed to generate receipt. Please try again.');
-      } else if (res.data) {
-        // Automatically open WhatsApp chat immediately with the prefilled receipt message
-        const waMsg = generateWhatsAppMessage(res.data, settings);
-        openWhatsAppChat(res.data.phone, waMsg);
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);

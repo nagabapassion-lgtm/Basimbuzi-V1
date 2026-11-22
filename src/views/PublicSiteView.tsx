@@ -617,7 +617,7 @@ export const PublicSiteView: React.FC<PublicSiteViewProps> = ({ onNavigateAdmin 
         {route.page === 'home' && (
           <main id="top">
             {/* 1. HERO SECTION (Asymmetric 2-Column Editorial Split + Next Match Spotlight) */}
-            <section className="max-w-7xl mx-auto px-4 sm:px-8 pt-10 pb-14 lg:pt-14 lg:pb-16">
+            <section className="max-w-7xl mx-auto px-4 sm:px-8 pt-10 pb-8 lg:pt-14 lg:pb-10">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-stretch">
                 {/* Left Proposition */}
                 <div className="lg:col-span-6 flex flex-col justify-between py-2">
@@ -706,47 +706,10 @@ export const PublicSiteView: React.FC<PublicSiteViewProps> = ({ onNavigateAdmin 
                   </div>
                 </div>
               </div>
-
-              {/* 4-Column Club Key Facts Strip below Hero Split */}
-              <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 divide-y sm:divide-y-0 sm:divide-x divide-slate-200 dark:divide-slate-800">
-                <div className="p-5">
-                  <div className="text-xs text-slate-500 dark:text-slate-400">Club Founded</div>
-                  <div className="mt-1 text-lg font-bold text-slate-900 dark:text-white tabular-nums">
-                    {siteContent.clubFoundedYear || '2018'}
-                  </div>
-                </div>
-                <div className="p-5">
-                  <div className="text-xs text-slate-500 dark:text-slate-400">Home Ground</div>
-                  <div className="mt-1 text-base font-bold text-slate-900 dark:text-white truncate">
-                    {siteContent.homeGround}
-                  </div>
-                </div>
-                <div className="p-5">
-                  <div className="text-xs text-slate-500 dark:text-slate-400">Training Sessions</div>
-                  <div className="mt-1 text-base font-bold text-slate-900 dark:text-white truncate">
-                    {siteContent.trainingSchedule}
-                  </div>
-                </div>
-                <div className="p-5 flex items-center justify-between gap-3">
-                  <div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400">Member Portal</div>
-                    <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
-                      Personal Ledger
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => navigateToPublicPath('/me')}
-                    className="text-xs font-semibold text-blue-700 dark:text-blue-400 hover:underline whitespace-nowrap shrink-0 cursor-pointer"
-                  >
-                    Sign In (/me)
-                  </button>
-                </div>
-              </div>
             </section>
 
             {/* 2. CLUB NEWS & STORIES */}
-            <section id="news" className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/40 py-14 sm:py-16">
+            <section id="news" className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/40 pt-9 pb-14 sm:pt-10 sm:pb-16">
               <div className="max-w-7xl mx-auto px-4 sm:px-8">
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
                   <div>
@@ -1160,61 +1123,60 @@ export const PublicSiteView: React.FC<PublicSiteViewProps> = ({ onNavigateAdmin 
 
       {/* Quiet Footer (Secretive admin portal access via Ctrl+Shift+A, /admin URL, or double-clicking footer emblem) */}
       <footer className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 py-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          <div className="flex items-center gap-3">
-            <img
-              src={clubLogo}
-              onDoubleClick={onNavigateAdmin}
-              onError={(e) => {
-                (e.currentTarget as HTMLImageElement).src = HARDCODED_LOGO_URL;
-              }}
-              alt={clubName}
-              className="w-8 h-8 object-contain rounded-lg border border-slate-200 dark:border-slate-800 p-0.5 bg-white dark:bg-slate-900 select-none"
-            />
-            <div>
-              <div className="text-sm font-bold text-slate-900 dark:text-white">{clubName}</div>
-              <div className="text-xs text-slate-500 dark:text-slate-400">
-                &copy; {new Date().getFullYear()} {clubName}. All rights reserved.
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50/70 dark:bg-slate-900/70 divide-y sm:divide-y-0 sm:divide-x divide-slate-200 dark:divide-slate-800">
+            <div className="p-4 sm:p-5">
+              <div className="text-xs text-slate-500 dark:text-slate-400">Home Ground</div>
+              <div className="mt-1 text-sm sm:text-base font-bold text-slate-900 dark:text-white truncate">
+                {siteContent.homeGround}
               </div>
+            </div>
+            <div className="p-4 sm:p-5">
+              <div className="text-xs text-slate-500 dark:text-slate-400">Training Sessions</div>
+              <div className="mt-1 text-sm sm:text-base font-bold text-slate-900 dark:text-white truncate">
+                {siteContent.trainingSchedule}
+              </div>
+            </div>
+            <div className="p-4 sm:p-5 flex items-center justify-between gap-3">
+              <div>
+                <div className="text-xs text-slate-500 dark:text-slate-400">Member Portal</div>
+                <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
+                  Personal Ledger
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigateToPublicPath('/me')}
+                className="text-xs font-semibold text-blue-700 dark:text-blue-400 hover:underline whitespace-nowrap shrink-0 cursor-pointer"
+              >
+                Sign In (/me)
+              </button>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-6 text-xs font-medium text-slate-600 dark:text-slate-400">
-            <a href="/#news" onClick={e => handleNavSectionClick(e, 'news')} className="hover:text-slate-950 dark:hover:text-white">News</a>
-            <a
-              href="/fixtures"
-              onClick={e => {
-                e.preventDefault();
-                navigateToPublicPath('/fixtures');
-              }}
-              className="hover:text-slate-950 dark:hover:text-white"
-            >
-              Fixtures
-            </a>
-            <a
-              href="/merchandise"
-              onClick={e => {
-                e.preventDefault();
-                navigateToPublicPath('/merchandise');
-              }}
-              className="hover:text-slate-950 dark:hover:text-white"
-            >
-              Merchandise
-            </a>
-            <a
-              href="/me"
-              onClick={e => {
-                e.preventDefault();
-                navigateToPublicPath('/me');
-              }}
-              className="hover:text-slate-950 dark:hover:text-white"
-            >
-              Me (Member Login)
-            </a>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-2 border-t border-slate-100 dark:border-slate-900">
+            <div className="flex items-center gap-3">
+              <img
+                src={clubLogo}
+                onDoubleClick={onNavigateAdmin}
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src = HARDCODED_LOGO_URL;
+                }}
+                alt={clubName}
+                className="w-8 h-8 object-contain rounded-lg border border-slate-200 dark:border-slate-800 p-0.5 bg-white dark:bg-slate-900 select-none"
+              />
+              <div>
+                <div className="text-sm font-bold text-slate-900 dark:text-white">{clubName}</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400">
+                  &copy; {new Date().getFullYear()} {clubName}. All rights reserved.
+                </div>
+              </div>
+            </div>
+
             <button
               type="button"
               onClick={toggleTheme}
-              className="inline-flex items-center gap-1.5 hover:text-slate-950 dark:hover:text-white cursor-pointer"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-950 dark:hover:text-white cursor-pointer"
             >
               {theme === 'dark' ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5" />}
               <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>

@@ -4,11 +4,25 @@ import { api } from '../services/api';
 import {
   DuesStatus,
   Member,
+  MemberGender,
   MemberProfileSubmission,
-  MembershipTier,
+  MemberSchoolPreset,
   MembersDirectoryPayload
 } from '../types';
-import { csvEscapeSafe, parseTreasuryMembersCsv } from '../utils/memberImport';
+import {
+  BWERANYAGYI_SCHOOL,
+  csvEscapeSafe,
+  GENDER_OPTIONS,
+  HOUSE_OPTIONS,
+  isHouseEligibleSchool,
+  normalizeMemberGender,
+  normalizeMemberHouse,
+  normalizeMemberSchool,
+  NTARE_SCHOOL,
+  parseTreasuryMembersCsv,
+  resolveSchoolFormState,
+  SCHOOL_PRESET_OPTIONS
+} from '../utils/memberImport';
 import {
   AlertCircle,
   Check,
@@ -39,11 +53,10 @@ import {
 
 type FilterTab = 'ALL' | 'PENDING_APPROVALS' | 'INCOMPLETE' | 'MISSING_EMAIL' | 'COMPLETE';
 
-const TIER_OPTIONS: MembershipTier[] = ['Supporter', 'Player', 'Executive', 'Academy', 'Other'];
 const PAGE_SIZE = 25;
 
 export const MembersView: React.FC = () => {
-  const { currentUser, addToast, refreshData, refreshMembers, isLiveBackend } = useApp();
+  const { currentUser, addToast, syncMembersSnapshot, isLiveBackend } = useApp();
   const operatorEmail = currentUser?.email || '';
 
   const [loading, setLoading] = useState(true);
@@ -52,7 +65,6 @@ export const MembersView: React.FC = () => {
   const [filterTab, setFilterTab] = useState<FilterTab>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [duesFilter, setDuesFilter] = useState<'ALL' | DuesStatus>('ALL');
-  const [tierFilter, setTierFilter] = useState<'ALL' | MembershipTier>('ALL');
   const [page, setPage] = useState(1);
 
   // Selection for Merge Duplicates
@@ -63,6 +75,8 @@ export const MembersView: React.FC = () => {
 
   // Add / Edit Member Modal
   const [editingMember, setEditingMember] = useState<Partial<Member> | null>(null);
+  const [schoolChoice, setSchoolChoice] = useState<'' | MemberSchoolPreset>('');
+  const [otherSchool, setOtherSchool] = useState('');
   const [savingMember, setSavingMember] = useState(false);
   const [memberFormError, setMemberFormError] = useState<string | null>(null);
 
@@ -95,10 +109,11 @@ export const MembersView: React.FC = () => {
     setLoading(false);
     if (res.success && res.data) {
       setDirectory(res.data);
+      syncMembersSnapshot(res.data.members);
     } else {
       addToast(res.error || 'Could not load members directory', 'error');
     }
-  }, [operatorEmail, addToast]);
+  }, [operatorEmail, addToast, syncMembersSnapshot]);
 
   useEffect(() => {
     loadDirectory();
@@ -123,15 +138,14 @@ export const MembersView: React.FC = () => {
       if (filterTab === 'MISSING_EMAIL' && m.email) return false;
       if (filterTab === 'COMPLETE' && m.profileStatus !== 'COMPLETE') return false;
       if (duesFilter !== 'ALL' && m.duesStatus !== duesFilter) return false;
-      if (tierFilter !== 'ALL' && m.tier !== tierFilter) return false;
 
       if (q) {
-        const hay = `${m.name} ${m.id || ''} ${m.email} ${m.phone} ${m.address || ''}`.toLowerCase();
+        const hay = `${m.name} ${m.id || ''} ${m.email} ${m.phone} ${m.address || ''} ${m.gender || ''} ${m.school || ''} ${m.house || ''}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [members, filterTab, duesFilter, tierFilter, searchQuery]);
+  }, [members, filterTab, duesFilter, searchQuery]);
 
   const totalPages = Math.max(1, Math.ceil(filteredMembers.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -142,7 +156,7 @@ export const MembersView: React.FC = () => {
 
   useEffect(() => {
     setPage(1);
-  }, [filterTab, duesFilter, tierFilter, searchQuery]);
+  }, [filterTab, duesFilter, searchQuery]);
 
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]));
@@ -151,14 +165,26 @@ export const MembersView: React.FC = () => {
   const openEditModal = (m?: Member) => {
     setMemberFormError(null);
     if (m) {
-      setEditingMember({ ...m });
+      const resolvedSchool = resolveSchoolFormState(m.school);
+      setSchoolChoice(resolvedSchool.schoolChoice);
+      setOtherSchool(resolvedSchool.otherSchool);
+      setEditingMember({
+        ...m,
+        gender: normalizeMemberGender(m.gender),
+        school: normalizeMemberSchool(m.school),
+        house: normalizeMemberHouse(m.house, m.school)
+      });
     } else {
+      setSchoolChoice('');
+      setOtherSchool('');
       setEditingMember({
         name: '',
         email: '',
         phone: '',
         address: '',
-        tier: 'Supporter',
+        gender: '',
+        school: '',
+        house: '',
         expectedTargetUgx: 100000
       });
     }
@@ -168,22 +194,42 @@ export const MembersView: React.FC = () => {
     e.preventDefault();
     if (!editingMember || !operatorEmail) return;
     setMemberFormError(null);
+
+    if (schoolChoice === 'Other' && !otherSchool.trim()) {
+      setMemberFormError('Please enter the name of the school.');
+      return;
+    }
+
+    const resolvedSchool = schoolChoice ? normalizeMemberSchool(schoolChoice, otherSchool) : '';
+    const resolvedGender = normalizeMemberGender(editingMember.gender);
+    const resolvedHouse = isHouseEligibleSchool(schoolChoice)
+      ? normalizeMemberHouse(editingMember.house, resolvedSchool)
+      : '';
+
     setSavingMember(true);
     const res = await api.saveDirectoryMember(
       {
         ...editingMember,
-        name: String(editingMember.name || '').trim()
+        name: String(editingMember.name || '').trim(),
+        gender: resolvedGender,
+        school: resolvedSchool,
+        house: resolvedHouse
       },
       operatorEmail
     );
     setSavingMember(false);
 
     if (res.success) {
-      addToast(`Saved profile for ${res.data?.name || editingMember.name}`, 'success');
+      if (isLiveBackend && res.sheetsSynced === false) {
+        addToast(
+          `Saved ${res.data?.name || editingMember.name} locally, but Google Sheets sync failed: ${res.sheetsError || 'Check Web App deployment'}`,
+          'info'
+        );
+      } else {
+        addToast(`Saved profile for ${res.data?.name || editingMember.name}`, 'success');
+      }
       setEditingMember(null);
       await loadDirectory();
-      await refreshMembers();
-      await refreshData();
     } else {
       setMemberFormError(res.error || 'Could not save member details.');
     }
@@ -211,13 +257,18 @@ export const MembersView: React.FC = () => {
     setImportingCsv(false);
 
     if (res.success) {
-      addToast(res.message || 'CSV imported successfully!', 'success');
+      if (isLiveBackend && res.sheetsSynced === false) {
+        addToast(
+          `${res.message || 'CSV imported'}, but Google Sheets sync reported: ${res.sheetsError || 'Check Web App deployment'}`,
+          'info'
+        );
+      } else {
+        addToast(res.message || 'CSV imported successfully!', 'success');
+      }
       setShowImportModal(false);
       setCsvRawText('');
       setCsvFileName('');
       await loadDirectory();
-      await refreshMembers();
-      await refreshData();
     } else {
       addToast(res.error || 'CSV import failed.', 'error');
     }
@@ -263,7 +314,7 @@ export const MembersView: React.FC = () => {
     const msg =
       `Hello ${claimLinkModal.memberName},\n` +
       `Thank you for your SC Basimbuzi Mission NLL Season XVII contribution (${claimLinkModal.totalPaid.toLocaleString()} UGX recorded).\n\n` +
-      `Please use this personal link to confirm your name and fill in your Email, Phone, Address & Tier so you can access your /me member portal anytime:\n` +
+      `Please use this personal link to confirm your name and fill in your Email, Phone, Address, Gender, School & House so you can access your /me member portal anytime:\n` +
       `${claimLinkModal.url}`;
     const cleanDigits = claimLinkModal.phone.replace(/\D/g, '');
     const waTarget = cleanDigits.length >= 9 ? `https://wa.me/${cleanDigits}?text=${encodeURIComponent(msg)}` : `https://wa.me/?text=${encodeURIComponent(msg)}`;
@@ -277,10 +328,15 @@ export const MembersView: React.FC = () => {
     setReviewingId(null);
 
     if (res.success) {
-      addToast(res.message || `Submission ${decision.toLowerCase()}d`, 'success');
+      if (isLiveBackend && res.sheetsSynced === false) {
+        addToast(
+          `${res.message || `Submission ${decision.toLowerCase()}d`}, but Google Sheets sync reported: ${res.sheetsError || 'Check Web App deployment'}`,
+          'info'
+        );
+      } else {
+        addToast(res.message || `Submission ${decision.toLowerCase()}d`, 'success');
+      }
       await loadDirectory();
-      await refreshMembers();
-      await refreshData();
     } else {
       addToast(res.error || 'Review action failed', 'error');
     }
@@ -301,12 +357,17 @@ export const MembersView: React.FC = () => {
     setMerging(false);
 
     if (res.success) {
-      addToast(res.message || 'Duplicate records merged', 'success');
+      if (isLiveBackend && res.sheetsSynced === false) {
+        addToast(
+          `${res.message || 'Duplicate records merged'}, but Google Sheets sync reported: ${res.sheetsError || 'Check Web App deployment'}`,
+          'info'
+        );
+      } else {
+        addToast(res.message || 'Duplicate records merged', 'success');
+      }
       setShowMergeModal(false);
       setSelectedIds([]);
       await loadDirectory();
-      await refreshMembers();
-      await refreshData();
     } else {
       addToast(res.error || 'Merge failed', 'error');
     }
@@ -319,7 +380,9 @@ export const MembersView: React.FC = () => {
       'Email',
       'Phone',
       'Physical Address',
-      'Tier',
+      'Gender',
+      'School',
+      'House',
       'Pre-NLL Paid (UGX)',
       'Spot Paid (UGX)',
       'Paid After (UGX)',
@@ -337,7 +400,9 @@ export const MembersView: React.FC = () => {
           m.email || '',
           m.phone || '',
           m.address || '',
-          m.tier || 'Supporter',
+          m.gender || '',
+          m.school || '',
+          m.house || '',
           m.preNllPaid || 0,
           m.spotPaid || 0,
           m.paidAfter || 0,
@@ -393,10 +458,15 @@ export const MembersView: React.FC = () => {
     const res = await api.reconcileMembersLedger(operatorEmail);
     setReconciling(false);
     if (res.success) {
-      addToast(res.message || 'Ledger cleaned & reconciled without double-counting.', 'success');
+      if (isLiveBackend && res.sheetsSynced === false) {
+        addToast(
+          `${res.message || 'Ledger cleaned & reconciled'}, but Google Sheets sync reported: ${res.sheetsError || 'Check Web App deployment'}`,
+          'info'
+        );
+      } else {
+        addToast(res.message || 'Ledger cleaned & reconciled without double-counting.', 'success');
+      }
       await loadDirectory();
-      await refreshMembers();
-      await refreshData();
     } else {
       addToast(res.error || 'Could not reconcile ledger.', 'error');
     }
@@ -418,7 +488,7 @@ export const MembersView: React.FC = () => {
             Members Directory
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-            All historical NLL contributions & live receipts unified in one directory. Invite members via secure self-update links to fill missing Emails, Phones, Addresses & Tiers.
+            All historical NLL contributions & live receipts unified in one directory. Invite members via secure self-update links to fill missing Emails, Phones, Addresses, Gender &amp; School details.
           </p>
         </div>
 
@@ -546,23 +616,7 @@ export const MembersView: React.FC = () => {
         </button>
       </div>
 
-      {/* Reconciled Ledger Summary Notice (Zero Double-Counting & Staff Emails Scrubbed) */}
-      {reconciliation && (
-        <div className="p-4 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/70 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
-          <div className="flex items-start gap-2.5">
-            <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-            <div className="space-y-0.5 text-emerald-950 dark:text-emerald-200">
-              <div className="font-bold">
-                Reconciled Treasury Active — Zero Double-Counting &amp; Clean Member Emails
-              </div>
-              <p className="text-[11px] text-emerald-800 dark:text-emerald-300">
-                Historical CSV (<strong>{(summary?.historicalTotalSum ?? 0).toLocaleString()} UGX</strong>) + Unrecorded Live Receipts ({reconciliation.unrecordedLiveCount} receipts · <strong>+{Math.max(0, (summary?.combinedTotalSum ?? 0) - (summary?.historicalTotalSum ?? 0)).toLocaleString()} UGX</strong>, incl. Atukunda Blessed Pearl) = <strong>{(summary?.combinedTotalSum ?? 0).toLocaleString()} UGX</strong>.
-                {' '}Deduplicated <strong>{reconciliation.coveredReceiptCount}</strong> pre-CSV live receipts ({reconciliation.coveredAmountUgx.toLocaleString()} UGX), recovered <strong>{reconciliation.realEmailsRecovered}</strong> personal member emails, and stripped all staff emails from unrelated members.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
+      
 
       {/* Filter Tabs + Search */}
       <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-4">
@@ -605,29 +659,15 @@ export const MembersView: React.FC = () => {
 
         {filterTab !== 'PENDING_APPROVALS' && (
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-            <div className="md:col-span-6 relative">
+            <div className="md:col-span-9 relative">
               <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search by name, phone, email, address, or member ID..."
+                placeholder="Search by name, phone, email, school, house, address, or member ID..."
                 className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-600"
               />
-            </div>
-            <div className="md:col-span-3">
-              <select
-                value={tierFilter}
-                onChange={e => setTierFilter(e.target.value as 'ALL' | MembershipTier)}
-                className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-600"
-              >
-                <option value="ALL">All Tiers</option>
-                {TIER_OPTIONS.map(t => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
             </div>
             <div className="md:col-span-3">
               <select
@@ -692,14 +732,19 @@ export const MembersView: React.FC = () => {
                         <span className="font-bold text-blue-700 dark:text-blue-400 break-all">{sub.submittedEmail}</span>
                       </div>
                       <div>
-                        <span className="text-slate-400 block">Phone & Tier</span>
+                        <span className="text-slate-400 block">Phone &amp; Gender</span>
                         <span className="font-semibold text-slate-900 dark:text-white">
-                          {sub.submittedPhone} · {sub.submittedTier}
+                          {sub.submittedPhone}
+                          {sub.submittedGender ? ` · ${sub.submittedGender}` : ''}
                         </span>
                       </div>
                       <div>
-                        <span className="text-slate-400 block">Physical Address</span>
-                        <span className="font-semibold text-slate-900 dark:text-white">{sub.submittedAddress}</span>
+                        <span className="text-slate-400 block">Address, School &amp; House</span>
+                        <span className="font-semibold text-slate-900 dark:text-white">
+                          {sub.submittedAddress}
+                          {sub.submittedSchool ? ` · ${sub.submittedSchool}` : ''}
+                          {sub.submittedHouse ? ` (${sub.submittedHouse})` : ''}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -751,8 +796,8 @@ export const MembersView: React.FC = () => {
                 <thead>
                   <tr className="bg-slate-50 dark:bg-slate-800/70 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                     <th className="py-3.5 pl-4 pr-2 w-10">Select</th>
-                    <th className="py-3.5 px-3">Member & Tier</th>
-                    <th className="py-3.5 px-3">Contact & Address</th>
+                    <th className="py-3.5 px-3">Member &amp; School Profile</th>
+                    <th className="py-3.5 px-3">Contact &amp; Address</th>
                     <th className="py-3.5 px-3 text-right">Pre-NLL / Spot / After</th>
                     <th className="py-3.5 px-3 text-right">Total Paid & Status</th>
                     <th className="py-3.5 pl-3 pr-4 text-right">Actions</th>
@@ -780,9 +825,17 @@ export const MembersView: React.FC = () => {
                           <div className="font-bold text-sm text-slate-900 dark:text-white">{member.name}</div>
                           <div className="flex flex-wrap items-center gap-1.5 mt-1">
                             <span className="font-mono text-[10px] text-slate-400">{member.id}</span>
-                            <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[10px] font-semibold">
-                              {member.tier || 'Supporter'}
-                            </span>
+                            {member.gender && (
+                              <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[10px] font-semibold">
+                                {member.gender}
+                              </span>
+                            )}
+                            {member.school && (
+                              <span className="px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 text-[10px] font-semibold">
+                                {member.school}
+                                {member.house ? ` · ${member.house}` : ''}
+                              </span>
+                            )}
                             <span
                               className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
                                 member.profileStatus === 'COMPLETE'
@@ -832,7 +885,7 @@ export const MembersView: React.FC = () => {
                         </td>
 
                         <td className="py-3.5 px-3 align-top text-right">
-                          <div className="font-mono text-sm font-extrabold text-slate-900 dark:text-white tabular-nums">
+                          <div className="font-sans text-sm font-extrabold text-slate-900 dark:text-white tabular-nums">
                             {total.toLocaleString()} UGX
                           </div>
                           <div className="mt-1 flex items-center justify-end gap-1.5">
@@ -989,30 +1042,92 @@ export const MembersView: React.FC = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Membership Tier</label>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Gender</label>
                   <select
-                    value={editingMember.tier || 'Supporter'}
-                    onChange={e => setEditingMember({ ...editingMember, tier: e.target.value as MembershipTier })}
+                    value={editingMember.gender || ''}
+                    onChange={e => setEditingMember({ ...editingMember, gender: e.target.value as MemberGender | '' })}
                     className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
                   >
-                    {TIER_OPTIONS.map(t => (
-                      <option key={t} value={t}>
-                        {t}
+                    <option value="">Select gender...</option>
+                    {GENDER_OPTIONS.map(g => (
+                      <option key={g} value={g}>
+                        {g}
                       </option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Season Target (UGX)</label>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">School</label>
+                  <select
+                    value={schoolChoice}
+                    onChange={e => {
+                      const nextSchool = e.target.value as '' | MemberSchoolPreset;
+                      setSchoolChoice(nextSchool);
+                      if (nextSchool !== 'Other') {
+                        setOtherSchool('');
+                      }
+                      if (!isHouseEligibleSchool(nextSchool)) {
+                        setEditingMember(prev => (prev ? { ...prev, house: '' } : prev));
+                      }
+                    }}
+                    className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                  >
+                    <option value="">Select school...</option>
+                    {SCHOOL_PRESET_OPTIONS.map(opt => (
+                      <option key={opt} value={opt}>
+                        {opt}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {schoolChoice === 'Other' && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Name of School *
+                  </label>
                   <input
-                    type="number"
-                    min={0}
-                    step={1000}
-                    value={editingMember.expectedTargetUgx ?? 100000}
-                    onChange={e => setEditingMember({ ...editingMember, expectedTargetUgx: Number(e.target.value) || 0 })}
-                    className="w-full px-3.5 py-2.5 text-sm font-mono rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                    type="text"
+                    required
+                    value={otherSchool}
+                    onChange={e => setOtherSchool(e.target.value)}
+                    placeholder="Enter the name of the school"
+                    className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
                   />
                 </div>
+              )}
+
+              {(schoolChoice === NTARE_SCHOOL || schoolChoice === BWERANYAGYI_SCHOOL) && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    House ({schoolChoice})
+                  </label>
+                  <select
+                    value={editingMember.house || ''}
+                    onChange={e => setEditingMember({ ...editingMember, house: e.target.value })}
+                    className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                  >
+                    <option value="">Select house...</option>
+                    {HOUSE_OPTIONS.map(h => (
+                      <option key={h} value={h}>
+                        {h}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Season Target (UGX)</label>
+                <input
+                  type="number"
+                  min={0}
+                  step={1000}
+                  value={editingMember.expectedTargetUgx ?? 100000}
+                  onChange={e => setEditingMember({ ...editingMember, expectedTargetUgx: Number(e.target.value) || 0 })}
+                  className="w-full px-3.5 py-2.5 text-sm font-mono rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                />
               </div>
 
               <div className="pt-2 flex items-center justify-end gap-3">
@@ -1061,7 +1176,7 @@ export const MembersView: React.FC = () => {
                   Idempotent Smart Merge (Zero Double-Counting)
                 </div>
                 <p className="text-blue-800/90 dark:text-blue-300 leading-relaxed">
-                  Re-importing updates payment totals safely without duplicating members or erasing cleaned Emails, Phones, Addresses, or Tiers you or your members have added.
+                  Re-importing updates payment totals safely without duplicating members or erasing cleaned Emails, Phones, Addresses, Gender, or School details you or your members have added.
                 </p>
                 <button
                   type="button"
@@ -1154,7 +1269,7 @@ export const MembersView: React.FC = () => {
 
             <div className="p-6 space-y-4 text-xs">
               <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
-                Send this private 7-day single-use link to <strong>{claimLinkModal.memberName}</strong>. It shows their recorded Mission NLL contributions ({claimLinkModal.totalPaid.toLocaleString()} UGX) read-only and lets them submit their Full Name, Email, Phone, Address & Tier for your confirmation.
+                Send this private 7-day single-use link to <strong>{claimLinkModal.memberName}</strong>. It shows their recorded Mission NLL contributions ({claimLinkModal.totalPaid.toLocaleString()} UGX) read-only and lets them submit their Full Name, Email, Phone, Address, Gender &amp; School details for your confirmation.
               </p>
 
               <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono text-[11px] break-all text-slate-800 dark:text-slate-200 select-all">

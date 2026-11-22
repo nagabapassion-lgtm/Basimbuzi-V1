@@ -1,4 +1,4 @@
-import { Member, MemberClaimInfo, MemberPaymentSummary, MembershipTier, PublicSiteContent, SupporterInquiry } from '../types';
+import { Member, MemberClaimInfo, MemberGender, MemberPaymentSummary, PublicSiteContent, SupporterInquiry } from '../types';
 
 export interface PublicOrgProfile {
   organizationName: string;
@@ -356,7 +356,9 @@ export const publicSiteService = {
       email: string;
       phone: string;
       address: string;
-      tier: MembershipTier;
+      gender?: MemberGender | '';
+      school?: string;
+      house?: string;
     }
   ): Promise<{ success: boolean; message?: string; error?: string }> {
     try {
@@ -380,7 +382,9 @@ export const publicSiteService = {
       fullName: string;
       phone: string;
       address: string;
-      tier: MembershipTier;
+      gender?: MemberGender | '';
+      school?: string;
+      house?: string;
     }
   ): Promise<{ success: boolean; message?: string; data?: Member; error?: string; unauthorized?: boolean }> {
     try {

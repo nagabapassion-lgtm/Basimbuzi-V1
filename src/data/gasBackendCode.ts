@@ -182,24 +182,85 @@ function createJsonResponse(data) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
+function getCacheVersion() {
+  try {
+    return PropertiesService.getScriptProperties().getProperty("SCB_CACHE_VERSION") || "1";
+  } catch (e) {
+    return "1";
+  }
+}
+
+/**
+ * Chunked CacheService helpers (bypasses Apps Script 100KB per-key cache limit)
+ */
+var GAS_CACHE_CHUNK_SIZE = 60000;
+
+function putChunkedCache(key, strVal, ttlSec) {
+  try {
+    var cache = CacheService.getScriptCache();
+    if (!cache || !strVal) return;
+    var ttl = ttlSec || 300;
+    if (strVal.length <= GAS_CACHE_CHUNK_SIZE) {
+      cache.put(key, strVal, ttl);
+      return;
+    }
+    var chunks = Math.ceil(strVal.length / GAS_CACHE_CHUNK_SIZE);
+    if (chunks > 20) return;
+    var batch = {};
+    batch[key] = JSON.stringify({ _chunked: chunks });
+    for (var i = 0; i < chunks; i++) {
+      batch[key + "_p" + i] = strVal.slice(i * GAS_CACHE_CHUNK_SIZE, (i + 1) * GAS_CACHE_CHUNK_SIZE);
+    }
+    cache.putAll(batch, ttl);
+  } catch (e) {
+    Logger.log("putChunkedCache notice: " + e.toString());
+  }
+}
+
+function getChunkedCache(key) {
+  try {
+    var cache = CacheService.getScriptCache();
+    if (!cache) return null;
+    var raw = cache.get(key);
+    if (!raw) return null;
+    if (raw.indexOf('{"_chunked":') !== 0) {
+      return raw;
+    }
+    var meta = JSON.parse(raw);
+    if (!meta || !meta._chunked) return null;
+    var partKeys = [];
+    for (var i = 0; i < meta._chunked; i++) {
+      partKeys.push(key + "_p" + i);
+    }
+    var parts = cache.getAll(partKeys);
+    var combined = "";
+    for (var j = 0; j < partKeys.length; j++) {
+      if (!parts[partKeys[j]]) return null;
+      combined += parts[partKeys[j]];
+    }
+    return combined;
+  } catch (e) {
+    return null;
+  }
+}
+
 /**
  * Clear backend cache when records or settings are updated
  */
 function clearBackendCache() {
   try {
+    var props = PropertiesService.getScriptProperties();
+    var prevVer = Number(props.getProperty("SCB_CACHE_VERSION") || "0");
+    if (isNaN(prevVer)) prevVer = 0;
+    var nextVer = String(Math.max(new Date().getTime(), prevVer + 1));
+    try {
+      props.setProperty("SCB_CACHE_VERSION", nextVer);
+    } catch (propErr) {
+      Logger.log("Cache version bump warning: " + propErr.toString());
+    }
     var cache = CacheService.getScriptCache();
     if (cache) {
-      cache.remove(CACHE_KEY_USERS);
-      cache.remove(CACHE_KEY_PAYERS);
       cache.removeAll([
-        "initial_data_bundle_v3_OWNER_200",
-        "initial_data_bundle_v3_ADMIN_200",
-        "initial_data_bundle_v3_STAFF_200",
-        "initial_data_bundle_v3_VIEWER_200",
-        "initial_data_bundle_v3_OWNER_0",
-        "initial_data_bundle_v3_ADMIN_0",
-        "initial_data_bundle_v3_STAFF_0",
-        "initial_data_bundle_v3_VIEWER_0",
         CACHE_KEY_USERS,
         CACHE_KEY_PAYERS,
         "sc_members_directory_v2"
@@ -321,7 +382,9 @@ var LegacyMasterSpreadsheetSink = {
 
     try {
       var legacySs = SpreadsheetApp.openById(legacyId);
-      var masterSheet = legacySs.getSheetByName("Master Transactions") || 
+      var preferredSheetName = (context.settings && context.settings.legacySheetName) ? String(context.settings.legacySheetName).trim() : "";
+      var masterSheet = (preferredSheetName ? legacySs.getSheetByName(preferredSheetName) : null) ||
+                        legacySs.getSheetByName("Master Transactions") || 
                         legacySs.getSheetByName("Transactions") || 
                         legacySs.getSheets()[0];
       
@@ -390,6 +453,15 @@ function doPost(e) {
 /**
  * 1. AUTHORIZATION LOGIC
  */
+function parsePermissionsGas(rawVal) {
+  if (!rawVal) return null;
+  try {
+    var parsed = JSON.parse(String(rawVal));
+    if (parsed && typeof parsed === "object") return parsed;
+  } catch (e) {}
+  return null;
+}
+
 function checkUserAuth(email) {
   if (!email) {
     return { success: false, authorized: false, error: "Email is required for authorization check" };
@@ -413,22 +485,25 @@ function checkUserAuth(email) {
     var role = (data[i][2] || "").toString().trim().toUpperCase();
     var name = (data[i][0] || "").toString().trim();
     var createdAt = (data[i][4] || "").toString();
+    var perms = parsePermissionsGas(data[i][6]);
 
     if (rowEmail === cleanEmail) {
       if (cleanEmail === "nagabapassion@gmail.com") {
         role = "OWNER";
       }
       if (status === "ACTIVE") {
+        var userObj = {
+          name: name || (cleanEmail === "nagabapassion@gmail.com" ? "Nagaba Passion" : "Authorized Staff"),
+          email: cleanEmail,
+          role: role || (cleanEmail === "nagabapassion@gmail.com" ? "OWNER" : "ADMIN"),
+          status: status,
+          createdAt: createdAt
+        };
+        if (perms) userObj.permissions = perms;
         return {
           success: true,
           authorized: true,
-          user: {
-            name: name || (cleanEmail === "nagabapassion@gmail.com" ? "Nagaba Passion" : "Authorized Staff"),
-            email: cleanEmail,
-            role: role || (cleanEmail === "nagabapassion@gmail.com" ? "OWNER" : "ADMIN"),
-            status: status,
-            createdAt: createdAt
-          }
+          user: userObj
         };
       } else {
         return {
@@ -448,7 +523,7 @@ function checkUserAuth(email) {
 
   if (cleanEmail === "nagabapassion@gmail.com" || (effectiveEmail && cleanEmail === effectiveEmail)) {
     var nowIso = new Date().toISOString();
-    userSheet.appendRow(["Nagaba Passion", cleanEmail, "OWNER", "ACTIVE", nowIso, "Passion@2026"]);
+    userSheet.appendRow(["Nagaba Passion", cleanEmail, "OWNER", "ACTIVE", nowIso, "Passion@2026", ""]);
     clearBackendCache();
     return {
       success: true,
@@ -513,17 +588,20 @@ function handleVerifyUserPassword(email, enteredPassword) {
       }
 
       if (storedPassword && storedPassword === cleanPassword) {
+        var perms = parsePermissionsGas(data[i][6]);
+        var verifiedUser = {
+          name: String(data[i][0] || cleanEmail.split("@")[0]),
+          email: cleanEmail,
+          role: String(data[i][2] || (cleanEmail === "nagabapassion@gmail.com" ? "OWNER" : "ADMIN")).toUpperCase(),
+          status: status,
+          password: storedPassword,
+          createdAt: String(data[i][4] || new Date().toISOString())
+        };
+        if (perms) verifiedUser.permissions = perms;
         return {
           success: true,
           authorized: true,
-          user: {
-            name: String(data[i][0] || cleanEmail.split("@")[0]),
-            email: cleanEmail,
-            role: String(data[i][2] || (cleanEmail === "nagabapassion@gmail.com" ? "OWNER" : "ADMIN")),
-            status: status,
-            password: storedPassword,
-            createdAt: String(data[i][4] || new Date().toISOString())
-          }
+          user: verifiedUser
         };
       } else {
         return {
@@ -538,7 +616,7 @@ function handleVerifyUserPassword(email, enteredPassword) {
   // Auto-provision owner if clean spreadsheet
   if (cleanEmail === "nagabapassion@gmail.com" && cleanPassword === "Passion@2026") {
     var ownerIso = new Date().toISOString();
-    userSheet.appendRow(["Nagaba Passion", cleanEmail, "OWNER", "ACTIVE", ownerIso, "Passion@2026"]);
+    userSheet.appendRow(["Nagaba Passion", cleanEmail, "OWNER", "ACTIVE", ownerIso, "Passion@2026", ""]);
     clearBackendCache();
     return {
       success: true,
@@ -564,9 +642,20 @@ function handleVerifyUserPassword(email, enteredPassword) {
 /**
  * Helper: Verify if operator is valid and active
  */
-function verifyOperator(email, requiredRole) {
+function verifyOperator(email, requiredRole, requiredPermission) {
   var cleanEmail = (email || "").trim().toLowerCase();
-  if (!cleanEmail || cleanEmail === "nagabapassion@gmail.com") {
+  if (cleanEmail === "nagabapassion@gmail.com") {
+    return {
+      name: "Nagaba Passion",
+      email: "nagabapassion@gmail.com",
+      role: "OWNER",
+      status: "ACTIVE"
+    };
+  }
+  if (!cleanEmail) {
+    if (requiredRole || requiredPermission) {
+      throw new Error("Permission denied. Operator email is required for this operation.");
+    }
     return {
       name: "Nagaba Passion",
       email: "nagabapassion@gmail.com",
@@ -579,7 +668,18 @@ function verifyOperator(email, requiredRole) {
   if (!auth.authorized || !auth.user) {
     throw new Error("Unauthorized access. User " + cleanEmail + " is not active in the system.");
   }
-  if (requiredRole === "OWNER" && auth.user.role !== "OWNER") {
+  if (auth.user.role === "OWNER") {
+    return auth.user;
+  }
+  if (requiredPermission) {
+    if (auth.user.permissions && auth.user.permissions[requiredPermission] === true) {
+      return auth.user;
+    }
+    if (auth.user.permissions && auth.user.permissions[requiredPermission] === false) {
+      throw new Error("Permission denied. Your account does not have " + requiredPermission + " privilege.");
+    }
+  }
+  if (requiredRole === "OWNER") {
     throw new Error("Permission denied. This action requires Owner privileges.");
   }
   return auth.user;
@@ -594,33 +694,33 @@ function getInitialAppData(email, limit) {
     return { success: false, authorized: false, error: auth.error };
   }
 
-  var maxRows = (limit && Number(limit) > 0) ? Number(limit) : 200;
+  var cleanEmail = String(email || "").trim().toLowerCase();
+  var maxRows = (limit && Number(limit) > 0) ? Number(limit) : 0;
   var role = auth.user.role || "ADMIN";
-  var cacheKey = "initial_data_bundle_v3_" + role + "_" + maxRows;
+  var cacheKey = "initial_data_bundle_v5_" + getCacheVersion() + "_" + cleanEmail + "_" + maxRows;
 
-  try {
-    var cache = CacheService.getScriptCache();
-    if (cache) {
-      var cachedJson = cache.get(cacheKey);
-      if (cachedJson) {
-        return {
-          success: true,
-          authorized: true,
-          cached: true,
-          user: auth.user,
-          data: JSON.parse(cachedJson)
-        };
-      }
-    }
-  } catch (cacheGetErr) {
-    Logger.log("Cache get notice: " + cacheGetErr.toString());
+  var cachedJson = getChunkedCache(cacheKey);
+  if (cachedJson) {
+    try {
+      return {
+        success: true,
+        authorized: true,
+        cached: true,
+        user: auth.user,
+        data: JSON.parse(cachedJson)
+      };
+    } catch (e) {}
   }
 
   var ss = getSpreadsheet();
   var settings = getAppSettings(ss).data;
   var transactions = getAllTransactions(email, maxRows, ss).data || [];
-  var users = role === "OWNER" ? (getAllUsers(email, ss).data || []) : [auth.user];
-  var auditLogs = role === "OWNER" ? (getAuditLogs(email, 50, ss).data || []) : [];
+  var users = (role === "OWNER" || (auth.user.permissions && auth.user.permissions.canManageUsers))
+    ? (getAllUsers(email, ss).data || [])
+    : [auth.user];
+  var auditLogs = (role === "OWNER" || (auth.user.permissions && auth.user.permissions.canViewAuditLogs))
+    ? (getAuditLogs(email, 50, ss).data || [])
+    : [];
 
   var resultData = {
     settings: settings,
@@ -629,15 +729,7 @@ function getInitialAppData(email, limit) {
     auditLogs: auditLogs
   };
 
-  try {
-    var cache2 = CacheService.getScriptCache();
-    if (cache2) {
-      var payloadStr = JSON.stringify(resultData);
-      if (payloadStr.length < 96000) {
-        cache2.put(cacheKey, payloadStr, 300);
-      }
-    }
-  } catch (cachePutErr) {}
+  putChunkedCache(cacheKey, JSON.stringify(resultData), 300);
 
   return {
     success: true,
@@ -969,6 +1061,7 @@ function handleRecordTransaction(payload, operatorEmail) {
  * Legacy Adapter: delegates directly to open-closed processor
  */
 function handleGenerateReceipt(payload, operatorEmail) {
+  payload = payload || {};
   payload.type = "INFLOW";
   return handleRecordTransaction(payload, operatorEmail);
 }
@@ -993,13 +1086,23 @@ function handleResendReceipt(receiptNumber, operatorEmail) {
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][0]).trim().toUpperCase() === String(receiptNumber).trim().toUpperCase()) {
       targetRow = i + 1;
+      var recNo = String(data[i][0]).trim();
+      var pName = String(data[i][3] || "");
+      var rawEm = String(data[i][5] || "").trim().toLowerCase();
+      var safeEm = isStaffOrPlaceholderEmailGas(rawEm, pName) ? "" : rawEm;
+      var cleanPh = normalizePhoneGas(data[i][4] || "");
+      var rawType = data[i][16] ? String(data[i][16]).trim().toUpperCase() : "";
+      var txType = rawType || (recNo.toUpperCase().indexOf("EXP-") === 0 ? "OUTFLOW" : "INFLOW");
       txData = {
-        receiptNumber: String(data[i][0]),
+        receiptNumber: recNo,
+        type: txType,
         date: formatSheetDate(data[i][1]),
         time: formatSheetTime(data[i][2]),
-        payerName: String(data[i][3]),
-        payerPhone: String(data[i][4] || ""),
-        payerEmail: String(data[i][5]),
+        payerName: pName,
+        phone: cleanPh,
+        payerPhone: cleanPh,
+        email: safeEm,
+        payerEmail: safeEm,
         amount: parseSheetNumber(data[i][6]),
         paymentPurpose: String(data[i][7] || "General Payment"),
         paymentMethod: String(data[i][8] || "Cash"),
@@ -1008,7 +1111,8 @@ function handleResendReceipt(receiptNumber, operatorEmail) {
         generatedBy: String(data[i][11] || operator.name),
         operatorEmail: String(data[i][12] || operatorEmail),
         paymentStatus: String(data[i][13] || "COMPLETED"),
-        emailStatus: String(data[i][14] || "PENDING")
+        emailStatus: safeEm ? String(data[i][14] || "PENDING") : "NOT_PROVIDED",
+        createdAt: String(data[i][15] || "")
       };
       break;
     }
@@ -1030,32 +1134,34 @@ function handleResendReceipt(receiptNumber, operatorEmail) {
       userEmail: operatorEmail,
       action: "RESEND_RECEIPT",
       receiptNumber: receiptNumber,
-      description: "Resent official receipt PDF to " + txData.payerEmail
+      description: "Resent official receipt PDF to " + (txData.email || txData.payerEmail)
     });
 
     clearBackendCache();
 
     return {
       success: true,
-      message: "Receipt successfully resent to " + txData.payerEmail,
+      message: "Receipt successfully resent to " + (txData.email || txData.payerEmail),
       data: txData
     };
   } else {
     var newStatus = emailResult.emailStatus || "FAILED";
     txSheet.getRange(targetRow, 15).setValue(newStatus);
     txData.emailStatus = newStatus;
+    clearBackendCache();
     return {
       success: false,
-      error: emailResult.error || "Failed to resend receipt email."
+      error: emailResult.error || "Failed to resend receipt email.",
+      data: txData
     };
   }
 }
 
 /**
- * 5b. DELETE TRANSACTION (OWNER ONLY)
+ * 5b. DELETE TRANSACTION (OWNER OR AUTHORIZED OPERATOR WITH canDeleteTransactions)
  */
 function handleDeleteTransaction(receiptNumber, operatorEmail) {
-  var operator = verifyOperator(operatorEmail, "OWNER");
+  var operator = verifyOperator(operatorEmail, "ADMIN", "canDeleteTransactions");
 
   if (!receiptNumber) {
     return { success: false, error: "Receipt number is required." };
@@ -1081,7 +1187,7 @@ function handleDeleteTransaction(receiptNumber, operatorEmail) {
         userEmail: operatorEmail,
         action: "DELETE_TRANSACTION",
         receiptNumber: cleanReceipt,
-        description: "Owner deleted receipt " + cleanReceipt + " (Amount: UGX " + Number(amount).toLocaleString() + ", Payer: " + payerName + ")"
+        description: "Deleted receipt " + cleanReceipt + " (Amount: UGX " + Number(amount).toLocaleString() + ", Payer: " + payerName + ")"
       });
 
       clearBackendCache();
@@ -1419,11 +1525,12 @@ function sendReceiptEmail(tx, settings) {
 function getAllUsers(operatorEmail, optionalSs) {
   verifyOperator(operatorEmail);
 
-  // Check CacheService first (~20ms) using isolated user cache key
+  var cacheKeyUsers = CACHE_KEY_USERS + "_" + getCacheVersion();
+  // Check CacheService first (~20ms) using versioned user cache key
   try {
     var cache = CacheService.getScriptCache();
     if (cache) {
-      var cached = cache.get(CACHE_KEY_USERS);
+      var cached = cache.get(cacheKeyUsers);
       if (cached) {
         return { success: true, data: JSON.parse(cached), cached: true };
       }
@@ -1445,14 +1552,17 @@ function getAllUsers(operatorEmail, optionalSs) {
 
   for (var i = 1; i < data.length; i++) {
     if (data[i][1]) {
-      users.push({
+      var userEntry = {
         name: String(data[i][0] || ""),
         email: String(data[i][1] || "").toLowerCase(),
         role: String(data[i][2] || "ADMIN").toUpperCase(),
         status: String(data[i][3] || "ACTIVE").toUpperCase(),
         createdAt: String(data[i][4] || ""),
         password: String(data[i][5] || "")
-      });
+      };
+      var parsedPerms = parsePermissionsGas(data[i][6]);
+      if (parsedPerms) userEntry.permissions = parsedPerms;
+      users.push(userEntry);
     }
   }
 
@@ -1462,7 +1572,7 @@ function getAllUsers(operatorEmail, optionalSs) {
     if (cache2) {
       var payload = JSON.stringify(users);
       if (payload.length < 96000) {
-        cache2.put(CACHE_KEY_USERS, payload, 300);
+        cache2.put(cacheKeyUsers, payload, 300);
       }
     }
   } catch (e) {
@@ -1479,10 +1589,11 @@ function getAllUsers(operatorEmail, optionalSs) {
  * NEVER includes system users/administrators unless they actually paid in the ledger.
  */
 function getMembersList(operatorEmail, optionalSs) {
+  var cacheKeyPayers = CACHE_KEY_PAYERS + "_" + getCacheVersion();
   try {
     var cache = CacheService.getScriptCache();
     if (cache) {
-      var cached = cache.get(CACHE_KEY_PAYERS);
+      var cached = cache.get(cacheKeyPayers);
       if (cached) {
         return { success: true, data: JSON.parse(cached), cached: true };
       }
@@ -1559,7 +1670,7 @@ function getMembersList(operatorEmail, optionalSs) {
     if (cache2) {
       var payloadStr = JSON.stringify(payerList);
       if (payloadStr.length < 96000) {
-        cache2.put(CACHE_KEY_PAYERS, payloadStr, 300);
+        cache2.put(CACHE_KEY_PAYERS + "_" + getCacheVersion(), payloadStr, 300);
       }
     }
   } catch (e) {}
@@ -1573,12 +1684,15 @@ function handleAddUser(newUserData, operatorEmail) {
   }
 
   var cleanOperator = String(operatorEmail || "").trim().toLowerCase();
-  var operator = verifyOperator(cleanOperator);
+  var operator = verifyOperator(cleanOperator, "ADMIN", "canManageUsers");
 
   var targetEmail = String(newUserData.email).trim().toLowerCase();
   var targetName = String(newUserData.name || targetEmail.split('@')[0]).trim();
   var targetRole = String(newUserData.role || "ADMIN").trim().toUpperCase();
   var targetStatus = String(newUserData.status || "ACTIVE").trim().toUpperCase();
+  var targetPermsJson = (newUserData.permissions && typeof newUserData.permissions === "object")
+    ? JSON.stringify(newUserData.permissions)
+    : "";
 
   var ss = getSpreadsheet();
   var userSheet = ss.getSheetByName(SHEET_USERS);
@@ -1604,15 +1718,18 @@ function handleAddUser(newUserData, operatorEmail) {
   if (existingRowIndex > -1) {
     var existingPwd = String(data[existingRowIndex - 1][5] || "");
     var finalPwd = targetPassword || existingPwd;
+    var existingPermsStr = String(data[existingRowIndex - 1][6] || "");
+    var finalPermsStr = targetPermsJson || existingPermsStr;
     var updatedRow = [
       targetName,
       targetEmail,
       targetEmail === "nagabapassion@gmail.com" ? "OWNER" : targetRole,
       targetStatus,
       String(data[existingRowIndex - 1][4] || nowIso),
-      finalPwd
+      finalPwd,
+      finalPermsStr
     ];
-    userSheet.getRange(existingRowIndex, 1, 1, 6).setValues([updatedRow]);
+    userSheet.getRange(existingRowIndex, 1, 1, 7).setValues([updatedRow]);
 
     writeAuditLog({
       user: operator.name || "Operator",
@@ -1623,28 +1740,33 @@ function handleAddUser(newUserData, operatorEmail) {
 
     clearBackendCache();
 
+    var updatedUserData = {
+      name: targetName,
+      email: targetEmail,
+      role: updatedRow[2],
+      status: targetStatus,
+      createdAt: updatedRow[4],
+      password: finalPwd
+    };
+    var parsedUpdPerms = parsePermissionsGas(finalPermsStr);
+    if (parsedUpdPerms) updatedUserData.permissions = parsedUpdPerms;
+
     return { 
       success: true, 
       message: "Staff member " + targetEmail + " was successfully updated in Google Sheets.",
-      data: {
-        name: targetName,
-        email: targetEmail,
-        role: targetRole,
-        status: targetStatus,
-        createdAt: updatedRow[4],
-        password: finalPwd
-      }
+      data: updatedUserData
     };
   }
 
-  // Append new user row
+  // Append new user row (7 columns including Permissions JSON)
   userSheet.appendRow([
     targetName,
     targetEmail,
     targetRole,
     targetStatus,
     nowIso,
-    targetPassword
+    targetPassword,
+    targetPermsJson
   ]);
 
   writeAuditLog({
@@ -1656,22 +1778,27 @@ function handleAddUser(newUserData, operatorEmail) {
 
   clearBackendCache();
 
+  var createdUserData = {
+    name: targetName,
+    email: targetEmail,
+    role: targetRole,
+    status: targetStatus,
+    createdAt: nowIso
+  };
+  if (newUserData.permissions && typeof newUserData.permissions === "object") {
+    createdUserData.permissions = newUserData.permissions;
+  }
+
   return { 
     success: true, 
     message: "Staff member " + targetEmail + " was successfully added to Google Sheets.",
-    data: {
-      name: targetName,
-      email: targetEmail,
-      role: targetRole,
-      status: targetStatus,
-      createdAt: nowIso
-    }
+    data: createdUserData
   };
 }
 
 function handleEditUser(targetEmail, newUserData, operatorEmail) {
   var cleanOperator = String(operatorEmail || "").trim().toLowerCase();
-  var operator = verifyOperator(cleanOperator);
+  var operator = verifyOperator(cleanOperator, "ADMIN", "canManageUsers");
 
   var cleanTargetEmail = String(targetEmail || (newUserData && newUserData.email) || "").trim().toLowerCase();
   if (!cleanTargetEmail) {
@@ -1702,51 +1829,87 @@ function handleEditUser(targetEmail, newUserData, operatorEmail) {
 
   var rowVals = data[targetRow - 1];
   var currentName = rowVals[0];
-  var currentRole = rowVals[2];
-  var currentStatus = rowVals[3];
+  var currentRole = String(rowVals[2] || "ADMIN").toUpperCase();
+  var currentStatus = String(rowVals[3] || "ACTIVE").toUpperCase();
   var currentCreatedAt = rowVals[4];
+  var currentPermsStr = String(rowVals[6] || "");
 
   if (currentRole === "OWNER" && cleanTargetEmail === "nagabapassion@gmail.com") {
-    if (newUserData.role && newUserData.role !== "OWNER") {
+    if (newUserData && newUserData.role && String(newUserData.role).toUpperCase() !== "OWNER") {
       return { success: false, error: "Cannot modify the primary Owner account role." };
     }
   }
 
-  var newName = newUserData.name ? String(newUserData.name).trim() : currentName;
-  var newRole = (newUserData.role && cleanTargetEmail !== "nagabapassion@gmail.com") 
+  var finalEmail = cleanTargetEmail;
+  if (newUserData && newUserData.email) {
+    var requestedEmail = String(newUserData.email).trim().toLowerCase();
+    if (requestedEmail && requestedEmail !== cleanTargetEmail) {
+      if (cleanTargetEmail === "nagabapassion@gmail.com") {
+        return { success: false, error: "Cannot change the primary Owner email address." };
+      }
+      for (var c = 1; c < data.length; c++) {
+        if ((c + 1) !== targetRow && String(data[c][1] || "").trim().toLowerCase() === requestedEmail) {
+          return { success: false, error: "Another user is already registered with email: " + requestedEmail };
+        }
+      }
+      finalEmail = requestedEmail;
+    }
+  }
+
+  var newName = (newUserData && newUserData.name) ? String(newUserData.name).trim() : currentName;
+  var newRole = (newUserData && newUserData.role && finalEmail !== "nagabapassion@gmail.com") 
     ? String(newUserData.role).toUpperCase() 
     : currentRole;
-  var newStatus = newUserData.status ? String(newUserData.status).toUpperCase() : currentStatus;
+  var newStatus = (newUserData && newUserData.status) ? String(newUserData.status).toUpperCase() : currentStatus;
   var existingPwd = String(rowVals[5] || "");
   var updatedPwd = (newUserData && newUserData.password && String(newUserData.password).trim() !== "")
     ? String(newUserData.password).trim()
     : existingPwd;
+  var updatedPermsStr = (newUserData && newUserData.permissions && typeof newUserData.permissions === "object")
+    ? JSON.stringify(newUserData.permissions)
+    : currentPermsStr;
 
-  // BATCH ROW UPDATE: Write the entire row in 1 single call
-  userSheet.getRange(targetRow, 1, 1, 6).setValues([[
+  // BATCH ROW UPDATE: Write all 7 columns in 1 single call
+  userSheet.getRange(targetRow, 1, 1, 7).setValues([[
     newName,
-    cleanTargetEmail,
+    finalEmail,
     newRole,
     newStatus,
     currentCreatedAt,
-    updatedPwd
+    updatedPwd,
+    updatedPermsStr
   ]]);
 
   writeAuditLog({
     user: operator.name || "Operator",
     userEmail: cleanOperator,
     action: "EDIT_USER",
-    description: "Updated account for: " + cleanTargetEmail
+    description: "Updated account for: " + finalEmail
   });
 
   clearBackendCache();
 
-  return { success: true, message: "User " + cleanTargetEmail + " updated successfully in Google Sheets." };
+  var resultUser = {
+    name: String(newName),
+    email: finalEmail,
+    role: newRole,
+    status: newStatus,
+    createdAt: String(currentCreatedAt),
+    password: updatedPwd
+  };
+  var parsedResultPerms = parsePermissionsGas(updatedPermsStr);
+  if (parsedResultPerms) resultUser.permissions = parsedResultPerms;
+
+  return {
+    success: true,
+    data: resultUser,
+    message: "User " + finalEmail + " updated successfully in Google Sheets."
+  };
 }
 
 function handleUpdateUserStatus(targetEmail, newStatus, operatorEmail) {
   var cleanOperator = String(operatorEmail || "").trim().toLowerCase();
-  var operator = verifyOperator(cleanOperator);
+  var operator = verifyOperator(cleanOperator, "ADMIN", "canManageUsers");
   var cleanTargetEmail = String(targetEmail).trim().toLowerCase();
   var statusUpper = String(newStatus).trim().toUpperCase();
 
@@ -1789,7 +1952,7 @@ function handleUpdateUserStatus(targetEmail, newStatus, operatorEmail) {
 
 function handleRemoveUser(targetEmail, operatorEmail) {
   var cleanOperator = String(operatorEmail || "").trim().toLowerCase();
-  var operator = verifyOperator(cleanOperator);
+  var operator = verifyOperator(cleanOperator, "ADMIN", "canManageUsers");
   var cleanTargetEmail = String(targetEmail).trim().toLowerCase();
 
   var ss = getSpreadsheet();
@@ -1833,7 +1996,7 @@ function handleRemoveUser(targetEmail, operatorEmail) {
  */
 function handleSyncUsers(usersList, operatorEmail) {
   var cleanOperator = String(operatorEmail || "").trim().toLowerCase();
-  var operator = verifyOperator(cleanOperator);
+  var operator = verifyOperator(cleanOperator, "ADMIN", "canManageUsers");
 
   if (!usersList || !usersList.length) {
     return { success: false, error: "No users provided for synchronization." };
@@ -1846,8 +2009,18 @@ function handleSyncUsers(usersList, operatorEmail) {
     userSheet = ss.getSheetByName(SHEET_USERS);
   }
 
-  // Step 1: Read entire sheet in ONE batch call
+  // Step 1: Read entire sheet in ONE batch call & normalize 7-column width
   var sheetData = userSheet.getDataRange().getValues();
+  if (sheetData.length > 0) {
+    if (sheetData[0].length > 7) sheetData[0] = sheetData[0].slice(0, 7);
+    while (sheetData[0].length < 7) sheetData[0].push("");
+    if (!sheetData[0][6]) sheetData[0][6] = "Permissions";
+  }
+  for (var r = 1; r < sheetData.length; r++) {
+    if (sheetData[r].length > 7) sheetData[r] = sheetData[r].slice(0, 7);
+    while (sheetData[r].length < 7) sheetData[r].push("");
+  }
+
   var existingMap = {};
   for (var i = 1; i < sheetData.length; i++) {
     var email = (sheetData[i][1] || "").toString().trim().toLowerCase();
@@ -1869,21 +2042,26 @@ function handleSyncUsers(usersList, operatorEmail) {
     var targetName = String(u.name || targetEmail.split('@')[0]).trim();
     var targetRole = String(u.role || (targetEmail === "nagabapassion@gmail.com" ? "OWNER" : "ADMIN")).toUpperCase();
     var targetStatus = String(u.status || "ACTIVE").toUpperCase();
-
     var targetPassword = String(u.password || "").trim();
+    var targetPermsStr = (u.permissions && typeof u.permissions === "object") ? JSON.stringify(u.permissions) : "";
 
     if (existingMap.hasOwnProperty(targetEmail)) {
       var rowIndex = existingMap[targetEmail];
-      sheetData[rowIndex][0] = targetName;
-      if (targetEmail !== "nagabapassion@gmail.com") {
-        sheetData[rowIndex][2] = targetRole;
+      if (rowIndex < sheetData.length) {
+        sheetData[rowIndex][0] = targetName;
+        if (targetEmail !== "nagabapassion@gmail.com") {
+          sheetData[rowIndex][2] = targetRole;
+        }
+        sheetData[rowIndex][3] = targetStatus;
+        if (targetPassword) {
+          sheetData[rowIndex][5] = targetPassword;
+        }
+        if (targetPermsStr) {
+          sheetData[rowIndex][6] = targetPermsStr;
+        }
+        updatedCount++;
+        hasExistingUpdates = true;
       }
-      sheetData[rowIndex][3] = targetStatus;
-      if (targetPassword) {
-        sheetData[rowIndex][5] = targetPassword;
-      }
-      updatedCount++;
-      hasExistingUpdates = true;
     } else {
       newRowsToAppend.push([
         targetName,
@@ -1891,7 +2069,8 @@ function handleSyncUsers(usersList, operatorEmail) {
         targetRole,
         targetStatus,
         nowIso,
-        targetPassword
+        targetPassword,
+        targetPermsStr
       ]);
       // Prevent duplicates in same sync payload
       existingMap[targetEmail] = sheetData.length + newRowsToAppend.length - 1;
@@ -1900,12 +2079,12 @@ function handleSyncUsers(usersList, operatorEmail) {
 
   // Step 3: Write back in single batch operations
   if (hasExistingUpdates && sheetData.length > 0) {
-    userSheet.getRange(1, 1, sheetData.length, sheetData[0].length).setValues(sheetData);
+    userSheet.getRange(1, 1, sheetData.length, 7).setValues(sheetData);
   }
 
   if (newRowsToAppend.length > 0) {
     var startRow = userSheet.getLastRow() + 1;
-    userSheet.getRange(startRow, 1, newRowsToAppend.length, 6).setValues(newRowsToAppend);
+    userSheet.getRange(startRow, 1, newRowsToAppend.length, 7).setValues(newRowsToAppend);
   }
 
   writeAuditLog({
@@ -1939,9 +2118,27 @@ function getAppSettings(optionalSs) {
     receiptPrefix: "SB",
     receiptFooter: "Thank you for your payment to SC Basimbuzi.",
     logoUrl: "",
+    customDomain: "https://scbasimbuzi-v2.ai.studio",
     paymentCategories: ["Membership", "Contribution", "Event", "Registration", "Fundraising", "Merchandise", "Other"],
+    expenseCategories: [
+      "Pitch Hire & Facilities",
+      "Match Day & Referees",
+      "Equipment & Kits",
+      "Transport & Logistics",
+      "Player Refreshments & Meals",
+      "Medical & First Aid",
+      "Administration & Utilities",
+      "Tournament Entry Fee",
+      "Other Expenses"
+    ],
     paymentMethods: ["Mobile Money", "Bank Transfer", "Cash", "Other"],
-    currency: "UGX"
+    currency: "UGX",
+    legacySpreadsheetId: "",
+    legacySheetName: "Master Transactions",
+    openingBalance: 0,
+    openingBalanceDate: "",
+    openingBalanceSetBy: "",
+    openingBalanceNotes: ""
   };
 
   if (!settingsSheet) {
@@ -1968,6 +2165,15 @@ function getAppSettings(optionalSs) {
     }
   }
 
+  var expCategories = defaultSettings.expenseCategories;
+  if (settingsMap["Expense Categories"]) {
+    try {
+      expCategories = JSON.parse(settingsMap["Expense Categories"]);
+    } catch(e) {
+      expCategories = String(settingsMap["Expense Categories"]).split(",").map(function(s){return s.trim();});
+    }
+  }
+
   var methods = defaultSettings.paymentMethods;
   if (settingsMap["Payment Methods"]) {
     try {
@@ -1987,15 +2193,25 @@ function getAppSettings(optionalSs) {
       receiptPrefix: settingsMap["Receipt Prefix"] || defaultSettings.receiptPrefix,
       receiptFooter: settingsMap["Receipt Footer"] || defaultSettings.receiptFooter,
       logoUrl: settingsMap["Logo URL"] || defaultSettings.logoUrl,
+      customDomain: settingsMap["Custom Domain"] || defaultSettings.customDomain,
       paymentCategories: categories,
+      expenseCategories: expCategories,
       paymentMethods: methods,
-      currency: "UGX"
+      currency: settingsMap["Currency"] || defaultSettings.currency,
+      legacySpreadsheetId: settingsMap["Legacy Spreadsheet ID"] || "",
+      legacySheetName: settingsMap["Legacy Sheet Name"] || defaultSettings.legacySheetName,
+      openingBalance: settingsMap["Opening Balance"] !== undefined && settingsMap["Opening Balance"] !== ""
+        ? parseSheetNumber(settingsMap["Opening Balance"])
+        : 0,
+      openingBalanceDate: settingsMap["Opening Balance Date"] ? formatSheetDate(settingsMap["Opening Balance Date"]) : "",
+      openingBalanceSetBy: settingsMap["Opening Balance Set By"] ? String(settingsMap["Opening Balance Set By"]) : "",
+      openingBalanceNotes: settingsMap["Opening Balance Notes"] ? String(settingsMap["Opening Balance Notes"]) : ""
     }
   };
 }
 
 function handleSaveSettings(newSettings, operatorEmail) {
-  var operator = verifyOperator(operatorEmail, "OWNER");
+  var operator = verifyOperator(operatorEmail, "OWNER", "canEditSettings");
 
   var ss = getSpreadsheet();
   var settingsSheet = ss.getSheetByName(SHEET_SETTINGS);
@@ -2003,17 +2219,48 @@ function handleSaveSettings(newSettings, operatorEmail) {
     settingsSheet = ss.insertSheet(SHEET_SETTINGS);
   }
 
+  var cleanOpeningBalance = newSettings.openingBalance !== undefined ? parseSheetNumber(newSettings.openingBalance) : 0;
+  var savedSettings = {
+    organizationName: String(newSettings.organizationName || "SC Basimbuzi"),
+    organizationEmail: String(newSettings.organizationEmail || "nagabapassion@gmail.com"),
+    organizationPhone: String(newSettings.organizationPhone || ""),
+    organizationAddress: String(newSettings.organizationAddress || ""),
+    receiptPrefix: String(newSettings.receiptPrefix || "SB").toUpperCase(),
+    receiptFooter: String(newSettings.receiptFooter || ""),
+    logoUrl: String(newSettings.logoUrl || ""),
+    customDomain: String(newSettings.customDomain || "https://scbasimbuzi-v2.ai.studio"),
+    paymentCategories: Array.isArray(newSettings.paymentCategories) ? newSettings.paymentCategories : [],
+    expenseCategories: Array.isArray(newSettings.expenseCategories) ? newSettings.expenseCategories : [],
+    paymentMethods: Array.isArray(newSettings.paymentMethods) ? newSettings.paymentMethods : [],
+    currency: String(newSettings.currency || "UGX"),
+    legacySpreadsheetId: String(newSettings.legacySpreadsheetId || ""),
+    legacySheetName: String(newSettings.legacySheetName || "Master Transactions"),
+    openingBalance: cleanOpeningBalance,
+    openingBalanceDate: String(newSettings.openingBalanceDate || ""),
+    openingBalanceSetBy: String(newSettings.openingBalanceSetBy || ""),
+    openingBalanceNotes: String(newSettings.openingBalanceNotes || "")
+  };
+
   var settingsRows = [
     ["Key", "Value"],
-    ["Organization Name", newSettings.organizationName || "SC Basimbuzi"],
-    ["Organization Email", newSettings.organizationEmail || "nagabapassion@gmail.com"],
-    ["Organization Phone", newSettings.organizationPhone || ""],
-    ["Organization Address", newSettings.organizationAddress || ""],
-    ["Receipt Prefix", (newSettings.receiptPrefix || "SB").toUpperCase()],
-    ["Receipt Footer", newSettings.receiptFooter || ""],
-    ["Logo URL", newSettings.logoUrl || ""],
-    ["Payment Categories", JSON.stringify(newSettings.paymentCategories || [])],
-    ["Payment Methods", JSON.stringify(newSettings.paymentMethods || [])]
+    ["Organization Name", savedSettings.organizationName],
+    ["Organization Email", savedSettings.organizationEmail],
+    ["Organization Phone", savedSettings.organizationPhone],
+    ["Organization Address", savedSettings.organizationAddress],
+    ["Receipt Prefix", savedSettings.receiptPrefix],
+    ["Receipt Footer", savedSettings.receiptFooter],
+    ["Logo URL", savedSettings.logoUrl],
+    ["Custom Domain", savedSettings.customDomain],
+    ["Payment Categories", JSON.stringify(savedSettings.paymentCategories)],
+    ["Expense Categories", JSON.stringify(savedSettings.expenseCategories)],
+    ["Payment Methods", JSON.stringify(savedSettings.paymentMethods)],
+    ["Currency", savedSettings.currency],
+    ["Legacy Spreadsheet ID", savedSettings.legacySpreadsheetId],
+    ["Legacy Sheet Name", savedSettings.legacySheetName],
+    ["Opening Balance", cleanOpeningBalance],
+    ["Opening Balance Date", savedSettings.openingBalanceDate],
+    ["Opening Balance Set By", savedSettings.openingBalanceSetBy],
+    ["Opening Balance Notes", savedSettings.openingBalanceNotes]
   ];
 
   // BATCH WRITE: clear and write all settings in a single batch setValues call
@@ -2030,7 +2277,7 @@ function handleSaveSettings(newSettings, operatorEmail) {
 
   clearBackendCache();
 
-  return { success: true, message: "Settings saved successfully." };
+  return { success: true, data: savedSettings, message: "Settings saved successfully." };
 }
 
 /**
@@ -2038,6 +2285,17 @@ function handleSaveSettings(newSettings, operatorEmail) {
  */
 function getAllTransactions(operatorEmail, limit, optionalSs) {
   verifyOperator(operatorEmail);
+
+  var maxLimit = (limit && Number(limit) > 0) ? Number(limit) : 0;
+  var cacheKeyAll = "tx_all_v5_" + getCacheVersion();
+  if (maxLimit === 0) {
+    var cachedTxJson = getChunkedCache(cacheKeyAll);
+    if (cachedTxJson) {
+      try {
+        return { success: true, cached: true, data: JSON.parse(cachedTxJson) };
+      } catch (e) {}
+    }
+  }
 
   var ss = optionalSs || getSpreadsheet();
   var txSheet = ss.getSheetByName(SHEET_TRANSACTIONS);
@@ -2050,8 +2308,7 @@ function getAllTransactions(operatorEmail, limit, optionalSs) {
     return { success: true, data: [] };
   }
 
-  var maxLimit = (limit && Number(limit) > 0) ? Number(limit) : 0;
-  var lastCol = Math.min(txSheet.getLastColumn(), 17);
+  var lastCol = Math.max(1, Math.min(txSheet.getLastColumn(), 17));
 
   var startRow = 2;
   var numRows = lastRow - 1;
@@ -2096,6 +2353,9 @@ function getAllTransactions(operatorEmail, limit, optionalSs) {
   }
 
   transactions.reverse();
+  if (maxLimit === 0) {
+    putChunkedCache(cacheKeyAll, JSON.stringify(transactions), 300);
+  }
   return { success: true, data: transactions };
 }
 
@@ -2181,7 +2441,7 @@ function getAuditLogs(operatorEmail, limit, optionalSs) {
   }
 
   var maxLimit = (limit && Number(limit) > 0) ? Number(limit) : 0;
-  var lastCol = Math.min(auditSheet.getLastColumn(), 7);
+  var lastCol = Math.max(1, Math.min(auditSheet.getLastColumn(), 7));
 
   var startRow = 2;
   var numRows = lastRow - 1;
@@ -2250,7 +2510,8 @@ function setupSpreadsheet() {
       "Operator Email",
       "Payment Status",
       "Email Status",
-      "Created At"
+      "Created At",
+      "Type"
     ]);
     txSheet.setFrozenRows(1);
   }
@@ -2259,7 +2520,7 @@ function setupSpreadsheet() {
   var userSheet = ss.getSheetByName(SHEET_USERS);
   if (!userSheet) {
     userSheet = ss.insertSheet(SHEET_USERS);
-    userSheet.appendRow(["Name", "Email", "Role", "Status", "Created At", "Password"]);
+    userSheet.appendRow(["Name", "Email", "Role", "Status", "Created At", "Password", "Permissions"]);
     userSheet.setFrozenRows(1);
   }
 
@@ -2288,7 +2549,8 @@ function setupSpreadsheet() {
       "OWNER",
       "ACTIVE",
       new Date().toISOString(),
-      "Passion@2026"
+      "Passion@2026",
+      ""
     ]);
   }
 
@@ -2305,8 +2567,17 @@ function setupSpreadsheet() {
       ["Receipt Prefix", "SB"],
       ["Receipt Footer", "Thank you for your payment to SC Basimbuzi."],
       ["Logo URL", ""],
+      ["Custom Domain", "https://scbasimbuzi-v2.ai.studio"],
       ["Payment Categories", JSON.stringify(["Membership", "Contribution", "Event", "Registration", "Fundraising", "Merchandise", "Other"])],
-      ["Payment Methods", JSON.stringify(["Mobile Money", "Bank Transfer", "Cash", "Other"])]
+      ["Expense Categories", JSON.stringify(["Pitch Hire & Facilities", "Match Day & Referees", "Equipment & Kits", "Transport & Logistics", "Player Refreshments & Meals", "Medical & First Aid", "Administration & Utilities", "Tournament Entry Fee", "Other Expenses"])],
+      ["Payment Methods", JSON.stringify(["Mobile Money", "Bank Transfer", "Cash", "Other"])],
+      ["Currency", "UGX"],
+      ["Legacy Spreadsheet ID", ""],
+      ["Legacy Sheet Name", "Master Transactions"],
+      ["Opening Balance", 0],
+      ["Opening Balance Date", ""],
+      ["Opening Balance Set By", ""],
+      ["Opening Balance Notes", ""]
     ];
     settingsSheet.getRange(1, 1, initSettings.length, 2).setValues(initSettings);
     settingsSheet.setFrozenRows(1);
@@ -2342,25 +2613,14 @@ function setupSpreadsheet() {
     ]);
   }
 
-  // 6. Members Directory Sheet
+  // 6. Members Directory Sheet (18 columns with Gender, School, House in cols 6-8)
   var membersSheet = ss.getSheetByName(SHEET_MEMBERS);
   if (!membersSheet) {
     membersSheet = ss.insertSheet(SHEET_MEMBERS);
-    membersSheet.appendRow([
-      "Member ID",
-      "Full Name",
-      "Phone",
-      "Email",
-      "Physical Address",
-      "Tier",
-      "Pre-NLL Paid",
-      "Spot Paid",
-      "Paid After",
-      "Historical Total",
-      "Profile Status",
-      "Updated At"
-    ]);
+    membersSheet.appendRow(MEMBERS_HEADERS_V2_GAS);
     membersSheet.setFrozenRows(1);
+  } else {
+    ensureMembersSchemaMigratedGas(membersSheet);
   }
 
   clearBackendCache();
@@ -2374,41 +2634,346 @@ function setupSpreadsheet() {
 /**
  * 12. MEMBERS DIRECTORY & IDEMPOTENT HISTORICAL TREASURY SYNC
  */
+var MEMBERS_HEADERS_V2_GAS = [
+  "Member ID",
+  "Full Name",
+  "Phone",
+  "Email",
+  "Physical Address",
+  "Gender",
+  "School",
+  "House",
+  "Pre-NLL Paid",
+  "Spot Paid",
+  "Paid After",
+  "Historical Total",
+  "Profile Status",
+  "Updated At",
+  "Expected Target",
+  "Live Paid",
+  "Total Contributed",
+  "Dues Status"
+];
+
+function normalizeMemberNameSimpleGas(name) {
+  return String(name || "").toLowerCase().replace(/[^a-z0-9\\s]/g, " ").replace(/\\s+/g, " ").trim();
+}
+
+function isHouseEligibleSchoolGas(school) {
+  var s = String(school || "").trim().toLowerCase().replace(/[\\u2018\\u2019\\x60]/g, "'");
+  return s === "ntare school" || s === "ntare" || s === "bweranyagyi girls' secondary school" || s === "bweranyagyi girls secondary school" || s === "bweranyagyi";
+}
+
+function ensureMembersSchemaMigratedGas(membersSheet) {
+  if (!membersSheet) return [];
+  var sheetData = membersSheet.getDataRange().getValues();
+  if (!sheetData || sheetData.length === 0) {
+    membersSheet.getRange(1, 1, 1, 18).setValues([MEMBERS_HEADERS_V2_GAS]);
+    membersSheet.setFrozenRows(1);
+    return [MEMBERS_HEADERS_V2_GAS.slice(0)];
+  }
+
+  var col6Header = String(sheetData[0][5] || "").trim().toLowerCase();
+  var isNewSchema = col6Header === "gender" && String(sheetData[0][6] || "").trim().toLowerCase() === "school";
+  if (isNewSchema) {
+    return sheetData;
+  }
+
+  // Migrate legacy 16-col Members sheet (where Col 6 was Tier) to 18-col layout (Gender, School, House at Cols 6-8)
+  var newRows = [MEMBERS_HEADERS_V2_GAS.slice(0)];
+  var isLegacyTierLayout = col6Header === "tier" || col6Header === "";
+  for (var r = 1; r < sheetData.length; r++) {
+    var oldRow = sheetData[r];
+    if (!oldRow[0] && !oldRow[1]) continue;
+    if (isLegacyTierLayout) {
+      newRows.push([
+        oldRow[0] || "",
+        oldRow[1] || "",
+        oldRow[2] || "",
+        oldRow[3] || "",
+        oldRow[4] || "",
+        "",
+        "",
+        "",
+        parseSheetNumber(oldRow[6]),
+        parseSheetNumber(oldRow[7]),
+        parseSheetNumber(oldRow[8]),
+        parseSheetNumber(oldRow[9]),
+        oldRow[10] || "INCOMPLETE",
+        oldRow[11] || "",
+        oldRow.length > 12 && oldRow[12] !== "" ? parseSheetNumber(oldRow[12]) : 100000,
+        oldRow.length > 13 ? parseSheetNumber(oldRow[13]) : 0,
+        oldRow.length > 14 ? parseSheetNumber(oldRow[14]) : 0,
+        oldRow[15] || ""
+      ]);
+    } else {
+      var normalized = oldRow.slice(0, 18);
+      while (normalized.length < 18) normalized.push("");
+      newRows.push(normalized);
+    }
+  }
+
+  var clearCols = Math.max(membersSheet.getLastColumn(), 18);
+  if (sheetData.length > 0) {
+    membersSheet.getRange(1, 1, sheetData.length, clearCols).clearContent();
+  }
+  membersSheet.getRange(1, 1, newRows.length, 18).setValues(newRows);
+  membersSheet.setFrozenRows(1);
+  return newRows;
+}
+
+function formatMemberRowGas(m) {
+  var mName = String(m.name || "").trim();
+  var mEmail = isStaffOrPlaceholderEmailGas(m.email, mName) ? "" : String(m.email || "").trim().toLowerCase();
+  var mGender = String(m.gender || "").trim();
+  var mSchool = String(m.school || "").trim();
+  var mHouse = isHouseEligibleSchoolGas(mSchool) ? String(m.house || "").trim() : "";
+  var histVal = parseSheetNumber(m.historicalPaid !== undefined ? m.historicalPaid : m.totalContributed);
+  var liveVal = parseSheetNumber(m.livePaid);
+  var totalVal = m.totalContributed !== undefined ? parseSheetNumber(m.totalContributed) : (histVal + liveVal);
+  var targetVal = m.expectedTargetUgx !== undefined ? parseSheetNumber(m.expectedTargetUgx) : 100000;
+  return [
+    String(m.id || m.memberId || ""),
+    mName,
+    normalizePhoneGas(m.phone || ""),
+    mEmail,
+    String(m.address || ""),
+    mGender,
+    mSchool,
+    mHouse,
+    parseSheetNumber(m.preNllPaid),
+    parseSheetNumber(m.spotPaid),
+    parseSheetNumber(m.paidAfter),
+    histVal,
+    String(m.profileStatus || "INCOMPLETE"),
+    String(m.updatedAt || new Date().toISOString()),
+    targetVal,
+    liveVal,
+    totalVal,
+    String(m.duesStatus || "")
+  ];
+}
+
+function upsertTransactionsBatchGas(ss, incomingTxs, operator, overwriteExisting) {
+  var appendedTxs = 0;
+  var updatedTxs = 0;
+  if (!incomingTxs || !incomingTxs.length) {
+    return { appendedTxs: 0, updatedTxs: 0 };
+  }
+  var txSheet = ss.getSheetByName(SHEET_TRANSACTIONS);
+  if (!txSheet) {
+    setupSpreadsheet();
+    txSheet = ss.getSheetByName(SHEET_TRANSACTIONS);
+  }
+  var existingData = txSheet.getDataRange().getValues();
+  if (existingData.length > 0) {
+    if (existingData[0].length > 17) existingData[0] = existingData[0].slice(0, 17);
+    while (existingData[0].length < 17) existingData[0].push("");
+    if (!existingData[0][16]) existingData[0][16] = "Type";
+  }
+  var existingRowIndexMap = {};
+  for (var i = 1; i < existingData.length; i++) {
+    if (existingData[i].length > 17) existingData[i] = existingData[i].slice(0, 17);
+    while (existingData[i].length < 17) existingData[i].push("");
+    var rec = String(existingData[i][0] || "").trim().toUpperCase();
+    if (rec) existingRowIndexMap[rec] = i;
+  }
+
+  var newTxRows = [];
+  var hasExistingTxUpdates = false;
+  for (var j = 0; j < incomingTxs.length; j++) {
+    var tx = incomingTxs[j];
+    var txRec = String(tx.receiptNumber || "").trim().toUpperCase();
+    if (!txRec) continue;
+
+    var txName = String(tx.payerName || "").trim();
+    var txSafeEmail = isStaffOrPlaceholderEmailGas(tx.email, txName) ? "" : String(tx.email || "").trim().toLowerCase();
+    var txType = String(tx.type || (txRec.indexOf("EXP-") === 0 ? "OUTFLOW" : "INFLOW")).toUpperCase();
+    var formattedTxRow = [
+      tx.receiptNumber,
+      tx.date || "2026-08-01",
+      tx.time || "12:00:00",
+      txName,
+      normalizePhoneGas(tx.phone || ""),
+      txSafeEmail,
+      parseSheetNumber(tx.amount),
+      tx.paymentPurpose || "Mission NLL Season XVII",
+      tx.paymentMethod || "Mobile Money",
+      tx.paymentReference || "",
+      tx.notes || "",
+      tx.generatedBy || "Treasury Historical Import",
+      tx.operatorEmail || operator.email,
+      tx.paymentStatus || "COMPLETED",
+      txSafeEmail ? (tx.emailStatus || "SKIPPED") : "NOT_PROVIDED",
+      tx.createdAt || new Date().toISOString(),
+      txType
+    ];
+
+    if (existingRowIndexMap.hasOwnProperty(txRec)) {
+      if (txRec.indexOf("HIST-") === 0 || overwriteExisting) {
+        existingData[existingRowIndexMap[txRec]] = formattedTxRow;
+        hasExistingTxUpdates = true;
+        updatedTxs++;
+      }
+    } else {
+      existingRowIndexMap[txRec] = existingData.length + newTxRows.length;
+      newTxRows.push(formattedTxRow);
+    }
+  }
+
+  if (hasExistingTxUpdates && existingData.length > 0) {
+    txSheet.getRange(1, 1, existingData.length, 17).setValues(existingData);
+  }
+  if (newTxRows.length > 0) {
+    var startRow = txSheet.getLastRow() + 1;
+    txSheet.getRange(startRow, 1, newTxRows.length, 17).setValues(newTxRows);
+    appendedTxs = newTxRows.length;
+  }
+  return { appendedTxs: appendedTxs, updatedTxs: updatedTxs };
+}
+
 function handleGetMemberDirectory(operatorEmail) {
   verifyOperator(operatorEmail);
+  var cacheKeyDir = "sc_members_dir_v3_" + getCacheVersion();
+  var cachedDir = getChunkedCache(cacheKeyDir);
+  if (cachedDir) {
+    try {
+      return { success: true, cached: true, data: JSON.parse(cachedDir) };
+    } catch (e) {}
+  }
+
   var ss = getSpreadsheet();
   var membersSheet = ss.getSheetByName(SHEET_MEMBERS);
   if (!membersSheet) {
     return { success: true, data: [] };
   }
-  var data = membersSheet.getDataRange().getValues();
+  var data = ensureMembersSchemaMigratedGas(membersSheet);
   var list = [];
   for (var i = 1; i < data.length; i++) {
     var row = data[i];
     if (!row[0] && !row[1]) continue;
-    list.push({
+    var mName = String(row[1] || "").trim();
+    var rawEm = String(row[3] || "").trim().toLowerCase();
+    var safeEm = isStaffOrPlaceholderEmailGas(rawEm, mName) ? "" : rawEm;
+    var histTotalNew = parseSheetNumber(row[11]);
+    var livePaidNew = row.length > 15 ? parseSheetNumber(row[15]) : 0;
+    var totalContribNew = row.length > 16 && row[16] !== "" ? parseSheetNumber(row[16]) : (histTotalNew + livePaidNew);
+    var schoolVal = String(row[6] || "").trim();
+    var houseVal = isHouseEligibleSchoolGas(schoolVal) ? String(row[7] || "").trim() : "";
+    var entry = {
       id: String(row[0] || ""),
       memberId: String(row[0] || ""),
-      name: String(row[1] || ""),
-      phone: String(row[2] || ""),
-      email: String(row[3] || "").toLowerCase(),
+      name: mName,
+      phone: normalizePhoneGas(row[2] || ""),
+      email: safeEm,
       address: String(row[4] || ""),
-      tier: String(row[5] || "Supporter"),
-      preNllPaid: parseSheetNumber(row[6]),
-      spotPaid: parseSheetNumber(row[7]),
-      paidAfter: parseSheetNumber(row[8]),
-      historicalPaid: parseSheetNumber(row[9]),
-      profileStatus: String(row[10] || "INCOMPLETE"),
-      updatedAt: String(row[11] || "")
-    });
+      gender: String(row[5] || ""),
+      school: schoolVal,
+      house: houseVal,
+      preNllPaid: parseSheetNumber(row[8]),
+      spotPaid: parseSheetNumber(row[9]),
+      paidAfter: parseSheetNumber(row[10]),
+      historicalPaid: histTotalNew,
+      profileStatus: String(row[12] || "INCOMPLETE"),
+      updatedAt: String(row[13] || "")
+    };
+    if (row.length > 14 && row[14] !== "") entry.expectedTargetUgx = parseSheetNumber(row[14]);
+    if (row.length > 15 && row[15] !== "") entry.livePaid = livePaidNew;
+    entry.totalContributed = totalContribNew;
+    if (row.length > 17 && row[17]) entry.duesStatus = String(row[17]);
+    list.push(entry);
   }
+  putChunkedCache(cacheKeyDir, JSON.stringify(list), 300);
   return { success: true, data: list };
+}
+
+function handleUpsertMember(data, operatorEmail) {
+  var operator = verifyOperator(operatorEmail);
+  var m = data && data.member ? data.member : data;
+  if (!m || !m.name) {
+    return { success: false, error: "Member payload with name is required." };
+  }
+  var incomingTxs = (data && Array.isArray(data.transactions)) ? data.transactions : [];
+  var ss = getSpreadsheet();
+  var membersSheet = ss.getSheetByName(SHEET_MEMBERS);
+  if (!membersSheet) {
+    setupSpreadsheet();
+    membersSheet = ss.getSheetByName(SHEET_MEMBERS);
+  }
+
+  var targetId = String(m.id || m.memberId || "").trim();
+  var targetNameNorm = normalizeMemberNameSimpleGas(m.name);
+  var targetEmail = isStaffOrPlaceholderEmailGas(m.email, m.name) ? "" : String(m.email || "").trim().toLowerCase();
+  var sheetData = ensureMembersSchemaMigratedGas(membersSheet);
+
+  var rowToUpdate = -1;
+  var matchedIdx = -1;
+  if (targetId) {
+    for (var i = 1; i < sheetData.length; i++) {
+      if (String(sheetData[i][0] || "").trim().toLowerCase() === targetId.toLowerCase()) {
+        rowToUpdate = i + 1;
+        matchedIdx = i;
+        break;
+      }
+    }
+  }
+  if (rowToUpdate === -1 && targetEmail) {
+    for (var j = 1; j < sheetData.length; j++) {
+      if (String(sheetData[j][3] || "").trim().toLowerCase() === targetEmail) {
+        rowToUpdate = j + 1;
+        matchedIdx = j;
+        break;
+      }
+    }
+  }
+  if (rowToUpdate === -1 && targetNameNorm) {
+    for (var k = 1; k < sheetData.length; k++) {
+      if (normalizeMemberNameSimpleGas(sheetData[k][1]) === targetNameNorm) {
+        rowToUpdate = k + 1;
+        matchedIdx = k;
+        break;
+      }
+    }
+  }
+
+  var rowVals = formatMemberRowGas(m);
+  if (matchedIdx !== -1) {
+    var existingRowId = String(sheetData[matchedIdx][0] || "").trim();
+    if (existingRowId && (!targetId || targetId.toUpperCase().indexOf("SB-LIVE-") === 0)) {
+      rowVals[0] = existingRowId;
+    }
+    membersSheet.getRange(rowToUpdate, 1, 1, 18).setValues([rowVals]);
+  } else {
+    membersSheet.appendRow(rowVals);
+  }
+
+  var txRes = upsertTransactionsBatchGas(ss, incomingTxs, operator, true);
+
+  writeAuditLog({
+    user: operator.name || "Operator",
+    userEmail: operator.email,
+    action: "UPSERT_MEMBER",
+    description: "Updated member " + String(m.name || targetId) + " in Google Sheets (" + txRes.updatedTxs + " historical rows refreshed)."
+  });
+
+  clearBackendCache();
+
+  return {
+    success: true,
+    message: "Member " + String(m.name || targetId) + " synced to Google Sheets.",
+    data: {
+      memberId: rowVals[0],
+      updatedTransactions: txRes.updatedTxs,
+      syncedTransactions: txRes.appendedTxs
+    }
+  };
 }
 
 function handleSyncMembersAndHistorical(data, operatorEmail) {
   var operator = verifyOperator(operatorEmail);
   var incomingMembers = (data && Array.isArray(data.members)) ? data.members : [];
   var incomingTxs = (data && Array.isArray(data.transactions)) ? data.transactions : [];
+  var overwriteExisting = Boolean(data && data.overwriteExisting);
 
   var ss = getSpreadsheet();
   var membersSheet = ss.getSheetByName(SHEET_MEMBERS);
@@ -2417,97 +2982,42 @@ function handleSyncMembersAndHistorical(data, operatorEmail) {
     membersSheet = ss.getSheetByName(SHEET_MEMBERS);
   }
 
-  // Batch replace Members sheet rows (preserving header row 1)
+  // Batch replace Members sheet rows (preserving header row 1) with 18 columns
   if (incomingMembers.length > 0) {
     var lastRow = membersSheet.getLastRow();
+    var lastCol = Math.max(membersSheet.getLastColumn(), 18);
+    membersSheet.getRange(1, 1, 1, 18).setValues([[
+      "Member ID", "Full Name", "Phone", "Email", "Physical Address", "Gender", "School", "House",
+      "Pre-NLL Paid", "Spot Paid", "Paid After", "Historical Total",
+      "Profile Status", "Updated At", "Expected Target", "Live Paid",
+      "Total Contributed", "Dues Status"
+    ]]);
     if (lastRow > 1) {
-      membersSheet.getRange(2, 1, lastRow - 1, 12).clearContent();
+      membersSheet.getRange(2, 1, lastRow - 1, lastCol).clearContent();
     }
-    var memberRows = incomingMembers.map(function(m) {
-      var mName = String(m.name || "").trim();
-      var mEmail = isStaffOrPlaceholderEmailGas(m.email, mName) ? "" : String(m.email || "").trim().toLowerCase();
-      return [
-        String(m.id || m.memberId || ""),
-        mName,
-        normalizePhoneGas(m.phone || ""),
-        mEmail,
-        String(m.address || ""),
-        String(m.tier || "Supporter"),
-        parseSheetNumber(m.preNllPaid),
-        parseSheetNumber(m.spotPaid),
-        parseSheetNumber(m.paidAfter),
-        parseSheetNumber(m.historicalPaid || m.totalContributed),
-        String(m.profileStatus || "INCOMPLETE"),
-        String(m.updatedAt || new Date().toISOString())
-      ];
-    });
-    membersSheet.getRange(2, 1, memberRows.length, 12).setValues(memberRows);
+    var memberRows = incomingMembers.map(formatMemberRowGas);
+    membersSheet.getRange(2, 1, memberRows.length, 18).setValues(memberRows);
   }
 
-  // Idempotently append missing historical transactions into Transactions sheet without advancing live SB-YYYY counter
-  var appendedTxs = 0;
-  if (incomingTxs.length > 0) {
-    var txSheet = ss.getSheetByName(SHEET_TRANSACTIONS);
-    if (!txSheet) {
-      setupSpreadsheet();
-      txSheet = ss.getSheetByName(SHEET_TRANSACTIONS);
-    }
-    var existingData = txSheet.getDataRange().getValues();
-    var existingSet = {};
-    for (var i = 1; i < existingData.length; i++) {
-      var rec = String(existingData[i][0] || "").trim().toUpperCase();
-      if (rec) existingSet[rec] = true;
-    }
-
-    var newTxRows = [];
-    for (var j = 0; j < incomingTxs.length; j++) {
-      var tx = incomingTxs[j];
-      var txRec = String(tx.receiptNumber || "").trim().toUpperCase();
-      if (!txRec || existingSet[txRec]) continue;
-      existingSet[txRec] = true;
-      var txName = String(tx.payerName || "").trim();
-      var txSafeEmail = isStaffOrPlaceholderEmailGas(tx.email, txName) ? "" : String(tx.email || "").trim().toLowerCase();
-      newTxRows.push([
-        tx.receiptNumber,
-        tx.date || "2026-08-01",
-        tx.time || "12:00:00",
-        txName,
-        normalizePhoneGas(tx.phone || ""),
-        txSafeEmail,
-        parseSheetNumber(tx.amount),
-        tx.paymentPurpose || "Mission NLL Season XVII",
-        tx.paymentMethod || "Mobile Money",
-        tx.paymentReference || "",
-        tx.notes || "",
-        tx.generatedBy || "Treasury Historical Import",
-        tx.operatorEmail || operator.email,
-        tx.paymentStatus || "COMPLETED",
-        txSafeEmail ? (tx.emailStatus || "SKIPPED") : "NOT_PROVIDED",
-        tx.createdAt || new Date().toISOString()
-      ]);
-    }
-    if (newTxRows.length > 0) {
-      var startRow = txSheet.getLastRow() + 1;
-      txSheet.getRange(startRow, 1, newTxRows.length, 16).setValues(newTxRows);
-      appendedTxs = newTxRows.length;
-    }
-  }
+  // Idempotently upsert historical transactions & append new rows with 17 columns
+  var txSyncRes = upsertTransactionsBatchGas(ss, incomingTxs, operator, overwriteExisting);
 
   writeAuditLog({
     user: operator.name || "Operator",
     userEmail: operator.email,
     action: "HISTORICAL_IMPORT_COMPLETED",
-    description: "Synced " + incomingMembers.length + " members and appended " + appendedTxs + " historical transactions to Google Sheets."
+    description: "Synced " + incomingMembers.length + " members, updated " + txSyncRes.updatedTxs + " and appended " + txSyncRes.appendedTxs + " historical transactions to Google Sheets."
   });
 
   clearBackendCache();
 
   return {
     success: true,
-    message: "Synced " + incomingMembers.length + " members and " + appendedTxs + " new historical transactions to Google Sheets.",
+    message: "Synced " + incomingMembers.length + " members (" + txSyncRes.updatedTxs + " updated, " + txSyncRes.appendedTxs + " new transactions) to Google Sheets.",
     data: {
       syncedMembers: incomingMembers.length,
-      syncedTransactions: appendedTxs
+      updatedTransactions: txSyncRes.updatedTxs,
+      syncedTransactions: txSyncRes.appendedTxs
     }
   };
 }
@@ -2561,15 +3071,20 @@ function handleCleanupStaffEmailsAndAudit(operatorEmail) {
  * Adding new read operations requires zero modifications to doGet router
  */
 QueryActionRegistry.register("ping", function() {
-  return { success: true, message: "SC Basimbuzi Live Backend Online", version: "3.2.0" };
+  return { success: true, message: "SC Basimbuzi Live Backend Online", version: "3.2.1" };
 });
 
 QueryActionRegistry.register("checkAuth", function(e, email) {
   return checkUserAuth(email);
 });
 
+QueryActionRegistry.register("verifyPassword", function(e, email) {
+  var password = (e && e.parameter && e.parameter.password) ? e.parameter.password : "";
+  return handleVerifyUserPassword(email, password);
+});
+
 QueryActionRegistry.register("getInitialData", function(e, email) {
-  var limit = (e && e.parameter && e.parameter.limit) ? Number(e.parameter.limit) : 200;
+  var limit = (e && e.parameter && e.parameter.limit) ? Number(e.parameter.limit) : 0;
   return getInitialAppData(email, limit);
 });
 
@@ -2646,6 +3161,14 @@ ActionRegistry.register("getUsers", function(data, email) {
 
 ActionRegistry.register("getMembers", function(data, email) {
   return getMembersList(email);
+});
+
+ActionRegistry.register("getMemberDirectory", function(data, email) {
+  return handleGetMemberDirectory(email);
+});
+
+ActionRegistry.register("upsertMember", function(data, email) {
+  return handleUpsertMember(data, email);
 });
 
 ActionRegistry.register("syncMembersAndHistorical", function(data, email) {

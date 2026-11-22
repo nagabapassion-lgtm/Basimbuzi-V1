@@ -5,8 +5,12 @@ import crypto from 'crypto';
 import { createServer as createViteServer } from 'vite';
 import {
   computeDuesStatus,
+  isHouseEligibleSchool,
   isMemberProfileComplete,
-  normalizeMembershipTier,
+  mergeMemberDirectories,
+  normalizeMemberGender,
+  normalizeMemberHouse,
+  normalizeMemberSchool,
   parseTreasuryMembersCsv
 } from './src/utils/memberImport';
 import {
@@ -57,6 +61,24 @@ async function startServer() {
   const ALLOWED_ROLES = new Set(['OWNER', 'ADMIN', 'ISSUER', 'MEDIA']);
   const ALLOWED_STATUSES = new Set(['ACTIVE', 'INACTIVE']);
   const SYSTEM_OWNER_EMAIL = 'nagabapassion@gmail.com';
+
+  // Server-side 30s singleflight caches for live Google Apps Script transactions & member directory
+  const GAS_TX_CACHE_TTL_MS = 30_000;
+  let gasTxCache: { ts: number; gasUrl: string; data: any[] } | null = null;
+  let gasTxInFlight: Promise<any[] | null> | null = null;
+  let gasMembersCache: { ts: number; gasUrl: string; data: any[] } | null = null;
+  let gasMembersInFlight: Promise<any[] | null> | null = null;
+  let gasSupportsUpsertMember: boolean | null = null;
+
+  const invalidateGasTxCache = () => {
+    gasTxCache = null;
+    gasMembersCache = null;
+  };
+
+  app.post('/api/gas/invalidate-cache', (_req, res) => {
+    invalidateGasTxCache();
+    res.json({ success: true });
+  });
 
   // API: Health check
   app.get('/api/health', (req, res) => {
@@ -146,6 +168,8 @@ async function startServer() {
         updatedAt: new Date().toISOString()
       };
       fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), 'utf-8');
+      invalidateGasTxCache();
+      gasSupportsUpsertMember = null;
       res.json({ success: true, data: config });
     } catch (err: any) {
       res.status(500).json({ success: false, error: 'Failed to save configuration' });
@@ -318,6 +342,42 @@ async function startServer() {
     return '';
   };
 
+  const fetchGasTransactionsCached = async (force: boolean = false): Promise<any[] | null> => {
+    const gasUrl = getGasUrl();
+    if (!gasUrl) return null;
+
+    if (
+      !force &&
+      gasTxCache &&
+      gasTxCache.gasUrl === gasUrl &&
+      Date.now() - gasTxCache.ts < GAS_TX_CACHE_TTL_MS
+    ) {
+      return gasTxCache.data;
+    }
+
+    if (!force && gasTxInFlight) {
+      return gasTxInFlight;
+    }
+
+    gasTxInFlight = (async () => {
+      try {
+        const url = `${gasUrl}${gasUrl.includes('?') ? '&' : '?'}action=getTransactions&operatorEmail=${encodeURIComponent(SYSTEM_OWNER_EMAIL)}&limit=0`;
+        const gasRes = await fetch(url, { redirect: 'follow' }).then(r => r.json()).catch(() => null);
+        if (gasRes && gasRes.success && Array.isArray(gasRes.data)) {
+          gasTxCache = { ts: Date.now(), gasUrl, data: gasRes.data };
+          return gasRes.data;
+        }
+        return null;
+      } catch {
+        return null;
+      } finally {
+        gasTxInFlight = null;
+      }
+    })();
+
+    return gasTxInFlight;
+  };
+
   // API: Authoritative staff sign-in with password (supports newly added members dynamically from database and Google Sheets)
   app.post('/api/auth/login', async (req, res) => {
     try {
@@ -409,24 +469,67 @@ async function startServer() {
           return;
         }
 
-        // If user exists in local database without password set, initialize it with entered password
-        if (!storedPassword && cleanPassword.length >= 4) {
-          user.password = cleanPassword;
-          fs.writeFileSync(USERS_FILE, JSON.stringify(currentUsers, null, 2), 'utf-8');
-          const safeUser = {
-            name: user.name || cleanEmail.split('@')[0],
-            email: cleanEmail,
-            role: user.role || (cleanEmail === SYSTEM_OWNER_EMAIL.toLowerCase() ? 'OWNER' : 'ADMIN'),
-            status: 'ACTIVE',
-            password: cleanPassword,
-            permissions: user.permissions,
-            createdAt: user.createdAt || new Date().toISOString()
-          };
-
-          res.json({
-            success: true,
-            authorized: true,
-            user: safeUser
+        // If user exists in local database without password set, verify against GAS if connected before fallback
+        if (!storedPassword) {
+          const gasUrlForNoPwd = getGasUrl();
+          if (gasUrlForNoPwd) {
+            try {
+              const vRes = await fetch(gasUrlForNoPwd, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                redirect: 'follow',
+                body: JSON.stringify({ action: 'verifyPassword', email: cleanEmail, password: cleanPassword })
+              }).then(r => r.json()).catch(() => null);
+              if (vRes && vRes.success && vRes.authorized) {
+                user.password = cleanPassword;
+                fs.writeFileSync(USERS_FILE, JSON.stringify(currentUsers, null, 2), 'utf-8');
+                res.json({
+                  success: true,
+                  authorized: true,
+                  user: {
+                    ...user,
+                    ...(vRes.user || {}),
+                    email: cleanEmail,
+                    status: 'ACTIVE',
+                    password: cleanPassword
+                  }
+                });
+                return;
+              }
+              if (vRes && vRes.error && vRes.error.includes('Incorrect password')) {
+                res.status(401).json({
+                  success: false,
+                  authorized: false,
+                  message: 'Incorrect password. Please verify and try again.'
+                });
+                return;
+              }
+            } catch {
+              // Fall through only if GAS cannot verify
+            }
+          }
+          if (cleanPassword === 'Staff@2026') {
+            user.password = cleanPassword;
+            fs.writeFileSync(USERS_FILE, JSON.stringify(currentUsers, null, 2), 'utf-8');
+            res.json({
+              success: true,
+              authorized: true,
+              user: {
+                name: user.name || cleanEmail.split('@')[0],
+                email: cleanEmail,
+                role: user.role || (cleanEmail === SYSTEM_OWNER_EMAIL.toLowerCase() ? 'OWNER' : 'ADMIN'),
+                status: 'ACTIVE',
+                password: cleanPassword,
+                permissions: user.permissions,
+                createdAt: user.createdAt || new Date().toISOString()
+              }
+            });
+            return;
+          }
+          res.status(401).json({
+            success: false,
+            authorized: false,
+            message: 'Password has not been configured for this account. Please use Email OTP sign-in or ask the administrator to set your password.'
           });
           return;
         }
@@ -436,13 +539,61 @@ async function startServer() {
       const gasUrl = getGasUrl();
       if (gasUrl) {
         try {
-          // Check if user is registered and active in Google Sheets
-          const checkUrl = `${gasUrl}${gasUrl.includes('?') ? '&' : '?'}action=checkAuth&email=${encodeURIComponent(cleanEmail)}`;
-          const gasRes = await fetch(checkUrl, { redirect: 'follow' }).then(r => r.json()).catch(() => null);
+          // Verify email and password directly via POST against Google Apps Script
+          let vRes: any = await fetch(gasUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            redirect: 'follow',
+            body: JSON.stringify({
+              action: 'verifyPassword',
+              email: cleanEmail,
+              password: cleanPassword
+            })
+          }).then(r => r.json()).catch(() => null);
 
-          if (gasRes && gasRes.success && gasRes.authorized && gasRes.user) {
-            const gasUser = gasRes.user;
-            if (gasUser.status && gasUser.status !== 'ACTIVE') {
+          if (!vRes || (vRes.error && String(vRes.error).includes('Unknown'))) {
+            const verifyUrl = `${gasUrl}${gasUrl.includes('?') ? '&' : '?'}action=verifyPassword&email=${encodeURIComponent(cleanEmail)}&password=${encodeURIComponent(cleanPassword)}`;
+            vRes = await fetch(verifyUrl, { redirect: 'follow' }).then(r => r.json()).catch(() => null);
+          }
+
+          if (vRes && vRes.success && vRes.authorized && vRes.user) {
+            const gasUser = vRes.user;
+            const syncedUser = {
+              name: gasUser.name || cleanEmail.split('@')[0],
+              email: cleanEmail,
+              role: gasUser.role || (cleanEmail === SYSTEM_OWNER_EMAIL.toLowerCase() ? 'OWNER' : 'ADMIN'),
+              status: 'ACTIVE',
+              password: cleanPassword,
+              permissions: gasUser.permissions,
+              createdAt: gasUser.createdAt || new Date().toISOString()
+            };
+
+            const idx = currentUsers.findIndex(u => (u.email || '').toLowerCase().trim() === cleanEmail);
+            if (idx !== -1) {
+              currentUsers[idx] = { ...currentUsers[idx], ...syncedUser };
+            } else {
+              currentUsers.push(syncedUser);
+            }
+            fs.writeFileSync(USERS_FILE, JSON.stringify(currentUsers, null, 2), 'utf-8');
+
+            res.json({
+              success: true,
+              authorized: true,
+              user: syncedUser
+            });
+            return;
+          }
+
+          if (vRes && vRes.error) {
+            if (vRes.error.includes('Incorrect password')) {
+              res.status(401).json({
+                success: false,
+                authorized: false,
+                message: 'Incorrect password. Please verify and try again.'
+              });
+              return;
+            }
+            if (vRes.error.includes('INACTIVE')) {
               res.status(403).json({
                 success: false,
                 authorized: false,
@@ -450,45 +601,26 @@ async function startServer() {
               });
               return;
             }
+          }
 
-            // Check verifyPassword if supported by Apps Script
-            let passwordValid = false;
-            try {
-              const verifyUrl = `${gasUrl}${gasUrl.includes('?') ? '&' : '?'}action=verifyPassword&email=${encodeURIComponent(cleanEmail)}&password=${encodeURIComponent(cleanPassword)}`;
-              const vRes = await fetch(verifyUrl, { redirect: 'follow' }).then(r => r.json()).catch(() => null);
-              if (vRes && vRes.success && vRes.authorized) {
-                passwordValid = true;
-              }
-            } catch {
-              // Ignore GAS verifyPassword error
-            }
-
-            if (passwordValid || cleanPassword === 'Staff@2026' || cleanPassword.length >= 4) {
-              const syncedUser = {
-                name: gasUser.name || cleanEmail.split('@')[0],
-                email: cleanEmail,
-                role: gasUser.role || (cleanEmail === SYSTEM_OWNER_EMAIL.toLowerCase() ? 'OWNER' : 'ADMIN'),
-                status: 'ACTIVE',
-                password: cleanPassword,
-                permissions: gasUser.permissions,
-                createdAt: gasUser.createdAt || new Date().toISOString()
-              };
-
-              const idx = currentUsers.findIndex(u => (u.email || '').toLowerCase().trim() === cleanEmail);
-              if (idx !== -1) {
-                currentUsers[idx] = { ...currentUsers[idx], ...syncedUser };
-              } else {
-                currentUsers.push(syncedUser);
-              }
-              fs.writeFileSync(USERS_FILE, JSON.stringify(currentUsers, null, 2), 'utf-8');
-
-              res.json({
-                success: true,
-                authorized: true,
-                user: syncedUser
+          // Fallback checkAuth only to surface explicit ACCESS DENIED / INACTIVE status accurately
+          const checkUrl = `${gasUrl}${gasUrl.includes('?') ? '&' : '?'}action=checkAuth&email=${encodeURIComponent(cleanEmail)}`;
+          const gasRes = await fetch(checkUrl, { redirect: 'follow' }).then(r => r.json()).catch(() => null);
+          if (gasRes && gasRes.success && gasRes.authorized && gasRes.user) {
+            if (gasRes.user.status && gasRes.user.status !== 'ACTIVE') {
+              res.status(403).json({
+                success: false,
+                authorized: false,
+                message: 'This staff account has been set to INACTIVE in Google Sheets. Please contact the administrator.'
               });
               return;
             }
+            res.status(401).json({
+              success: false,
+              authorized: false,
+              message: 'Incorrect password or password not yet synced for this Google Sheets user.'
+            });
+            return;
           } else if (gasRes && gasRes.error && (gasRes.error.includes('ACCESS DENIED') || gasRes.error.includes('not registered'))) {
             res.status(401).json({
               success: false,
@@ -1265,7 +1397,9 @@ async function startServer() {
           phone: cleanPh,
           email: '',
           address: '',
-          tier: 'Supporter',
+          gender: '',
+          school: '',
+          house: '',
           preNllPaid: 0,
           spotPaid: 0,
           paidAfter: 0,
@@ -1386,7 +1520,9 @@ async function startServer() {
 
   ensureTreasurySeeded();
 
-  const getAuthorizedFinanceOperator = (req: express.Request): { email: string; name: string; role: string } | null => {
+  const getAuthorizedFinanceOperator = (
+    req: express.Request
+  ): { email: string; name: string; role: string; permissions?: Record<string, any> } | null => {
     const headerEmail = String(req.headers['x-operator-email'] || '').trim().toLowerCase();
     if (!headerEmail || !EMAIL_REGEX.test(headerEmail)) return null;
 
@@ -1408,7 +1544,9 @@ async function startServer() {
       match?.permissions?.canIssueReceipts === true ||
       match?.permissions?.canViewReports === true;
 
-    return allowed ? { email: headerEmail, name: String(match.name || headerEmail), role } : null;
+    return allowed
+      ? { email: headerEmail, name: String(match.name || headerEmail), role, permissions: match.permissions }
+      : null;
   };
 
   const sanitizeMemberForClient = (m: any, defaultTargetUgx: number) => {
@@ -1420,6 +1558,8 @@ async function startServer() {
     const totalContributed = historicalPaid + livePaid;
     const expectedTargetUgx = Math.max(0, Number(m.expectedTargetUgx ?? defaultTargetUgx) || 0);
     const remainingUgx = expectedTargetUgx > 0 ? Math.max(0, expectedTargetUgx - totalContributed) : 0;
+    const cleanSchool = normalizeMemberSchool(m.school);
+    const cleanHouse = normalizeMemberHouse(m.house, cleanSchool);
 
     const cleanMember = {
       id: String(m.id || m.memberId || ''),
@@ -1428,7 +1568,9 @@ async function startServer() {
       phone: cleanPhoneNumber(m.phone || ''),
       email: String(m.email || '').trim().toLowerCase(),
       address: String(m.address || '').trim(),
-      tier: normalizeMembershipTier(m.tier),
+      gender: normalizeMemberGender(m.gender),
+      school: cleanSchool,
+      house: cleanHouse,
       preNllPaid,
       spotPaid,
       paidAfter,
@@ -1450,6 +1592,200 @@ async function startServer() {
     };
 
     return cleanMember;
+  };
+
+  const prepareTxForGas = (tx: any) => {
+    const cleanEm = isPlaceholderMemberEmail(tx?.email, tx?.payerName)
+      ? ''
+      : String(tx?.email || '').trim().toLowerCase();
+    return {
+      ...tx,
+      email: cleanEm,
+      phone: cleanPhoneNumber(tx?.phone || ''),
+      emailStatus: cleanEm ? (tx?.emailStatus || 'SKIPPED') : 'NOT_PROVIDED'
+    };
+  };
+
+  const prepareMemberForGas = (m: any, defaultTargetUgx: number) => {
+    const sanitized = sanitizeMemberForClient(m, defaultTargetUgx);
+    return {
+      ...sanitized,
+      email: isPlaceholderMemberEmail(sanitized.email, sanitized.name) ? '' : sanitized.email,
+      phone: cleanPhoneNumber(sanitized.phone || '')
+    };
+  };
+
+  const fetchGasMembersCached = async (force: boolean = false): Promise<any[] | null> => {
+    const gasUrl = getGasUrl();
+    if (!gasUrl) return null;
+
+    if (
+      !force &&
+      gasMembersCache &&
+      gasMembersCache.gasUrl === gasUrl &&
+      Date.now() - gasMembersCache.ts < GAS_TX_CACHE_TTL_MS
+    ) {
+      return gasMembersCache.data;
+    }
+
+    if (!force && gasMembersInFlight) {
+      return gasMembersInFlight;
+    }
+
+    gasMembersInFlight = (async () => {
+      try {
+        const url = `${gasUrl}${gasUrl.includes('?') ? '&' : '?'}action=getMemberDirectory&operatorEmail=${encodeURIComponent(SYSTEM_OWNER_EMAIL)}`;
+        const gasRes = await fetch(url, { redirect: 'follow' }).then(r => r.json()).catch(() => null);
+        if (gasRes && gasRes.success && Array.isArray(gasRes.data)) {
+          gasMembersCache = { ts: Date.now(), gasUrl, data: gasRes.data };
+          return gasRes.data;
+        }
+        return null;
+      } catch {
+        return null;
+      } finally {
+        gasMembersInFlight = null;
+      }
+    })();
+
+    return gasMembersInFlight;
+  };
+
+  const syncMembersFromGasDirectory = async (force: boolean = false): Promise<boolean> => {
+    try {
+      ensureTreasurySeeded();
+      const remoteMembers = await fetchGasMembersCached(force);
+      if (!remoteMembers || remoteMembers.length === 0) return false;
+
+      const site = readPublicSiteContent();
+      const defaultTargetUgx = Math.max(0, Number(site.membershipTargetUgx) || 100000);
+      const localMembers = readJsonArray(MEMBERS_FILE);
+      const staffEmails = getStaffEmailsList();
+      const result = mergeMemberDirectories(localMembers, remoteMembers, defaultTargetUgx, staffEmails);
+
+      if (!result.changed) return false;
+
+      writeJsonArray(MEMBERS_FILE, result.members);
+
+      if (result.contactUpdatedMemberIds.length > 0) {
+        const updatedSet = new Set(result.contactUpdatedMemberIds);
+        const byId = new Map<string, any>();
+        for (const m of result.members) {
+          const mid = String(m.id || m.memberId || '').trim();
+          if (mid && updatedSet.has(mid)) byId.set(mid, m);
+        }
+        const histTxs = readJsonArray(HISTORICAL_TXS_FILE);
+        let histChanged = false;
+        for (const tx of histTxs) {
+          const owner = byId.get(String(tx?.memberId || '').trim());
+          if (owner) {
+            const cleanEm = isPlaceholderMemberEmail(owner.email, owner.name) ? '' : String(owner.email || '').trim().toLowerCase();
+            tx.payerName = String(owner.name || tx.payerName || '').trim();
+            tx.email = cleanEm;
+            tx.phone = cleanPhoneNumber(owner.phone || tx.phone || '');
+            tx.emailStatus = cleanEm ? 'SKIPPED' : 'NOT_PROVIDED';
+            histChanged = true;
+          }
+        }
+        if (histChanged) {
+          writeJsonArray(HISTORICAL_TXS_FILE, histTxs);
+        }
+      }
+
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const pushMembersAndHistoricalToGas = async (
+    operatorEmail: string,
+    overrideTransactions?: any[],
+    skipRemotePreMerge: boolean = false
+  ): Promise<{ synced: boolean; error?: string }> => {
+    const gasUrl = getGasUrl();
+    if (!gasUrl) return { synced: false };
+
+    try {
+      if (!skipRemotePreMerge) {
+        await syncMembersFromGasDirectory(true);
+      }
+      const site = readPublicSiteContent();
+      const defaultTargetUgx = Math.max(0, Number(site.membershipTargetUgx) || 100000);
+      const members = readJsonArray(MEMBERS_FILE).map((m: any) => prepareMemberForGas(m, defaultTargetUgx));
+      const rawTxs = Array.isArray(overrideTransactions)
+        ? overrideTransactions
+        : readJsonArray(HISTORICAL_TXS_FILE);
+      const histTxs = rawTxs.map(prepareTxForGas);
+
+      const res = await fetch(gasUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        redirect: 'follow',
+        body: JSON.stringify({
+          action: 'syncMembersAndHistorical',
+          operatorEmail: String(operatorEmail || SYSTEM_OWNER_EMAIL).trim().toLowerCase(),
+          members,
+          transactions: histTxs,
+          overwriteExisting: true
+        })
+      }).then(r => r.json()).catch(() => null);
+
+      if (res && res.success) {
+        invalidateGasTxCache();
+        return { synced: true };
+      }
+      return { synced: false, error: res?.error || 'Google Sheets sync did not acknowledge update.' };
+    } catch (err: any) {
+      return { synced: false, error: err?.message || 'Google Sheets sync failed.' };
+    }
+  };
+
+  const pushSingleMemberToGas = async (
+    member: any,
+    operatorEmail: string,
+    affectedHistTxs: any[] = []
+  ): Promise<{ synced: boolean; error?: string }> => {
+    const gasUrl = getGasUrl();
+    if (!gasUrl) return { synced: false };
+
+    try {
+      const site = readPublicSiteContent();
+      const defaultTargetUgx = Math.max(0, Number(site.membershipTargetUgx) || 100000);
+      const cleanMember = prepareMemberForGas(member, defaultTargetUgx);
+      const cleanTxs = affectedHistTxs.map(prepareTxForGas);
+      const cleanOp = String(operatorEmail || SYSTEM_OWNER_EMAIL).trim().toLowerCase();
+
+      if (gasSupportsUpsertMember !== false) {
+        const res = await fetch(gasUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          redirect: 'follow',
+          body: JSON.stringify({
+            action: 'upsertMember',
+            operatorEmail: cleanOp,
+            member: cleanMember,
+            transactions: cleanTxs
+          })
+        }).then(r => r.json()).catch(() => null);
+
+        if (res && res.success) {
+          gasSupportsUpsertMember = true;
+          invalidateGasTxCache();
+          return { synced: true };
+        }
+        const errMsg = String(res?.error || '');
+        if (!errMsg.toLowerCase().includes('unknown')) {
+          return { synced: false, error: errMsg || 'Google Sheets sync did not acknowledge update.' };
+        }
+        gasSupportsUpsertMember = false;
+      }
+
+      // Backward-compatible fallback for older GAS deployments: preserve newest remote edits first, then push
+      return await pushMembersAndHistoricalToGas(cleanOp, cleanTxs);
+    } catch (err: any) {
+      return { synced: false, error: err?.message || 'Google Sheets sync failed.' };
+    }
   };
 
   // --- Admin Finance Staff: Historical Transactions & Member Directory APIs ---
@@ -1477,7 +1813,84 @@ async function startServer() {
     });
   });
 
-  app.post('/api/admin/members/reconcile-ledger', (req, res) => {
+  app.delete('/api/historical-transactions/:receiptNumber', async (req, res) => {
+    try {
+      const operator = getAuthorizedFinanceOperator(req);
+      if (!operator) {
+        res.status(403).json({ success: false, error: 'Unauthorized: Finance staff sign-in required.' });
+        return;
+      }
+      const canDelete =
+        operator.role === 'OWNER' ||
+        operator.permissions?.canDeleteTransactions === true ||
+        (operator.role === 'ADMIN' && operator.permissions?.canDeleteTransactions !== false);
+      if (!canDelete) {
+        res.status(403).json({ success: false, error: 'Permission denied. Cannot delete historical transactions.' });
+        return;
+      }
+
+      const targetRec = String(req.params.receiptNumber || '').trim().toUpperCase();
+      if (!targetRec) {
+        res.status(400).json({ success: false, error: 'Receipt number is required.' });
+        return;
+      }
+
+      ensureTreasurySeeded();
+      const histTxs = readJsonArray(HISTORICAL_TXS_FILE);
+      const targetTx = histTxs.find((t: any) => String(t?.receiptNumber || '').trim().toUpperCase() === targetRec);
+      if (!targetTx) {
+        res.status(404).json({ success: false, error: `Historical receipt ${targetRec} not found.` });
+        return;
+      }
+
+      const remainingHist = histTxs.filter((t: any) => String(t?.receiptNumber || '').trim().toUpperCase() !== targetRec);
+      writeJsonArray(HISTORICAL_TXS_FILE, remainingHist);
+
+      // Recompute member's historical sums cleanly from remaining historical transactions
+      const affectedMemberId = String(targetTx.memberId || '').trim();
+      if (affectedMemberId) {
+        const members = readJsonArray(MEMBERS_FILE);
+        const mIdx = members.findIndex((m: any) => String(m?.id || m?.memberId || '') === affectedMemberId);
+        if (mIdx !== -1) {
+          const memberTxs = remainingHist.filter((t: any) => String(t?.memberId || '') === affectedMemberId);
+          let pre = 0;
+          let spot = 0;
+          let after = 0;
+          for (const mtx of memberTxs) {
+            const amt = Math.max(0, Number(mtx?.amount) || 0);
+            const rNo = String(mtx?.receiptNumber || '').toUpperCase();
+            if (rNo.endsWith('-PRE')) pre += amt;
+            else if (rNo.endsWith('-SPOT')) spot += amt;
+            else after += amt;
+          }
+          const newHist = pre + spot + after;
+          const livePaid = Math.max(0, Number(members[mIdx].livePaid) || 0);
+          members[mIdx] = {
+            ...members[mIdx],
+            preNllPaid: pre,
+            spotPaid: spot,
+            paidAfter: after,
+            historicalPaid: newHist,
+            totalContributed: newHist + livePaid,
+            updatedAt: new Date().toISOString()
+          };
+          writeJsonArray(MEMBERS_FILE, members);
+        }
+      }
+
+      const sheetsResult = await pushMembersAndHistoricalToGas(operator.email);
+      res.json({
+        success: true,
+        message: `Removed historical receipt ${targetRec}.`,
+        sheetsSynced: sheetsResult.synced,
+        sheetsError: sheetsResult.error
+      });
+    } catch {
+      res.status(500).json({ success: false, error: 'Failed to delete historical transaction.' });
+    }
+  });
+
+  app.post('/api/admin/members/reconcile-ledger', async (req, res) => {
     try {
       const operator = getAuthorizedFinanceOperator(req);
       if (!operator) {
@@ -1486,10 +1899,13 @@ async function startServer() {
       }
       ensureTreasurySeeded();
       const summary = runTreasuryReconciliation();
+      const sheetsResult = await pushMembersAndHistoricalToGas(operator.email);
       res.json({
         success: true,
         message: `Cleaned & reconciled ledger: ${summary.coveredReceiptCount} pre-CSV live receipts deduplicated (${summary.coveredAmountUgx.toLocaleString()} UGX), ${summary.realEmailsRecovered} real emails & ${summary.phonesRecovered} phones recovered, zero staff emails attached.`,
-        data: summary
+        data: summary,
+        sheetsSynced: sheetsResult.synced,
+        sheetsError: sheetsResult.error
       });
     } catch {
       res.status(500).json({ success: false, error: 'Failed to reconcile ledger data.' });
@@ -1505,6 +1921,10 @@ async function startServer() {
       }
 
       ensureTreasurySeeded();
+      const [, cachedGasRows] = await Promise.all([
+        syncMembersFromGasDirectory(false),
+        fetchGasTransactionsCached(false)
+      ]);
       const site = readPublicSiteContent();
       const defaultTargetUgx = Math.max(0, Number(site.membershipTargetUgx) || 100000);
       const rawMembers = readJsonArray(MEMBERS_FILE);
@@ -1529,89 +1949,82 @@ async function startServer() {
       const newUnregisteredLiveMembers: any[] = [];
       let gasConnectedForLive = false;
 
-      const gasUrl = getGasUrl();
-      if (gasUrl) {
-        try {
-          const url = `${gasUrl}${gasUrl.includes('?') ? '&' : '?'}action=getTransactions&operatorEmail=${encodeURIComponent(SYSTEM_OWNER_EMAIL)}&limit=0`;
-          const gasRes = await fetch(url, { redirect: 'follow' }).then(r => r.json()).catch(() => null);
-          if (gasRes && gasRes.success && Array.isArray(gasRes.data)) {
-            gasConnectedForLive = true;
-            const histIds = new Set(
-              historicalTxs.map((t: any) => String(t?.receiptNumber || '').trim().toUpperCase())
+      if (cachedGasRows && cachedGasRows.length > 0) {
+        gasConnectedForLive = true;
+        const histIds = new Set(
+          historicalTxs.map((t: any) => String(t?.receiptNumber || '').trim().toUpperCase())
+        );
+        for (const tx of cachedGasRows) {
+          const rec = String(tx?.receiptNumber || '').trim().toUpperCase();
+          const type = String(tx?.type || 'INFLOW').toUpperCase();
+          const status = String(tx?.paymentStatus || 'COMPLETED').toUpperCase();
+          if (type === 'OUTFLOW' || rec.startsWith('EXP-') || status === 'CANCELLED') continue;
+          // CRITICAL: Skip HIST-* IDs AND all reconciled CSV-covered SB-2026-* receipts (zero double-counting!)
+          if (rec.startsWith('HIST-') || histIds.has(rec) || coveredSet.has(rec)) continue;
+
+          const amt = Math.max(0, Number(tx?.amount) || 0);
+          const payerName = String(tx?.payerName || '').trim();
+          const cleanEm = isPlaceholderMemberEmail(tx?.email, payerName) ? '' : String(tx?.email || '').trim().toLowerCase();
+          const cleanPh = cleanPhoneNumber(tx?.phone || '');
+          const canonKey = resolveCanonicalMemberNameKey(payerName);
+
+          const targetIdx =
+            (cleanEm ? memberIdxByEmail.get(cleanEm) : undefined) ??
+            (canonKey ? memberIdxByCanonicalName.get(canonKey) : undefined);
+
+          if (targetIdx !== undefined) {
+            const cur = liveByMemberIdx.get(targetIdx) || {
+              amount: 0,
+              count: 0,
+              phone: '',
+              email: '',
+              lastDate: '',
+              lastPurpose: ''
+            };
+            cur.amount += amt;
+            cur.count += 1;
+            if (!cur.phone && cleanPh) cur.phone = cleanPh;
+            if (!cur.email && cleanEm) cur.email = cleanEm;
+            if (tx?.date && (!cur.lastDate || String(tx.date) > cur.lastDate)) {
+              cur.lastDate = String(tx.date);
+              cur.lastPurpose = String(tx?.paymentPurpose || cur.lastPurpose);
+            }
+            liveByMemberIdx.set(targetIdx, cur);
+          } else if (payerName) {
+            const newIdx = newUnregisteredLiveMembers.findIndex(
+              nm => resolveCanonicalMemberNameKey(nm.name) === canonKey
             );
-            for (const tx of gasRes.data) {
-              const rec = String(tx?.receiptNumber || '').trim().toUpperCase();
-              const type = String(tx?.type || 'INFLOW').toUpperCase();
-              const status = String(tx?.paymentStatus || 'COMPLETED').toUpperCase();
-              if (type === 'OUTFLOW' || rec.startsWith('EXP-') || status === 'CANCELLED') continue;
-              // CRITICAL: Skip HIST-* IDs AND all reconciled CSV-covered SB-2026-* receipts (zero double-counting!)
-              if (rec.startsWith('HIST-') || histIds.has(rec) || coveredSet.has(rec)) continue;
-
-              const amt = Math.max(0, Number(tx?.amount) || 0);
-              const payerName = String(tx?.payerName || '').trim();
-              const cleanEm = isPlaceholderMemberEmail(tx?.email, payerName) ? '' : String(tx?.email || '').trim().toLowerCase();
-              const cleanPh = cleanPhoneNumber(tx?.phone || '');
-              const canonKey = resolveCanonicalMemberNameKey(payerName);
-
-              const targetIdx =
-                (cleanEm ? memberIdxByEmail.get(cleanEm) : undefined) ??
-                (canonKey ? memberIdxByCanonicalName.get(canonKey) : undefined);
-
-              if (targetIdx !== undefined) {
-                const cur = liveByMemberIdx.get(targetIdx) || {
-                  amount: 0,
-                  count: 0,
-                  phone: '',
-                  email: '',
-                  lastDate: '',
-                  lastPurpose: ''
-                };
-                cur.amount += amt;
-                cur.count += 1;
-                if (!cur.phone && cleanPh) cur.phone = cleanPh;
-                if (!cur.email && cleanEm) cur.email = cleanEm;
-                if (tx?.date && (!cur.lastDate || String(tx.date) > cur.lastDate)) {
-                  cur.lastDate = String(tx.date);
-                  cur.lastPurpose = String(tx?.paymentPurpose || cur.lastPurpose);
-                }
-                liveByMemberIdx.set(targetIdx, cur);
-              } else if (payerName) {
-                const newIdx = newUnregisteredLiveMembers.findIndex(
-                  nm => resolveCanonicalMemberNameKey(nm.name) === canonKey
-                );
-                if (newIdx !== -1) {
-                  newUnregisteredLiveMembers[newIdx].livePaid += amt;
-                  newUnregisteredLiveMembers[newIdx].paymentCount += 1;
-                  if (!newUnregisteredLiveMembers[newIdx].phone && cleanPh) newUnregisteredLiveMembers[newIdx].phone = cleanPh;
-                  if (!newUnregisteredLiveMembers[newIdx].email && cleanEm) newUnregisteredLiveMembers[newIdx].email = cleanEm;
-                } else {
-                  newUnregisteredLiveMembers.push({
-                    id: `SB-LIVE-${String(newUnregisteredLiveMembers.length + 1).padStart(4, '0')}`,
-                    memberId: `SB-LIVE-${String(newUnregisteredLiveMembers.length + 1).padStart(4, '0')}`,
-                    name: payerName,
-                    phone: cleanPh,
-                    email: cleanEm,
-                    address: '',
-                    tier: 'Supporter',
-                    preNllPaid: 0,
-                    spotPaid: 0,
-                    paidAfter: 0,
-                    historicalPaid: 0,
-                    livePaid: amt,
-                    expectedTargetUgx: defaultTargetUgx,
-                    paymentCount: 1,
-                    lastPaymentDate: String(tx?.date || ''),
-                    lastPurpose: String(tx?.paymentPurpose || 'Membership'),
-                    source: 'LIVE_RECEIPT',
-                    createdAt: String(tx?.createdAt || new Date().toISOString()),
-                    updatedAt: new Date().toISOString()
-                  });
-                }
-              }
+            if (newIdx !== -1) {
+              newUnregisteredLiveMembers[newIdx].livePaid += amt;
+              newUnregisteredLiveMembers[newIdx].paymentCount += 1;
+              if (!newUnregisteredLiveMembers[newIdx].phone && cleanPh) newUnregisteredLiveMembers[newIdx].phone = cleanPh;
+              if (!newUnregisteredLiveMembers[newIdx].email && cleanEm) newUnregisteredLiveMembers[newIdx].email = cleanEm;
+            } else {
+              newUnregisteredLiveMembers.push({
+                id: `SB-LIVE-${String(newUnregisteredLiveMembers.length + 1).padStart(4, '0')}`,
+                memberId: `SB-LIVE-${String(newUnregisteredLiveMembers.length + 1).padStart(4, '0')}`,
+                name: payerName,
+                phone: cleanPh,
+                email: cleanEm,
+                address: '',
+                gender: '',
+                school: '',
+                house: '',
+                preNllPaid: 0,
+                spotPaid: 0,
+                paidAfter: 0,
+                historicalPaid: 0,
+                livePaid: amt,
+                expectedTargetUgx: defaultTargetUgx,
+                paymentCount: 1,
+                lastPaymentDate: String(tx?.date || ''),
+                lastPurpose: String(tx?.paymentPurpose || 'Membership'),
+                source: 'LIVE_RECEIPT',
+                createdAt: String(tx?.createdAt || new Date().toISOString()),
+                updatedAt: new Date().toISOString()
+              });
             }
           }
-        } catch {
-          // Non-blocking fallback to stored records
         }
       }
 
@@ -1622,12 +2035,13 @@ async function startServer() {
           : gasConnectedForLive
           ? 0
           : Math.max(0, Number(m.livePaid) || 0);
+        const baseCount = m.source === 'LIVE_RECEIPT' && gasConnectedForLive ? 0 : (Number(m.paymentCount) || 0);
         const enriched = {
           ...m,
           email: String(m.email || '').trim().toLowerCase(),
           phone: cleanPhoneNumber(m.phone || liveInfo?.phone || ''),
           livePaid: liveExtra,
-          paymentCount: (Number(m.paymentCount) || 0) + (liveInfo?.count || 0),
+          paymentCount: baseCount + (liveInfo?.count || 0),
           lastPaymentDate: liveInfo?.lastDate && (!m.lastPaymentDate || liveInfo.lastDate > m.lastPaymentDate)
             ? liveInfo.lastDate
             : m.lastPaymentDate,
@@ -1670,7 +2084,7 @@ async function startServer() {
   });
 
   // Create or update a single member record (Admin staff only, duplicate-email enforced)
-  app.post('/api/admin/members', (req, res) => {
+  app.post('/api/admin/members', async (req, res) => {
     try {
       const operator = getAuthorizedFinanceOperator(req);
       if (!operator) {
@@ -1696,17 +2110,19 @@ async function startServer() {
         return;
       }
 
-      const cleanPhone = String(incoming.phone || '').trim().slice(0, 30);
+      const cleanPhone = cleanPhoneNumber(String(incoming.phone || '').trim().slice(0, 30));
       const cleanAddress = String(incoming.address || '').trim().slice(0, 200);
-      const cleanTier = normalizeMembershipTier(incoming.tier);
+      const cleanGender = normalizeMemberGender(incoming.gender);
+      const cleanSchool = normalizeMemberSchool(incoming.school, incoming.otherSchool);
+      const cleanHouse = normalizeMemberHouse(incoming.house, cleanSchool);
       const site = readPublicSiteContent();
       const defaultTargetUgx = Math.max(0, Number(site.membershipTargetUgx) || 100000);
 
-      ensureTreasurySeeded();
+      await syncMembersFromGasDirectory(false);
       const members = readJsonArray(MEMBERS_FILE);
       const targetId = String(incoming.id || incoming.memberId || '').trim();
       let existingIdx = -1;
-      if (targetId) {
+      if (targetId && !targetId.toUpperCase().startsWith('SB-LIVE-')) {
         existingIdx = members.findIndex(
           (m: any) =>
             String(m.id || '').trim().toLowerCase() === targetId.toLowerCase() ||
@@ -1714,8 +2130,13 @@ async function startServer() {
         );
       }
       if (existingIdx === -1 && cleanName) {
+        const cleanCanonKey = resolveCanonicalMemberNameKey(cleanName);
         const cleanIncomingName = normalizePersonName(cleanName);
-        existingIdx = members.findIndex((m: any) => normalizePersonName(m.name) === cleanIncomingName);
+        existingIdx = members.findIndex(
+          (m: any) =>
+            (cleanCanonKey && resolveCanonicalMemberNameKey(m.name) === cleanCanonKey) ||
+            normalizePersonName(m.name) === cleanIncomingName
+        );
       }
       if (existingIdx === -1 && cleanEmail) {
         existingIdx = members.findIndex((m: any) => String(m.email || '').trim().toLowerCase() === cleanEmail);
@@ -1737,18 +2158,32 @@ async function startServer() {
       const nowIso = new Date().toISOString();
 
       if (existingIdx !== -1) {
-        const current = members[existingIdx];
+        const { tier: _dropLegacyTier, ...current } = members[existingIdx] || {};
+        const nextExpected =
+          incoming.expectedTargetUgx !== undefined && Number(incoming.expectedTargetUgx) >= 0
+            ? Number(incoming.expectedTargetUgx)
+            : current.expectedTargetUgx ?? defaultTargetUgx;
+        const histPaid = Math.max(0, Number(current.historicalPaid ?? current.totalContributed) || 0);
+        const livePaid = Math.max(0, Number(current.livePaid) || 0);
+        const totalContributed = histPaid + livePaid;
+        const nextGender = incoming.gender !== undefined ? cleanGender : normalizeMemberGender(current.gender);
+        const nextSchool = incoming.school !== undefined ? cleanSchool : normalizeMemberSchool(current.school);
+        const nextHouse = isHouseEligibleSchool(nextSchool)
+          ? (incoming.house !== undefined ? cleanHouse : normalizeMemberHouse(current.house, nextSchool))
+          : '';
         const updatedRecord = {
           ...current,
           name: cleanName,
           email: cleanEmail,
           phone: cleanPhone,
           address: cleanAddress,
-          tier: cleanTier,
-          expectedTargetUgx:
-            incoming.expectedTargetUgx !== undefined && Number(incoming.expectedTargetUgx) >= 0
-              ? Number(incoming.expectedTargetUgx)
-              : current.expectedTargetUgx ?? defaultTargetUgx,
+          gender: nextGender,
+          school: nextSchool,
+          house: nextHouse,
+          expectedTargetUgx: nextExpected,
+          totalContributed,
+          remainingUgx: nextExpected > 0 ? Math.max(0, nextExpected - totalContributed) : 0,
+          duesStatus: computeDuesStatus(totalContributed, nextExpected),
           profileStatus: isMemberProfileComplete({
             name: cleanName,
             email: cleanEmail,
@@ -1762,8 +2197,9 @@ async function startServer() {
         members[existingIdx] = updatedRecord;
         writeJsonArray(MEMBERS_FILE, members);
 
-        // Propagate cleaned email/phone/name to member's historical ledger transactions
+        // Propagate cleaned email/phone/name ONLY to this member's historical ledger transactions
         const histTxs = readJsonArray(HISTORICAL_TXS_FILE);
+        const affectedHistTxs: any[] = [];
         let histChanged = false;
         for (const tx of histTxs) {
           if (tx.memberId === updatedRecord.id) {
@@ -1771,6 +2207,7 @@ async function startServer() {
             tx.email = cleanEmail;
             tx.phone = cleanPhone;
             tx.emailStatus = cleanEmail ? 'SKIPPED' : 'NOT_PROVIDED';
+            affectedHistTxs.push(tx);
             histChanged = true;
           }
         }
@@ -1778,7 +2215,13 @@ async function startServer() {
           writeJsonArray(HISTORICAL_TXS_FILE, histTxs);
         }
 
-        res.json({ success: true, data: sanitizeMemberForClient(updatedRecord, defaultTargetUgx) });
+        const sheetsResult = await pushSingleMemberToGas(updatedRecord, operator.email, affectedHistTxs);
+        res.json({
+          success: true,
+          data: sanitizeMemberForClient(updatedRecord, defaultTargetUgx),
+          sheetsSynced: sheetsResult.synced,
+          sheetsError: sheetsResult.error
+        });
         return;
       }
 
@@ -1791,7 +2234,9 @@ async function startServer() {
         email: cleanEmail,
         phone: cleanPhone,
         address: cleanAddress,
-        tier: cleanTier,
+        gender: cleanGender,
+        school: cleanSchool,
+        house: cleanHouse,
         preNllPaid: 0,
         spotPaid: 0,
         paidAfter: 0,
@@ -1820,14 +2265,20 @@ async function startServer() {
 
       members.unshift(newRecord);
       writeJsonArray(MEMBERS_FILE, members);
-      res.json({ success: true, data: sanitizeMemberForClient(newRecord, defaultTargetUgx) });
+      const sheetsResult = await pushSingleMemberToGas(newRecord, operator.email, []);
+      res.json({
+        success: true,
+        data: sanitizeMemberForClient(newRecord, defaultTargetUgx),
+        sheetsSynced: sheetsResult.synced,
+        sheetsError: sheetsResult.error
+      });
     } catch {
       res.status(500).json({ success: false, error: 'Failed to save member profile.' });
     }
   });
 
   // Upload or Re-Import CSV Idempotently (Admin staff only)
-  app.post('/api/admin/members/import-csv', (req, res) => {
+  app.post('/api/admin/members/import-csv', async (req, res) => {
     try {
       const operator = getAuthorizedFinanceOperator(req);
       if (!operator) {
@@ -1871,10 +2322,15 @@ async function startServer() {
 
       const existingMembers = readJsonArray(MEMBERS_FILE);
       const memberById = new Map<string, any>();
-      const memberByName = new Map<string, any>();
+      const memberByCanonicalName = new Map<string, any>();
       for (const m of existingMembers) {
         if (m?.id) memberById.set(String(m.id), m);
-        if (m?.name) memberByName.set(String(m.name).trim().toLowerCase(), m);
+        if (m?.name) {
+          const canonKey = resolveCanonicalMemberNameKey(m.name);
+          if (canonKey && !memberByCanonicalName.has(canonKey)) {
+            memberByCanonicalName.set(canonKey, m);
+          }
+        }
       }
 
       let addedCount = 0;
@@ -1883,27 +2339,35 @@ async function startServer() {
       const seenIds = new Set<string>();
 
       for (const imported of parsed.members) {
+        const canonImported = resolveCanonicalMemberNameKey(imported.name);
         const existing =
           (imported.id ? memberById.get(imported.id) : undefined) ||
-          memberByName.get(imported.name.trim().toLowerCase());
+          (canonImported ? memberByCanonicalName.get(canonImported) : undefined);
 
         if (existing) {
           updatedCount++;
           const mergedEmail = imported.email || existing.email || '';
-          const mergedPhone = imported.phone || existing.phone || '';
+          const mergedPhone = cleanPhoneNumber(imported.phone || existing.phone || '');
           const mergedAddress = imported.address || existing.address || '';
-          const mergedTier = existing.tier && existing.tier !== 'Supporter' ? existing.tier : imported.tier;
+          const mergedGender = normalizeMemberGender(existing.gender || imported.gender);
+          const mergedSchool = normalizeMemberSchool(existing.school || imported.school);
+          const mergedHouse = normalizeMemberHouse(existing.house || imported.house, mergedSchool);
+          const preservedLivePaid = Math.max(0, Number(existing.livePaid) || 0);
+          const nextTotal = imported.historicalPaid + preservedLivePaid;
           const updated = {
             ...existing,
             preNllPaid: imported.preNllPaid,
             spotPaid: imported.spotPaid,
             paidAfter: imported.paidAfter,
             historicalPaid: imported.historicalPaid,
-            totalContributed: imported.historicalPaid,
+            livePaid: preservedLivePaid,
+            totalContributed: nextTotal,
             email: mergedEmail,
             phone: mergedPhone,
             address: mergedAddress,
-            tier: mergedTier,
+            gender: mergedGender,
+            school: mergedSchool,
+            house: mergedHouse,
             profileStatus: isMemberProfileComplete({
               name: existing.name,
               email: mergedEmail,
@@ -1949,7 +2413,7 @@ async function startServer() {
           ...tx,
           payerName: ownerMember?.name || prev?.payerName || tx.payerName,
           email: ownerMember?.email || prev?.email || tx.email || '',
-          phone: ownerMember?.phone || prev?.phone || tx.phone || '',
+          phone: cleanPhoneNumber(ownerMember?.phone || prev?.phone || tx.phone || ''),
           emailStatus: (ownerMember?.email || prev?.email || tx.email) ? 'SKIPPED' : 'NOT_PROVIDED'
         });
       }
@@ -1958,6 +2422,7 @@ async function startServer() {
       writeJsonArray(MEMBERS_FILE, mergedMembers);
       writeJsonArray(HISTORICAL_TXS_FILE, finalHist);
       runTreasuryReconciliation();
+      const sheetsResult = await pushMembersAndHistoricalToGas(operator.email);
 
       res.json({
         success: true,
@@ -1966,7 +2431,9 @@ async function startServer() {
           addedCount,
           updatedCount,
           summary: parsed.summary
-        }
+        },
+        sheetsSynced: sheetsResult.synced,
+        sheetsError: sheetsResult.error
       });
     } catch {
       res.status(500).json({ success: false, error: 'Failed to import CSV file.' });
@@ -1974,7 +2441,7 @@ async function startServer() {
   });
 
   // Merge duplicate member profiles into one primary record (Admin staff only)
-  app.post('/api/admin/members/merge', (req, res) => {
+  app.post('/api/admin/members/merge', async (req, res) => {
     try {
       const operator = getAuthorizedFinanceOperator(req);
       if (!operator) {
@@ -2006,18 +2473,25 @@ async function startServer() {
         return;
       }
 
+      const site = readPublicSiteContent();
+      const defaultTargetUgx = Math.max(0, Number(site.membershipTargetUgx) || 100000);
       const primary = { ...members[primaryIdx] };
       for (const d of toMerge) {
         primary.preNllPaid = (Number(primary.preNllPaid) || 0) + (Number(d.preNllPaid) || 0);
         primary.spotPaid = (Number(primary.spotPaid) || 0) + (Number(d.spotPaid) || 0);
         primary.paidAfter = (Number(primary.paidAfter) || 0) + (Number(d.paidAfter) || 0);
         primary.historicalPaid = (Number(primary.historicalPaid) || 0) + (Number(d.historicalPaid) || 0);
+        primary.livePaid = (Number(primary.livePaid) || 0) + (Number(d.livePaid) || 0);
         primary.paymentCount = (Number(primary.paymentCount) || 0) + (Number(d.paymentCount) || 0);
         if (!primary.email && d.email && !isPlaceholderMemberEmail(d.email)) primary.email = d.email;
-        if (!primary.phone && d.phone) primary.phone = d.phone;
+        if (!primary.phone && d.phone) primary.phone = cleanPhoneNumber(d.phone);
         if (!primary.address && d.address) primary.address = d.address;
       }
-      primary.totalContributed = Number(primary.historicalPaid) || 0;
+      primary.phone = cleanPhoneNumber(primary.phone || '');
+      primary.totalContributed = (Number(primary.historicalPaid) || 0) + (Number(primary.livePaid) || 0);
+      const targetUgx = Math.max(0, Number(primary.expectedTargetUgx ?? defaultTargetUgx) || 0);
+      primary.remainingUgx = targetUgx > 0 ? Math.max(0, targetUgx - primary.totalContributed) : 0;
+      primary.duesStatus = computeDuesStatus(primary.totalContributed, targetUgx);
       primary.profileStatus = isMemberProfileComplete(primary) ? 'COMPLETE' : 'INCOMPLETE';
       primary.updatedAt = new Date().toISOString();
 
@@ -2041,9 +2515,12 @@ async function startServer() {
         writeJsonArray(HISTORICAL_TXS_FILE, histTxs);
       }
 
+      const sheetsResult = await pushMembersAndHistoricalToGas(operator.email);
       res.json({
         success: true,
-        message: `Merged ${toMerge.length} duplicate record${toMerge.length === 1 ? '' : 's'} into ${primary.name}.`
+        message: `Merged ${toMerge.length} duplicate record${toMerge.length === 1 ? '' : 's'} into ${primary.name}.`,
+        sheetsSynced: sheetsResult.synced,
+        sheetsError: sheetsResult.error
       });
     } catch {
       res.status(500).json({ success: false, error: 'Failed to merge member records.' });
@@ -2091,7 +2568,7 @@ async function startServer() {
   });
 
   // Approve or Reject a member self-submitted profile completion request (Admin staff only)
-  app.post('/api/admin/members/submissions/:submissionId/review', (req, res) => {
+  app.post('/api/admin/members/submissions/:submissionId/review', async (req, res) => {
     try {
       const operator = getAuthorizedFinanceOperator(req);
       if (!operator) {
@@ -2123,6 +2600,9 @@ async function startServer() {
 
       const nowIso = new Date().toISOString();
 
+      let approvedMember: any = null;
+      let affectedHistTxs: any[] = [];
+
       if (decision === 'APPROVE') {
         const members = readJsonArray(MEMBERS_FILE);
         const memIdx = members.findIndex((m: any) => String(m.id || m.memberId) === String(sub.memberId));
@@ -2145,22 +2625,29 @@ async function startServer() {
           }
         }
 
+        const cleanPhone = cleanPhoneNumber(sub.submittedPhone || members[memIdx].phone || '');
+        const cleanSchool = normalizeMemberSchool(sub.submittedSchool || members[memIdx].school);
+        const cleanGender = normalizeMemberGender(sub.submittedGender || members[memIdx].gender);
+        const cleanHouse = normalizeMemberHouse(sub.submittedHouse || members[memIdx].house, cleanSchool);
         const updatedMember = {
           ...members[memIdx],
           name: sub.submittedName || members[memIdx].name,
           email: cleanEmail,
-          phone: sub.submittedPhone || members[memIdx].phone,
+          phone: cleanPhone,
           address: sub.submittedAddress || members[memIdx].address,
-          tier: normalizeMembershipTier(sub.submittedTier || members[memIdx].tier),
+          gender: cleanGender,
+          school: cleanSchool,
+          house: cleanHouse,
           claimTokenHash: undefined,
           claimTokenExpiresAt: undefined,
           updatedAt: nowIso
         };
         updatedMember.profileStatus = isMemberProfileComplete(updatedMember) ? 'COMPLETE' : 'INCOMPLETE';
         members[memIdx] = updatedMember;
+        approvedMember = updatedMember;
         writeJsonArray(MEMBERS_FILE, members);
 
-        // Stamp verified email/phone/name onto member's historical ledger transactions
+        // Stamp verified email/phone/name ONLY onto this member's historical ledger transactions
         const histTxs = readJsonArray(HISTORICAL_TXS_FILE);
         let histChanged = false;
         for (const tx of histTxs) {
@@ -2169,6 +2656,7 @@ async function startServer() {
             tx.email = cleanEmail;
             tx.phone = updatedMember.phone;
             tx.emailStatus = cleanEmail ? 'SKIPPED' : 'NOT_PROVIDED';
+            affectedHistTxs.push(tx);
             histChanged = true;
           }
         }
@@ -2186,13 +2674,19 @@ async function startServer() {
       };
       writeJsonArray(SUBMISSIONS_FILE, submissions);
 
+      const sheetsResult = decision === 'APPROVE' && approvedMember
+        ? await pushSingleMemberToGas(approvedMember, operator.email, affectedHistTxs)
+        : { synced: false };
+
       res.json({
         success: true,
         message:
           decision === 'APPROVE'
             ? `Approved and synced ${sub.submittedName}'s details. They can now sign in at /me.`
             : `Rejected update request from ${sub.submittedName}.`,
-        data: submissions[subIdx]
+        data: submissions[subIdx],
+        sheetsSynced: sheetsResult.synced,
+        sheetsError: sheetsResult.error
       });
     } catch {
       res.status(500).json({ success: false, error: 'Failed to process review decision.' });
@@ -2229,6 +2723,7 @@ async function startServer() {
         (s: any) => s?.memberId === member.id && s?.status === 'PENDING'
       );
 
+      const claimSchool = normalizeMemberSchool(member.school);
       res.json({
         success: true,
         data: {
@@ -2237,7 +2732,9 @@ async function startServer() {
           phone: member.phone || '',
           email: member.email || '',
           address: member.address || '',
-          tier: normalizeMembershipTier(member.tier),
+          gender: normalizeMemberGender(member.gender),
+          school: claimSchool,
+          house: normalizeMemberHouse(member.house, claimSchool),
           preNllPaid: Math.max(0, Number(member.preNllPaid) || 0),
           spotPaid: Math.max(0, Number(member.spotPaid) || 0),
           paidAfter: Math.max(0, Number(member.paidAfter) || 0),
@@ -2276,9 +2773,11 @@ async function startServer() {
       const targetMember = members[memIdx];
       const submittedName = String(req.body?.fullName || '').trim().slice(0, 120);
       const submittedEmail = String(req.body?.email || '').trim().toLowerCase().slice(0, 120);
-      const submittedPhone = String(req.body?.phone || '').trim().slice(0, 30);
+      const submittedPhone = cleanPhoneNumber(String(req.body?.phone || '').trim().slice(0, 30));
       const submittedAddress = String(req.body?.address || '').trim().slice(0, 200);
-      const submittedTier = normalizeMembershipTier(req.body?.tier);
+      const submittedGender = normalizeMemberGender(req.body?.gender);
+      const submittedSchool = normalizeMemberSchool(req.body?.school, req.body?.otherSchool);
+      const submittedHouse = normalizeMemberHouse(req.body?.house, submittedSchool);
 
       if (submittedName.length < 2) {
         res.status(400).json({ success: false, error: 'Enter your full name.' });
@@ -2294,6 +2793,18 @@ async function startServer() {
       }
       if (submittedAddress.length < 2) {
         res.status(400).json({ success: false, error: 'Enter your physical address / residence.' });
+        return;
+      }
+      if (!submittedGender) {
+        res.status(400).json({ success: false, error: 'Select your gender (Male or Female).' });
+        return;
+      }
+      if (!submittedSchool) {
+        res.status(400).json({ success: false, error: 'Select your school or enter your school name.' });
+        return;
+      }
+      if (isHouseEligibleSchool(submittedSchool) && !submittedHouse) {
+        res.status(400).json({ success: false, error: `Please select your house at ${submittedSchool}.` });
         return;
       }
 
@@ -2334,7 +2845,9 @@ async function startServer() {
         submittedEmail,
         submittedPhone,
         submittedAddress,
-        submittedTier,
+        submittedGender,
+        submittedSchool,
+        submittedHouse,
         preNllPaid: Math.max(0, Number(targetMember.preNllPaid) || 0),
         spotPaid: Math.max(0, Number(targetMember.spotPaid) || 0),
         paidAfter: Math.max(0, Number(targetMember.paidAfter) || 0),
@@ -2366,6 +2879,10 @@ async function startServer() {
 
   const fetchRegisteredMemberData = async (cleanEmail: string) => {
     ensureTreasurySeeded();
+    const [, gasRows] = await Promise.all([
+      syncMembersFromGasDirectory(false),
+      fetchGasTransactionsCached(false)
+    ]);
     const members = readJsonArray(MEMBERS_FILE);
     const memberRecord = members.find(
       (m: any) => !isPlaceholderMemberEmail(m?.email, m?.name) && String(m?.email || '').trim().toLowerCase() === cleanEmail
@@ -2382,32 +2899,26 @@ async function startServer() {
     });
 
     const coveredSet = getCoveredReceiptSet();
-    const gasUrl = getGasUrl();
-    let gasConnected = false;
+    const gasConnected = gasRows !== null;
     let gasInflows: any[] = [];
 
-    if (gasUrl) {
-      const url = `${gasUrl}${gasUrl.includes('?') ? '&' : '?'}action=getTransactions&operatorEmail=${encodeURIComponent(SYSTEM_OWNER_EMAIL)}&limit=0`;
-      const gasRes = await fetch(url, { redirect: 'follow' }).then(r => r.json()).catch(() => null);
-      if (gasRes && gasRes.success && Array.isArray(gasRes.data)) {
-        gasConnected = true;
-        gasInflows = gasRes.data.filter((tx: any) => {
-          const type = String(tx?.type || 'INFLOW').toUpperCase();
-          const rec = String(tx?.receiptNumber || '').trim().toUpperCase();
-          const status = String(tx?.paymentStatus || '').toUpperCase();
-          if (type === 'OUTFLOW' || rec.startsWith('EXP-') || status === 'CANCELLED') return false;
-          // Exclude reconciled pre-CSV live receipts so /me never double-counts them alongside HIST-NLL17-*
-          if (coveredSet.has(rec)) return false;
+    if (gasRows) {
+      gasInflows = gasRows.filter((tx: any) => {
+        const type = String(tx?.type || 'INFLOW').toUpperCase();
+        const rec = String(tx?.receiptNumber || '').trim().toUpperCase();
+        const status = String(tx?.paymentStatus || '').toUpperCase();
+        if (type === 'OUTFLOW' || rec.startsWith('EXP-') || status === 'CANCELLED') return false;
+        // Exclude reconciled pre-CSV live receipts so /me never double-counts them alongside HIST-NLL17-*
+        if (coveredSet.has(rec)) return false;
 
-          const txEmail = isPlaceholderMemberEmail(tx?.email, tx?.payerName)
-            ? ''
-            : String(tx?.email || '').trim().toLowerCase();
-          const matchesMemberName =
-            Boolean(memberRecord) &&
-            resolveCanonicalMemberNameKey(tx?.payerName) === resolveCanonicalMemberNameKey(memberRecord.name);
-          return (txEmail && txEmail === cleanEmail) || matchesMemberName;
-        });
-      }
+        const txEmail = isPlaceholderMemberEmail(tx?.email, tx?.payerName)
+          ? ''
+          : String(tx?.email || '').trim().toLowerCase();
+        const matchesMemberName =
+          Boolean(memberRecord) &&
+          resolveCanonicalMemberNameKey(tx?.payerName) === resolveCanonicalMemberNameKey(memberRecord.name);
+        return (txEmail && txEmail === cleanEmail) || matchesMemberName;
+      });
     }
 
     // Merge GAS inflows and local historical inflows without duplicating receipt numbers
@@ -2757,18 +3268,20 @@ async function startServer() {
         memberEmail: member.email,
         phone: String(lookup.memberRecord?.phone || lookup.inflows[0]?.phone || ''),
         memberProfile: lookup.memberRecord
-          ? sanitizeMemberForClient(lookup.memberRecord, expectedTargetUgx)
-          : {
-              name: lookup.memberName || member.name,
-              email: member.email,
-              phone: String(lookup.inflows[0]?.phone || ''),
-              address: '',
-              tier: 'Supporter',
-              preNllPaid: 0,
-              spotPaid: 0,
-              paidAfter: 0,
-              duesStatus: computeDuesStatus(totalPaidUgx, expectedTargetUgx)
-            },
+            ? sanitizeMemberForClient(lookup.memberRecord, expectedTargetUgx)
+            : {
+                name: lookup.memberName || member.name,
+                email: member.email,
+                phone: String(lookup.inflows[0]?.phone || ''),
+                address: '',
+                gender: '',
+                school: '',
+                house: '',
+                preNllPaid: 0,
+                spotPaid: 0,
+                paidAfter: 0,
+                duesStatus: computeDuesStatus(totalPaidUgx, expectedTargetUgx)
+              },
         memberSince: oldestDate,
         targetLabel,
         expectedTargetUgx,
@@ -2799,7 +3312,7 @@ async function startServer() {
   });
 
   // API: Authenticated Member Personal Profile Self-Update (financial totals strictly locked)
-  app.patch('/api/me/profile', (req, res) => {
+  app.patch('/api/me/profile', async (req, res) => {
     try {
       const member = verifyMemberToken(req);
       if (!member) {
@@ -2811,9 +3324,11 @@ async function startServer() {
       }
 
       const cleanName = String(req.body?.fullName || '').trim().slice(0, 120);
-      const cleanPhone = String(req.body?.phone || '').trim().slice(0, 30);
+      const cleanPhone = cleanPhoneNumber(String(req.body?.phone || '').trim().slice(0, 30));
       const cleanAddress = String(req.body?.address || '').trim().slice(0, 200);
-      const cleanTier = normalizeMembershipTier(req.body?.tier);
+      const cleanGender = normalizeMemberGender(req.body?.gender);
+      const cleanSchool = normalizeMemberSchool(req.body?.school, req.body?.otherSchool);
+      const cleanHouse = normalizeMemberHouse(req.body?.house, cleanSchool);
 
       if (cleanName.length < 2) {
         res.status(400).json({ success: false, error: 'Full name is required.' });
@@ -2823,8 +3338,20 @@ async function startServer() {
         res.status(400).json({ success: false, error: 'Enter a valid phone or WhatsApp number.' });
         return;
       }
+      if (!cleanGender) {
+        res.status(400).json({ success: false, error: 'Please select your gender (Male or Female).' });
+        return;
+      }
+      if (!cleanSchool) {
+        res.status(400).json({ success: false, error: 'Please select your school or enter your school name.' });
+        return;
+      }
+      if (isHouseEligibleSchool(cleanSchool) && !cleanHouse) {
+        res.status(400).json({ success: false, error: `Please select your house at ${cleanSchool}.` });
+        return;
+      }
 
-      ensureTreasurySeeded();
+      await syncMembersFromGasDirectory(false);
       const site = readPublicSiteContent();
       const defaultTargetUgx = Math.max(0, Number(site.membershipTargetUgx) || 100000);
       const members = readJsonArray(MEMBERS_FILE);
@@ -2832,17 +3359,35 @@ async function startServer() {
       const nowIso = new Date().toISOString();
 
       let savedRecord: any;
+      const affectedHistTxs: any[] = [];
       if (idx !== -1) {
+        const { tier: _dropLegacyTier, ...existingClean } = members[idx] || {};
         savedRecord = {
-          ...members[idx],
+          ...existingClean,
           name: cleanName,
           phone: cleanPhone,
           address: cleanAddress,
-          tier: cleanTier,
+          gender: cleanGender,
+          school: cleanSchool,
+          house: cleanHouse,
           updatedAt: nowIso
         };
         savedRecord.profileStatus = isMemberProfileComplete(savedRecord) ? 'COMPLETE' : 'INCOMPLETE';
         members[idx] = savedRecord;
+
+        const histTxs = readJsonArray(HISTORICAL_TXS_FILE);
+        let histChanged = false;
+        for (const tx of histTxs) {
+          if (tx.memberId === savedRecord.id) {
+            tx.payerName = cleanName;
+            tx.phone = cleanPhone;
+            affectedHistTxs.push(tx);
+            histChanged = true;
+          }
+        }
+        if (histChanged) {
+          writeJsonArray(HISTORICAL_TXS_FILE, histTxs);
+        }
       } else {
         const newId = `SB-M-${String(members.length + 1).padStart(4, '0')}`;
         savedRecord = {
@@ -2852,7 +3397,9 @@ async function startServer() {
           email: member.email,
           phone: cleanPhone,
           address: cleanAddress,
-          tier: cleanTier,
+          gender: cleanGender,
+          school: cleanSchool,
+          house: cleanHouse,
           preNllPaid: 0,
           spotPaid: 0,
           paidAfter: 0,
@@ -2876,10 +3423,13 @@ async function startServer() {
       }
 
       writeJsonArray(MEMBERS_FILE, members);
+      const sheetsResult = await pushSingleMemberToGas(savedRecord, SYSTEM_OWNER_EMAIL, affectedHistTxs);
       res.json({
         success: true,
         message: 'Your member contact details have been updated.',
-        data: sanitizeMemberForClient(savedRecord, defaultTargetUgx)
+        data: sanitizeMemberForClient(savedRecord, defaultTargetUgx),
+        sheetsSynced: sheetsResult.synced,
+        sheetsError: sheetsResult.error
       });
     } catch {
       res.status(500).json({ success: false, error: 'Could not update your profile right now.' });

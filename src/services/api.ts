@@ -18,6 +18,7 @@ import {
 import { HARDCODED_LOGO_URL } from '../assets/brandLogo';
 import {
   cleanPhoneNumber,
+  compareTransactions,
   isStaffOrPlaceholderEmail,
   PRE_CSV_COVERED_RECEIPT_SET,
   resolveCanonicalMemberNameKey
@@ -176,11 +177,35 @@ interface StoredOtp {
 class ApiClient {
   private gasUrl: string = '';
   private coveredGasReceipts: Set<string> = new Set(PRE_CSV_COVERED_RECEIPT_SET);
+  private syncConfigPromise: Promise<void> | null = null;
+  private lastConfigSyncAt: number = 0;
+  private historicalCache: { email: string; ts: number; data: Transaction[] } | null = null;
+  private historicalPromise: Promise<Transaction[]> | null = null;
+  private liveGasTxCache: { ts: number; data: Transaction[] } | null = null;
+  private liveGasTxPromise: Promise<{
+    transactions: Transaction[];
+    isQuotaLimited: boolean;
+    error: string | null;
+  }> | null = null;
+  private initialDataPromise: Promise<{
+    settings: AppSettings;
+    transactions: Transaction[];
+    users: User[];
+    auditLogs: AuditLogEntry[];
+  }> | null = null;
 
   constructor() {
     this.loadGasUrl();
     this.initLocalStorage();
     this.syncSharedConfigAndUsers();
+  }
+
+  public invalidateTransactionCaches(notifyServer: boolean = true): void {
+    this.liveGasTxCache = null;
+    this.historicalCache = null;
+    if (notifyServer && typeof fetch === 'function') {
+      fetch('/api/gas/invalidate-cache', { method: 'POST' }).catch(() => null);
+    }
   }
 
   public getGasUrl(): string {
@@ -190,6 +215,7 @@ class ApiClient {
   public setGasUrl(url: string): void {
     this.gasUrl = url.trim();
     localStorage.setItem(STORAGE_KEYS.GAS_URL, this.gasUrl);
+    this.invalidateTransactionCaches(true);
     // Broadcast configured GAS URL to server so all devices/staff get it automatically
     fetch('/api/config', {
       method: 'POST',
@@ -208,97 +234,111 @@ class ApiClient {
   }
 
   public async refreshConnection(): Promise<boolean> {
-    await this.syncSharedConfigAndUsers();
+    await this.syncSharedConfigAndUsers(true);
     return this.isConnectedToLiveBackend();
   }
 
-  public async syncSharedConfigAndUsers(): Promise<void> {
-    try {
-      // 1. Sync Config (GAS URL)
-      const configRes = await fetch('/api/config').then(r => r.json()).catch(() => null);
-      if (configRes && configRes.success && configRes.data?.gasUrl) {
-        const remoteGasUrl = configRes.data.gasUrl.trim();
-        if (remoteGasUrl && remoteGasUrl.startsWith('https://script.google.com/macros/s/')) {
-          this.gasUrl = remoteGasUrl;
-          localStorage.setItem(STORAGE_KEYS.GAS_URL, remoteGasUrl);
-        }
-      } else if (this.gasUrl && this.gasUrl.startsWith('https://script.google.com/macros/s/')) {
-        // Push local gasUrl to server
-        fetch('/api/config', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ gasUrl: this.gasUrl })
-        }).catch(() => null);
-      }
+  public async syncSharedConfigAndUsers(force: boolean = false): Promise<void> {
+    if (!force && this.syncConfigPromise) {
+      return this.syncConfigPromise;
+    }
+    if (!force && this.lastConfigSyncAt > 0 && Date.now() - this.lastConfigSyncAt < 30_000) {
+      return;
+    }
 
-      // 2. Sync Shared Users from Server
-      const usersRes = await fetch('/api/users').then(r => r.json()).catch(() => null);
-      if (usersRes && usersRes.success && Array.isArray(usersRes.data) && usersRes.data.length > 0) {
-        const serverUsers: User[] = usersRes.data;
-        const localUsers = this.getStoredUsers();
-        const map = new Map<string, User>();
-        for (const u of localUsers) {
-          if (u.email) map.set(u.email.toLowerCase().trim(), u);
+    const runner = (async () => {
+      try {
+        const [configRes, usersRes, settingsRes] = await Promise.all([
+          fetch('/api/config').then(r => r.json()).catch(() => null),
+          fetch('/api/users').then(r => r.json()).catch(() => null),
+          fetch('/api/settings').then(r => r.json()).catch(() => null)
+        ]);
+
+        // 1. Sync Config (GAS URL)
+        if (configRes && configRes.success && configRes.data?.gasUrl) {
+          const remoteGasUrl = configRes.data.gasUrl.trim();
+          if (remoteGasUrl && remoteGasUrl.startsWith('https://script.google.com/macros/s/')) {
+            this.gasUrl = remoteGasUrl;
+            localStorage.setItem(STORAGE_KEYS.GAS_URL, remoteGasUrl);
+          }
+        } else if (this.gasUrl && this.gasUrl.startsWith('https://script.google.com/macros/s/')) {
+          fetch('/api/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ gasUrl: this.gasUrl })
+          }).catch(() => null);
         }
-        for (const u of serverUsers) {
-          if (u.email) {
-            const key = u.email.toLowerCase().trim();
-            const existing = map.get(key);
-            if (!existing) {
-              map.set(key, u);
-            } else {
-              map.set(key, {
-                ...existing,
-                ...u,
-                password: u.password || existing.password
-              });
+
+        // 2. Sync Shared Users from Server
+        if (usersRes && usersRes.success && Array.isArray(usersRes.data) && usersRes.data.length > 0) {
+          const serverUsers: User[] = usersRes.data;
+          const localUsers = this.getStoredUsers();
+          const map = new Map<string, User>();
+          for (const u of localUsers) {
+            if (u.email) map.set(u.email.toLowerCase().trim(), u);
+          }
+          for (const u of serverUsers) {
+            if (u.email) {
+              const key = u.email.toLowerCase().trim();
+              const existing = map.get(key);
+              if (!existing) {
+                map.set(key, u);
+              } else {
+                map.set(key, {
+                  ...existing,
+                  ...u,
+                  password: u.password || existing.password
+                });
+              }
             }
           }
+          const merged = Array.from(map.values());
+          localStorage.setItem(STORAGE_KEYS.LOCAL_USERS, JSON.stringify(merged));
+        } else {
+          const localUsers = this.getStoredUsers();
+          fetch('/api/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ users: localUsers })
+          }).catch(() => null);
         }
-        const merged = Array.from(map.values());
-        localStorage.setItem(STORAGE_KEYS.LOCAL_USERS, JSON.stringify(merged));
-      } else {
-        // Push local users to server
-        const localUsers = this.getStoredUsers();
-        fetch('/api/users', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ users: localUsers })
-        }).catch(() => null);
-      }
 
-      // 3. Sync Shared Settings from Server (ensures logoUrl and brand appearance sync to all devices)
-      const settingsRes = await fetch('/api/settings').then(r => r.json()).catch(() => null);
-      if (settingsRes && settingsRes.success && settingsRes.data) {
-        const serverSettings: AppSettings = settingsRes.data;
-        const localSettings = this.getStoredSettings();
-        const mergedSettings: AppSettings = {
-          ...DEFAULT_SEED_SETTINGS,
-          ...localSettings,
-          ...serverSettings,
-          logoUrl: (serverSettings.logoUrl && serverSettings.logoUrl.trim()) ? serverSettings.logoUrl : ((localSettings.logoUrl && localSettings.logoUrl.trim()) ? localSettings.logoUrl : HARDCODED_LOGO_URL)
-        };
-        localStorage.setItem(STORAGE_KEYS.LOCAL_SETTINGS, JSON.stringify(mergedSettings));
-        // If local had a logo but server didn't, push to server
-        if (!serverSettings.logoUrl && localSettings.logoUrl) {
+        // 3. Sync Shared Settings from Server
+        if (settingsRes && settingsRes.success && settingsRes.data) {
+          const serverSettings: AppSettings = settingsRes.data;
+          const localSettings = this.getStoredSettings();
+          const mergedSettings: AppSettings = {
+            ...DEFAULT_SEED_SETTINGS,
+            ...localSettings,
+            ...serverSettings,
+            logoUrl: (serverSettings.logoUrl && serverSettings.logoUrl.trim()) ? serverSettings.logoUrl : ((localSettings.logoUrl && localSettings.logoUrl.trim()) ? localSettings.logoUrl : HARDCODED_LOGO_URL)
+          };
+          localStorage.setItem(STORAGE_KEYS.LOCAL_SETTINGS, JSON.stringify(mergedSettings));
+          if (!serverSettings.logoUrl && localSettings.logoUrl) {
+            fetch('/api/settings', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ settings: mergedSettings })
+            }).catch(() => null);
+          }
+        } else {
+          const localSettings = this.getStoredSettings();
           fetch('/api/settings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ settings: mergedSettings })
+            body: JSON.stringify({ settings: localSettings })
           }).catch(() => null);
         }
-      } else {
-        // Push local settings to server
-        const localSettings = this.getStoredSettings();
-        fetch('/api/settings', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ settings: localSettings })
-        }).catch(() => null);
+        this.lastConfigSyncAt = Date.now();
+      } catch {
+        // Ignore network sync failures
+      } finally {
+        this.syncConfigPromise = null;
       }
-    } catch {
-      // Ignore network sync failures
-    }
+    })();
+
+    this.syncConfigPromise = runner;
+    return runner;
   }
 
   public isConnectedToLiveBackend(): boolean {
@@ -364,8 +404,10 @@ class ApiClient {
     const resolvedType: TransactionType = isOutflow ? 'OUTFLOW' : 'INFLOW';
     const numAmount = Math.max(0, typeof tx.amount === 'string' ? parseFloat(String(tx.amount).replace(/[^0-9.-]+/g, '')) || 0 : Number(tx.amount) || 0);
     const cleanedPhone = cleanPhoneNumber(tx.phone || '');
+    const subjectName = isOutflow ? (tx.payee || tx.payerName) : tx.payerName;
     const rawEmail = String(tx.email || '').trim().toLowerCase();
-    const isSafeEmail = Boolean(rawEmail && !rawEmail.includes('no-reply') && !rawEmail.includes('whatsapp.direct') && !rawEmail.includes('noreply') && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail));
+    const staffEmails = this.getStoredUsers().map(u => u.email);
+    const isSafeEmail = Boolean(rawEmail && !isStaffOrPlaceholderEmail(rawEmail, subjectName, staffEmails));
     const effectiveEmail = isSafeEmail ? rawEmail : '';
 
     return {
@@ -611,33 +653,24 @@ class ApiClient {
       };
     }
 
-    // Dispatch email via Google Apps Script (Try GET first for optimal redirection handling, then POST fallback)
+    // Dispatch email via Google Apps Script using POST
     let gasSuccess = false;
     let gasError: string | undefined;
 
     try {
-      const getUrl = `${this.gasUrl}${this.gasUrl.includes('?') ? '&' : '?'}action=sendLoginOtp&email=${encodeURIComponent(cleanEmail)}&code=${encodeURIComponent(otpCode)}`;
-      const gasRes = await this.fetchFromGas<{ success: boolean; error?: string }>(getUrl);
-      if (gasRes.success) {
+      const postRes = await this.fetchFromGas<{ success: boolean; error?: string }>(this.gasUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'sendLoginOtp',
+          email: cleanEmail,
+          code: otpCode
+        })
+      });
+      if (postRes.success) {
         gasSuccess = true;
       } else {
-        gasError = gasRes.error;
-        // Fallback to POST
-        const postRes = await this.fetchFromGas<{ success: boolean; error?: string }>(this.gasUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({
-            action: 'sendLoginOtp',
-            email: cleanEmail,
-            code: otpCode
-          })
-        });
-        if (postRes.success) {
-          gasSuccess = true;
-          gasError = undefined;
-        } else {
-          gasError = postRes.error || gasError;
-        }
+        gasError = postRes.error;
       }
     } catch (err: unknown) {
       gasError = err instanceof Error ? err.message : String(err);
@@ -816,21 +849,39 @@ class ApiClient {
     // 2. Direct Live Google Apps Script Verification (if server is cold or user was added/synced directly to Google Sheets)
     if (this.isConnectedToLiveBackend()) {
       try {
-        // First check verifyPassword if supported
         let verifiedGasUser: User | null = null;
+        let verifySupported = true;
         try {
-          const verifyUrl = `${this.gasUrl}${this.gasUrl.includes('?') ? '&' : '?'}action=verifyPassword&email=${encodeURIComponent(cleanEmail)}&password=${encodeURIComponent(cleanPassword)}`;
-          const gasRes: any = await this.fetchFromGas<any>(verifyUrl);
+          let gasRes: any = await this.fetchFromGas<any>(this.gasUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+              action: 'verifyPassword',
+              email: cleanEmail,
+              password: cleanPassword
+            })
+          });
+          if (!gasRes?.success && gasRes?.error && gasRes.error.includes('Unknown')) {
+            const verifyUrl = `${this.gasUrl}${this.gasUrl.includes('?') ? '&' : '?'}action=verifyPassword&email=${encodeURIComponent(cleanEmail)}&password=${encodeURIComponent(cleanPassword)}`;
+            gasRes = await this.fetchFromGas<any>(verifyUrl);
+          }
           const gasUser: User | undefined = gasRes?.user || gasRes?.data?.user;
           if (gasRes && gasRes.success && (gasRes.authorized || gasUser) && gasUser) {
             verifiedGasUser = gasUser;
+          } else if (gasRes?.error && gasRes.error.includes('Unknown')) {
+            verifySupported = false;
+          } else if (gasRes?.error && (gasRes.error.includes('Incorrect password') || gasRes.error.includes('INACTIVE'))) {
+            return {
+              authorized: false,
+              message: gasRes.error
+            };
           }
         } catch {
-          // Ignore
+          verifySupported = false;
         }
 
-        // If not verified via verifyPassword, check auth status on GAS
-        if (!verifiedGasUser) {
+        // Legacy fallback ONLY if GAS backend does not yet support verifyPassword
+        if (!verifiedGasUser && !verifySupported) {
           const checkUrl = `${this.gasUrl}${this.gasUrl.includes('?') ? '&' : '?'}action=checkAuth&email=${encodeURIComponent(cleanEmail)}`;
           const checkRes: any = await this.fetchFromGas<any>(checkUrl);
           if (checkRes && checkRes.success && checkRes.authorized && checkRes.user) {
@@ -841,20 +892,15 @@ class ApiClient {
                 message: 'This staff account has been set to INACTIVE in Google Sheets. Please contact the administrator.'
               };
             }
-            // Check local users for password
             const localUsers = this.getStoredUsers();
             const localMatch = localUsers.find(u => (u.email || '').trim().toLowerCase() === cleanEmail);
-            if (localMatch && localMatch.password) {
-              if (localMatch.password.trim() === cleanPassword) {
-                verifiedGasUser = gasUser;
-              } else {
-                return {
-                  authorized: false,
-                  message: 'Incorrect password. Please verify and try again.'
-                };
-              }
-            } else if (cleanPassword === 'Staff@2026' || cleanPassword.length >= 4) {
+            if (localMatch && localMatch.password && localMatch.password.trim() === cleanPassword) {
               verifiedGasUser = gasUser;
+            } else {
+              return {
+                authorized: false,
+                message: 'Incorrect password. Please verify and try again.'
+              };
             }
           } else if (checkRes && checkRes.error && (checkRes.error.includes('ACCESS DENIED') || checkRes.error.includes('not registered'))) {
             return {
@@ -1078,28 +1124,52 @@ class ApiClient {
     );
   }
 
-  public async fetchHistoricalTransactions(operatorEmail: string): Promise<Transaction[]> {
-    try {
-      const res = await fetch('/api/historical-transactions', {
-        headers: { 'X-Operator-Email': operatorEmail.trim().toLowerCase() }
-      }).then(r => r.json());
-      if (res && res.success && Array.isArray(res.data)) {
-        if (Array.isArray(res.coveredGasReceipts) && res.coveredGasReceipts.length > 0) {
-          this.coveredGasReceipts = new Set(
-            res.coveredGasReceipts.map((r: unknown) => String(r || '').trim().toUpperCase()).filter(Boolean)
-          );
-        }
-        return res.data.map((t: Transaction) => this.sanitizeTransaction(t));
-      }
-    } catch {
-      // Non-blocking fallback
+  public async fetchHistoricalTransactions(operatorEmail: string, force: boolean = false): Promise<Transaction[]> {
+    const cleanOp = operatorEmail.trim().toLowerCase();
+    if (
+      !force &&
+      this.historicalCache &&
+      this.historicalCache.email === cleanOp &&
+      Date.now() - this.historicalCache.ts < 60_000
+    ) {
+      return this.historicalCache.data;
     }
-    return [];
+    if (!force && this.historicalPromise) {
+      return this.historicalPromise;
+    }
+
+    const runner = (async () => {
+      try {
+        const res = await fetch('/api/historical-transactions', {
+          headers: { 'X-Operator-Email': cleanOp }
+        }).then(r => r.json());
+        if (res && res.success && Array.isArray(res.data)) {
+          if (Array.isArray(res.coveredGasReceipts) && res.coveredGasReceipts.length > 0) {
+            this.coveredGasReceipts = new Set(
+              res.coveredGasReceipts.map((r: unknown) => String(r || '').trim().toUpperCase()).filter(Boolean)
+            );
+          }
+          const sanitized = res.data.map((t: Transaction) => this.sanitizeTransaction(t));
+          this.historicalCache = { email: cleanOp, ts: Date.now(), data: sanitized };
+          return sanitized;
+        }
+      } catch {
+        // Non-blocking fallback
+      } finally {
+        this.historicalPromise = null;
+      }
+      return this.historicalCache?.data || [];
+    })();
+
+    this.historicalPromise = runner;
+    return runner;
   }
 
   private mergeWithHistoricalTransactions(primaryTxs: Transaction[], historicalTxs: Transaction[]): Transaction[] {
     if (!historicalTxs || historicalTxs.length === 0) {
-      return primaryTxs.map(t => this.sanitizeTransaction(t));
+      return primaryTxs
+        .map(t => this.sanitizeTransaction(t))
+        .sort((a, b) => compareTransactions(a, b, 'desc'));
     }
 
     const cleanedPrimary = primaryTxs.filter(t => {
@@ -1122,114 +1192,246 @@ class ApiClient {
       }
     }
 
-    return Array.from(map.values()).sort((a, b) => {
-      const dtA = `${a.date || ''} ${a.time || ''}`;
-      const dtB = `${b.date || ''} ${b.time || ''}`;
-      return dtB.localeCompare(dtA);
-    });
+    return Array.from(map.values()).sort((a, b) => compareTransactions(a, b, 'desc'));
   }
 
-  public async getInitialData(operatorEmail: string, limit: number = 200): Promise<{
+  public async fetchMergedTransactions(
+    operatorEmail: string,
+    limit: number = 0,
+    forceRefresh: boolean = false
+  ): Promise<{
+    transactions: Transaction[];
+    isQuotaLimited: boolean;
+    error: string | null;
+  }> {
+    if (
+      !forceRefresh &&
+      limit === 0 &&
+      this.liveGasTxCache &&
+      Date.now() - this.liveGasTxCache.ts < 20_000
+    ) {
+      const historicalTxs = await this.fetchHistoricalTransactions(operatorEmail);
+      const merged = this.mergeWithHistoricalTransactions(this.liveGasTxCache.data, historicalTxs);
+      return { transactions: merged, isQuotaLimited: false, error: null };
+    }
+
+    if (!forceRefresh && this.liveGasTxPromise) {
+      return this.liveGasTxPromise;
+    }
+
+    const runner = (async () => {
+      const historicalPromise = this.fetchHistoricalTransactions(operatorEmail, forceRefresh);
+
+      if (this.isConnectedToLiveBackend()) {
+        const url = `${this.gasUrl}${this.gasUrl.includes('?') ? '&' : '?'}action=getTransactions&operatorEmail=${encodeURIComponent(operatorEmail)}&limit=${limit}`;
+        try {
+          const [historicalTxs, res] = await Promise.all([
+            historicalPromise,
+            fetch(url, { redirect: 'follow' })
+          ]);
+
+          if (res.status === 429) {
+            const fallbackTxs = this.mergeWithHistoricalTransactions(this.getStoredTransactions(), historicalTxs);
+            return {
+              transactions: fallbackTxs,
+              isQuotaLimited: true,
+              error: 'Google Apps Script URL Fetch rate limit reached (HTTP 429). Serving reconciled cached transactions.'
+            };
+          }
+
+          if (!res.ok) {
+            const fallbackTxs = this.mergeWithHistoricalTransactions(this.getStoredTransactions(), historicalTxs);
+            return {
+              transactions: fallbackTxs,
+              isQuotaLimited: false,
+              error: `Google Apps Script returned HTTP ${res.status}: ${res.statusText}`
+            };
+          }
+
+          const rawText = await res.text();
+          const trimmed = rawText.trim();
+
+          if (trimmed.startsWith('<') || trimmed.includes('Service invoked too many times') || trimmed.includes('Quota exceeded')) {
+            const fallbackTxs = this.mergeWithHistoricalTransactions(this.getStoredTransactions(), historicalTxs);
+            return {
+              transactions: fallbackTxs,
+              isQuotaLimited: true,
+              error: 'Google Apps Script daily execution or URL fetch quota limit was reached. Using reconciled cached records.'
+            };
+          }
+
+          const parsed = JSON.parse(trimmed);
+          if (parsed.success && Array.isArray(parsed.data)) {
+            if (limit === 0) {
+              this.liveGasTxCache = { ts: Date.now(), data: parsed.data };
+            }
+            const mergedTxs = this.mergeWithHistoricalTransactions(parsed.data, historicalTxs);
+            try {
+              localStorage.setItem(STORAGE_KEYS.LOCAL_TXS, JSON.stringify(mergedTxs));
+            } catch {}
+            return {
+              transactions: mergedTxs,
+              isQuotaLimited: false,
+              error: null
+            };
+          }
+
+          const fallbackTxs = this.mergeWithHistoricalTransactions(this.getStoredTransactions(), historicalTxs);
+          return {
+            transactions: fallbackTxs,
+            isQuotaLimited: false,
+            error: parsed.error || 'Failed to retrieve transactions from Google Sheets.'
+          };
+        } catch (err: unknown) {
+          const historicalTxs = await historicalPromise;
+          const fallbackTxs = this.mergeWithHistoricalTransactions(this.getStoredTransactions(), historicalTxs);
+          return {
+            transactions: fallbackTxs,
+            isQuotaLimited: false,
+            error: err instanceof Error ? err.message : String(err)
+          };
+        }
+      }
+
+      const historicalTxs = await historicalPromise;
+      const mergedLocal = this.mergeWithHistoricalTransactions(this.getStoredTransactions(), historicalTxs);
+      try {
+        localStorage.setItem(STORAGE_KEYS.LOCAL_TXS, JSON.stringify(mergedLocal));
+      } catch {}
+
+      return {
+        transactions: mergedLocal,
+        isQuotaLimited: false,
+        error: null
+      };
+    })();
+
+    this.liveGasTxPromise = runner;
+    try {
+      return await runner;
+    } finally {
+      this.liveGasTxPromise = null;
+    }
+  }
+
+  public async getInitialData(operatorEmail: string, limit: number = 0): Promise<{
     settings: AppSettings;
     transactions: Transaction[];
     users: User[];
     auditLogs: AuditLogEntry[];
   }> {
-    const historicalTxs = await this.fetchHistoricalTransactions(operatorEmail);
+    if (this.initialDataPromise) {
+      return this.initialDataPromise;
+    }
 
-    if (this.isConnectedToLiveBackend()) {
-      const url = `${this.gasUrl}${this.gasUrl.includes('?') ? '&' : '?'}action=getInitialData&operatorEmail=${encodeURIComponent(operatorEmail)}&limit=${limit}`;
-      const res = await this.fetchFromGas<{
-        settings: AppSettings;
-        transactions: Transaction[];
-        users: User[];
-        auditLogs: AuditLogEntry[];
-      }>(url);
-      if (res.success && res.data) {
-        // Guarantee local cache sync with Google Apps Script & Server
-        if (res.data.settings) {
-          const currentLocalSettings = this.getStoredSettings();
-          const mergedSettings: AppSettings = {
-            ...DEFAULT_SEED_SETTINGS,
-            ...currentLocalSettings,
-            ...res.data.settings,
-            logoUrl: res.data.settings.logoUrl || currentLocalSettings.logoUrl || HARDCODED_LOGO_URL
-          };
-          localStorage.setItem(STORAGE_KEYS.LOCAL_SETTINGS, JSON.stringify(mergedSettings));
-          fetch('/api/settings', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ settings: mergedSettings })
-          }).catch(() => null);
-        }
-        let finalUsers = this.getStoredUsers();
-        if (res.data.users && res.data.users.length > 0) {
-          let serverUsers: User[] = [];
-          try {
-            const sRes = await fetch('/api/users').then(r => r.json());
-            if (sRes && sRes.success && Array.isArray(sRes.data)) {
-              serverUsers = sRes.data;
-            }
-          } catch {
-            serverUsers = [];
-          }
+    const runner = (async () => {
+      // Request full transaction history (limit=10000 when limit <= 0 so un-updated GAS deployments never slice bottom 200 rows and omit Manzi/recent receipts)
+      const effectiveGasLimit = limit > 0 ? limit : 10000;
+      const histPromise = this.fetchHistoricalTransactions(operatorEmail);
 
-          const currentLocal = this.getStoredUsers();
-          const mergedUsers: User[] = res.data.users.map(u => {
-            const loc = currentLocal.find(cl => (cl.email || '').toLowerCase() === (u.email || '').toLowerCase());
-            const srv = serverUsers.find(su => (su.email || '').toLowerCase() === (u.email || '').toLowerCase());
-            return {
-              ...u,
-              password: srv?.password || loc?.password || u.password
+      if (this.isConnectedToLiveBackend()) {
+        const url = `${this.gasUrl}${this.gasUrl.includes('?') ? '&' : '?'}action=getInitialData&operatorEmail=${encodeURIComponent(operatorEmail)}&limit=${effectiveGasLimit}`;
+        const [historicalTxs, res, serverUsersRes] = await Promise.all([
+          histPromise,
+          this.fetchFromGas<{
+            settings: AppSettings;
+            transactions: Transaction[];
+            users: User[];
+            auditLogs: AuditLogEntry[];
+          }>(url),
+          fetch('/api/users').then(r => r.json()).catch(() => null)
+        ]);
+
+        if (res.success && res.data) {
+          if (res.data.settings) {
+            const currentLocalSettings = this.getStoredSettings();
+            const mergedSettings: AppSettings = {
+              ...DEFAULT_SEED_SETTINGS,
+              ...currentLocalSettings,
+              ...res.data.settings,
+              logoUrl: res.data.settings.logoUrl || currentLocalSettings.logoUrl || HARDCODED_LOGO_URL
             };
-          });
-          // Also retain any local users not yet synced to Google Sheets
-          for (const loc of currentLocal) {
-            if (!mergedUsers.some(mu => (mu.email || '').toLowerCase() === (loc.email || '').toLowerCase())) {
-              mergedUsers.push(loc);
-            }
+            localStorage.setItem(STORAGE_KEYS.LOCAL_SETTINGS, JSON.stringify(mergedSettings));
+            fetch('/api/settings', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ settings: mergedSettings })
+            }).catch(() => null);
           }
-          // Also retain any server users not yet in Google Sheets
-          for (const srv of serverUsers) {
-            const idx = mergedUsers.findIndex(mu => (mu.email || '').toLowerCase() === (srv.email || '').toLowerCase());
-            if (idx === -1) {
-              mergedUsers.push(srv);
-            } else if (!mergedUsers[idx].password && srv.password) {
-              mergedUsers[idx].password = srv.password;
+
+          let finalUsers = this.getStoredUsers();
+          if (res.data.users && res.data.users.length > 0) {
+            const serverUsers: User[] =
+              serverUsersRes && serverUsersRes.success && Array.isArray(serverUsersRes.data)
+                ? serverUsersRes.data
+                : [];
+
+            const currentLocal = this.getStoredUsers();
+            const mergedUsers: User[] = res.data.users.map(u => {
+              const loc = currentLocal.find(cl => (cl.email || '').toLowerCase() === (u.email || '').toLowerCase());
+              const srv = serverUsers.find(su => (su.email || '').toLowerCase() === (u.email || '').toLowerCase());
+              return {
+                ...u,
+                password: srv?.password || loc?.password || u.password
+              };
+            });
+            for (const loc of currentLocal) {
+              if (!mergedUsers.some(mu => (mu.email || '').toLowerCase() === (loc.email || '').toLowerCase())) {
+                mergedUsers.push(loc);
+              }
             }
+            for (const srv of serverUsers) {
+              const idx = mergedUsers.findIndex(mu => (mu.email || '').toLowerCase() === (srv.email || '').toLowerCase());
+              if (idx === -1) {
+                mergedUsers.push(srv);
+              } else if (!mergedUsers[idx].password && srv.password) {
+                mergedUsers[idx].password = srv.password;
+              }
+            }
+            localStorage.setItem(STORAGE_KEYS.LOCAL_USERS, JSON.stringify(mergedUsers));
+            finalUsers = mergedUsers;
           }
-          localStorage.setItem(STORAGE_KEYS.LOCAL_USERS, JSON.stringify(mergedUsers));
-          finalUsers = mergedUsers;
+
+          const rawGasTxs = Array.isArray(res.data.transactions) ? res.data.transactions : [];
+          if (effectiveGasLimit >= 10000) {
+            this.liveGasTxCache = { ts: Date.now(), data: rawGasTxs };
+          }
+          const mergedTxs = this.mergeWithHistoricalTransactions(rawGasTxs, historicalTxs);
+          localStorage.setItem(STORAGE_KEYS.LOCAL_TXS, JSON.stringify(mergedTxs));
+          res.data.transactions = mergedTxs;
+          if (res.data.auditLogs) {
+            localStorage.setItem(STORAGE_KEYS.LOCAL_AUDIT, JSON.stringify(res.data.auditLogs));
+          }
+          return {
+            ...res.data,
+            users: finalUsers
+          };
         }
-        const rawGasTxs = Array.isArray(res.data.transactions) ? res.data.transactions : [];
-        const mergedTxs = this.mergeWithHistoricalTransactions(rawGasTxs, historicalTxs);
-        localStorage.setItem(STORAGE_KEYS.LOCAL_TXS, JSON.stringify(mergedTxs));
-        res.data.transactions = mergedTxs;
-        if (res.data.auditLogs) {
-          localStorage.setItem(STORAGE_KEYS.LOCAL_AUDIT, JSON.stringify(res.data.auditLogs));
-        }
-        return {
-          ...res.data,
-          users: finalUsers
-        };
       }
-    }
 
-    // Local Mock / Cache Fallback merged cleanly with historical treasury data
-    const localTxs = this.getStoredTransactions();
-    const mergedLocalTxs = this.mergeWithHistoricalTransactions(localTxs, historicalTxs);
-    if (historicalTxs.length > 0) {
-      try {
-        localStorage.setItem(STORAGE_KEYS.LOCAL_TXS, JSON.stringify(mergedLocalTxs));
-      } catch {}
-    }
+      const historicalTxs = await histPromise;
+      const localTxs = this.getStoredTransactions();
+      const mergedLocalTxs = this.mergeWithHistoricalTransactions(localTxs, historicalTxs);
+      if (historicalTxs.length > 0) {
+        try {
+          localStorage.setItem(STORAGE_KEYS.LOCAL_TXS, JSON.stringify(mergedLocalTxs));
+        } catch {}
+      }
 
-    return {
-      settings: this.getStoredSettings(),
-      transactions: mergedLocalTxs,
-      users: this.getStoredUsers(),
-      auditLogs: this.getStoredAuditLogs()
-    };
+      return {
+        settings: this.getStoredSettings(),
+        transactions: mergedLocalTxs,
+        users: this.getStoredUsers(),
+        auditLogs: this.getStoredAuditLogs()
+      };
+    })();
+
+    this.initialDataPromise = runner;
+    try {
+      return await runner;
+    } finally {
+      this.initialDataPromise = null;
+    }
   }
 
   // --- Open-Closed Transaction Architecture (Inflow & Outflow) ---
@@ -1300,6 +1502,53 @@ class ApiClient {
       }
 
       if (res.success && res.data) {
+        const sanitized = this.sanitizeTransaction(res.data);
+        res.data = sanitized;
+
+        // Persist immediately in local transaction ledger cache & live cache so navigation stays instant & complete
+        try {
+          const existingTxs = this.getStoredTransactions().filter(
+            t => t.receiptNumber.trim().toUpperCase() !== sanitized.receiptNumber.trim().toUpperCase()
+          );
+          existingTxs.unshift(sanitized);
+          localStorage.setItem(STORAGE_KEYS.LOCAL_TXS, JSON.stringify(existingTxs));
+        } catch {}
+
+        if (this.liveGasTxCache) {
+          this.liveGasTxCache = {
+            ts: Date.now(),
+            data: [
+              sanitized,
+              ...this.liveGasTxCache.data.filter(
+                t => t.receiptNumber.trim().toUpperCase() !== sanitized.receiptNumber.trim().toUpperCase()
+              )
+            ]
+          };
+        }
+        fetch('/api/gas/invalidate-cache', { method: 'POST' }).catch(() => null);
+
+        if (txType === 'INFLOW' && sanitized.payerName) {
+          this.updateLocalMemberCache(sanitized);
+        }
+
+        try {
+          const now = new Date();
+          const auditLogs: AuditLogEntry[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.LOCAL_AUDIT) || '[]');
+          auditLogs.unshift({
+            id: String(Date.now()),
+            date: sanitized.date || now.toISOString().split('T')[0],
+            time: sanitized.time || now.toTimeString().split(' ')[0],
+            user: payload.operatorName,
+            userEmail: payload.operatorEmail,
+            action: txType === 'OUTFLOW' ? 'RECORD_EXPENSE' : 'GENERATE_RECEIPT',
+            receiptNumber: sanitized.receiptNumber,
+            description: txType === 'OUTFLOW'
+              ? `Recorded expense voucher ${sanitized.receiptNumber} of UGX ${sanitized.amount.toLocaleString()} to ${sanitized.payee || sanitized.payerName}`
+              : `Generated receipt ${sanitized.receiptNumber} of UGX ${sanitized.amount.toLocaleString()} for ${sanitized.payerName}`
+          });
+          localStorage.setItem(STORAGE_KEYS.LOCAL_AUDIT, JSON.stringify(auditLogs));
+        } catch {}
+
         if (txType === 'INFLOW') {
           if (!cleanEmail) {
             res.data.email = '';
@@ -1585,13 +1834,16 @@ class ApiClient {
   }
 
   public async getMembers(operatorEmail?: string): Promise<BackendResponse<Member[]>> {
-    const txs = this.getStoredTransactions();
+    let txs = this.getStoredTransactions();
     let directoryMembers: Member[] = [];
     if (operatorEmail) {
       const dirRes = await this.getDirectoryMembers(operatorEmail);
       if (dirRes.success && dirRes.data?.members) {
         directoryMembers = dirRes.data.members;
       }
+    }
+    if (directoryMembers.length > 0) {
+      txs = txs.filter(t => !this.isSyntheticDemoTransaction(t));
     }
     const list = this.getPayersFromTransactions(txs, directoryMembers);
     return { success: true, data: list };
@@ -1613,7 +1865,7 @@ class ApiClient {
   public async saveDirectoryMember(
     member: Partial<Member> & { name: string },
     operatorEmail: string
-  ): Promise<BackendResponse<Member>> {
+  ): Promise<BackendResponse<Member> & { summary?: MembersDirectoryPayload['summary'] }> {
     try {
       const res = await fetch('/api/admin/members', {
         method: 'POST',
@@ -1623,7 +1875,11 @@ class ApiClient {
         },
         body: JSON.stringify({ member })
       });
-      return await res.json();
+      const json = await res.json();
+      if (json?.success) {
+        this.historicalCache = null;
+      }
+      return json;
     } catch (err: unknown) {
       return { success: false, error: err instanceof Error ? err.message : 'Failed to save member profile' };
     }
@@ -1844,7 +2100,61 @@ class ApiClient {
       };
     }
 
-    // 2. Perform Local Delete IMMEDIATELY so UI never stays stuck
+    const isHistorical = cleanNum.startsWith('HIST-');
+
+    // 2. Persist deletion to authoritative backend BEFORE deleting local cache
+    if (isHistorical) {
+      try {
+        const srvRes = await fetch(`/api/historical-transactions/${encodeURIComponent(cleanNum)}`, {
+          method: 'DELETE',
+          headers: { 'X-Operator-Email': cleanEmail }
+        }).then(r => r.json());
+        if (!srvRes?.success) {
+          return {
+            success: false,
+            error: srvRes?.error || `Failed to delete historical transaction ${cleanNum} from server database.`
+          };
+        }
+      } catch (err: unknown) {
+        return {
+          success: false,
+          error: `Unable to delete historical transaction from server: ${err instanceof Error ? err.message : String(err)}`
+        };
+      }
+
+      if (this.isConnectedToLiveBackend()) {
+        try {
+          await this.fetchFromGas<void>(this.gasUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+              action: 'deleteTransaction',
+              operatorEmail: cleanEmail,
+              receiptNumber: cleanNum
+            })
+          });
+        } catch {}
+      }
+    } else if (this.isConnectedToLiveBackend()) {
+      const gasRes = await this.fetchFromGas<void>(this.gasUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'deleteTransaction',
+          operatorEmail: cleanEmail,
+          receiptNumber: cleanNum
+        })
+      });
+      if (!gasRes.success && !(gasRes.error || '').toLowerCase().includes('not found')) {
+        return {
+          success: false,
+          error: gasRes.error || `Failed to delete transaction ${cleanNum} from Google Sheets.`
+        };
+      }
+    }
+
+    // 3. Remove from local transaction cache & record audit entry
+    this.invalidateTransactionCaches(true);
     let txs: Transaction[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.LOCAL_TXS) || '[]');
     const target = txs.find(t => t.receiptNumber.trim().toUpperCase() === cleanNum);
 
@@ -1852,7 +2162,6 @@ class ApiClient {
       txs = txs.filter(t => t.receiptNumber.trim().toUpperCase() !== cleanNum);
       localStorage.setItem(STORAGE_KEYS.LOCAL_TXS, JSON.stringify(txs));
 
-      // Audit Log
       const now = new Date();
       const auditLogs: AuditLogEntry[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.LOCAL_AUDIT) || '[]');
       auditLogs.unshift({
@@ -1866,23 +2175,6 @@ class ApiClient {
         description: `Deleted receipt ${cleanNum} (UGX ${Number(target.amount).toLocaleString()}, Payer: ${target.payerName})`
       });
       localStorage.setItem(STORAGE_KEYS.LOCAL_AUDIT, JSON.stringify(auditLogs));
-    }
-
-    // 3. If connected to live GAS backend, attempt cloud sync
-    if (this.isConnectedToLiveBackend()) {
-      try {
-        await this.fetchFromGas<void>(this.gasUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({
-            action: 'deleteTransaction',
-            operatorEmail,
-            receiptNumber: cleanNum
-          })
-        });
-      } catch (err) {
-        console.warn('Backend sync for deleteTransaction returned notice:', err);
-      }
     }
 
     return {
@@ -1909,6 +2201,25 @@ class ApiClient {
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(requestData)
       });
+      if (res.success && res.data) {
+        const raw = res.data as Transaction & { payerEmail?: string; payerPhone?: string };
+        const sanitized = this.sanitizeTransaction({
+          ...raw,
+          email: raw.email || raw.payerEmail || '',
+          phone: raw.phone || raw.payerPhone || ''
+        });
+        res.data = sanitized;
+        try {
+          const cached = this.getStoredTransactions();
+          const idx = cached.findIndex(
+            t => t.receiptNumber.trim().toUpperCase() === sanitized.receiptNumber.trim().toUpperCase()
+          );
+          if (idx !== -1) {
+            cached[idx] = { ...cached[idx], ...sanitized };
+            localStorage.setItem(STORAGE_KEYS.LOCAL_TXS, JSON.stringify(cached));
+          }
+        } catch {}
+      }
       return res;
     }
 
@@ -2017,47 +2328,26 @@ class ApiClient {
       // Non-blocking
     }
 
-    // Live Google Apps Script Sync
+    // Live Google Apps Script Sync via POST
     if (this.isConnectedToLiveBackend()) {
       let syncSuccess = false;
       let syncError: string | undefined;
 
-      // 1. Try GET request first (avoids CORS preflight and follows 302 redirects automatically)
       try {
-        const queryParams = new URLSearchParams({
-          action: 'addUser',
-          operatorEmail: opEmail,
-          name: targetUser.name,
-          email: cleanEmail,
-          role: targetUser.role,
-          status: targetUser.status,
-          password: targetUser.password || '',
-          permissions: JSON.stringify(targetUser.permissions || {})
+        const postRes = await this.fetchFromGas<{ success: boolean; error?: string; message?: string }>(this.gasUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            action: 'addUser',
+            operatorEmail: opEmail,
+            user: targetUser,
+            password: targetUser.password
+          })
         });
-        const getUrl = `${this.gasUrl}${this.gasUrl.includes('?') ? '&' : '?'}${queryParams.toString()}`;
-        const getRes = await this.fetchFromGas<{ success: boolean; error?: string; message?: string }>(getUrl);
-
-        if (getRes.success) {
+        if (postRes.success) {
           syncSuccess = true;
         } else {
-          syncError = getRes.error;
-          // 2. Fallback to POST
-          const postRes = await this.fetchFromGas<{ success: boolean; error?: string; message?: string }>(this.gasUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({
-              action: 'addUser',
-              operatorEmail: opEmail,
-              user: targetUser,
-              password: targetUser.password
-            })
-          });
-          if (postRes.success) {
-            syncSuccess = true;
-            syncError = undefined;
-          } else {
-            syncError = postRes.error || syncError;
-          }
+          syncError = postRes.error;
         }
       } catch (err: unknown) {
         syncError = err instanceof Error ? err.message : String(err);
@@ -2067,7 +2357,9 @@ class ApiClient {
         return {
           success: true,
           data: targetUser,
-          message: `Staff member "${targetUser.name}" registered successfully! (Note: Google Sheets sync reported: ${syncError}. Please ensure the latest Code.gs is deployed as New Version in Google Apps Script).`
+          sheetsSynced: false,
+          sheetsError: syncError,
+          message: `Staff member "${targetUser.name}" saved locally, but Google Sheets sync reported: ${syncError}.`
         };
       }
     }
@@ -2166,42 +2458,38 @@ class ApiClient {
     });
     localStorage.setItem(STORAGE_KEYS.LOCAL_AUDIT, JSON.stringify(auditLogs));
 
+    let sheetsError: string | undefined;
     if (this.isConnectedToLiveBackend()) {
       try {
-        const queryParams = new URLSearchParams({
-          action: 'editUser',
-          operatorEmail: opEmail,
-          targetEmail: cleanTarget,
-          name: updatedUser.name || '',
-          role: updatedUser.role || 'ADMIN',
-          status: updatedUser.status || 'ACTIVE',
-          password: updatedUser.password || ''
+        const postRes = await this.fetchFromGas<User>(this.gasUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            action: 'editUser',
+            operatorEmail: opEmail,
+            targetEmail: cleanTarget,
+            email: updatedUser.email,
+            updates: updatedUser,
+            user: updatedUser,
+            password: updatedUser.password
+          })
         });
-        const getUrl = `${this.gasUrl}${this.gasUrl.includes('?') ? '&' : '?'}${queryParams.toString()}`;
-        const getRes = await this.fetchFromGas<{ success: boolean; error?: string }>(getUrl);
-
-        if (!getRes.success) {
-          await this.fetchFromGas<User>(this.gasUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({
-              action: 'editUser',
-              operatorEmail: opEmail,
-              targetEmail: cleanTarget,
-              user: updatedUser,
-              password: updatedUser.password
-            })
-          });
+        if (!postRes.success) {
+          sheetsError = postRes.error || 'Google Sheets sync failed.';
         }
       } catch (err) {
-        console.warn('Backend sync for editUser notice:', err);
+        sheetsError = err instanceof Error ? err.message : String(err);
       }
     }
 
     return { 
       success: true, 
       data: updatedUser, 
-      message: `User details and permissions for "${updatedUser.name}" updated successfully.` 
+      sheetsSynced: !sheetsError,
+      sheetsError,
+      message: sheetsError
+        ? `User "${updatedUser.name}" updated locally, but Google Sheets sync reported: ${sheetsError}`
+        : `User details and permissions for "${updatedUser.name}" updated successfully.` 
     };
   }
 
@@ -2255,35 +2543,35 @@ class ApiClient {
     });
     localStorage.setItem(STORAGE_KEYS.LOCAL_AUDIT, JSON.stringify(auditLogs));
 
+    let sheetsError: string | undefined;
     if (this.isConnectedToLiveBackend()) {
       try {
-        const queryParams = new URLSearchParams({
-          action: 'updateUserStatus',
-          operatorEmail: opEmail,
-          targetEmail: cleanTargetEmail,
-          status: status
+        const postRes = await this.fetchFromGas<void>(this.gasUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            action: 'updateUserStatus',
+            operatorEmail: opEmail,
+            targetEmail: cleanTargetEmail,
+            status
+          })
         });
-        const getUrl = `${this.gasUrl}${this.gasUrl.includes('?') ? '&' : '?'}${queryParams.toString()}`;
-        const getRes = await this.fetchFromGas<{ success: boolean; error?: string }>(getUrl);
-
-        if (!getRes.success) {
-          await this.fetchFromGas<void>(this.gasUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({
-              action: 'updateUserStatus',
-              operatorEmail: opEmail,
-              targetEmail: cleanTargetEmail,
-              status
-            })
-          });
+        if (!postRes.success) {
+          sheetsError = postRes.error || 'Google Sheets sync failed.';
         }
       } catch (err) {
-        console.warn('Backend sync for updateUserStatus notice:', err);
+        sheetsError = err instanceof Error ? err.message : String(err);
       }
     }
 
-    return { success: true, message: `Status updated to ${status}` };
+    return {
+      success: true,
+      sheetsSynced: !sheetsError,
+      sheetsError,
+      message: sheetsError
+        ? `Status updated to ${status} locally, but Google Sheets sync reported: ${sheetsError}`
+        : `Status updated to ${status}`
+    };
   }
 
   public async removeUser(targetEmail: string, operatorEmail: string): Promise<BackendResponse<void>> {
@@ -2322,33 +2610,34 @@ class ApiClient {
     });
     localStorage.setItem(STORAGE_KEYS.LOCAL_AUDIT, JSON.stringify(auditLogs));
 
+    let sheetsError: string | undefined;
     if (this.isConnectedToLiveBackend()) {
       try {
-        const queryParams = new URLSearchParams({
-          action: 'removeUser',
-          operatorEmail: opEmail,
-          targetEmail: cleanTargetEmail
+        const postRes = await this.fetchFromGas<void>(this.gasUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            action: 'removeUser',
+            operatorEmail: opEmail,
+            targetEmail: cleanTargetEmail
+          })
         });
-        const getUrl = `${this.gasUrl}${this.gasUrl.includes('?') ? '&' : '?'}${queryParams.toString()}`;
-        const getRes = await this.fetchFromGas<{ success: boolean; error?: string }>(getUrl);
-
-        if (!getRes.success) {
-          await this.fetchFromGas<void>(this.gasUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({
-              action: 'removeUser',
-              operatorEmail: opEmail,
-              targetEmail: cleanTargetEmail
-            })
-          });
+        if (!postRes.success) {
+          sheetsError = postRes.error || 'Google Sheets sync failed.';
         }
       } catch (err) {
-        console.warn('Backend sync for removeUser notice:', err);
+        sheetsError = err instanceof Error ? err.message : String(err);
       }
     }
 
-    return { success: true, message: `User "${userName}" was successfully deleted.` };
+    return {
+      success: true,
+      sheetsSynced: !sheetsError,
+      sheetsError,
+      message: sheetsError
+        ? `User "${userName}" removed locally, but Google Sheets sync reported: ${sheetsError}`
+        : `User "${userName}" was successfully deleted.`
+    };
   }
 
   /**
@@ -2382,20 +2671,19 @@ class ApiClient {
         };
       }
 
-      // 2. Fallback: Sync each user individually via GET
+      // 2. Fallback: Sync each user individually via POST
       let successCount = 0;
       for (const u of users) {
-        const queryParams = new URLSearchParams({
-          action: 'addUser',
-          operatorEmail: opEmail,
-          name: u.name || '',
-          email: u.email,
-          role: u.role || 'ADMIN',
-          status: u.status || 'ACTIVE',
-          password: u.password || ''
+        const res = await this.fetchFromGas<{ success: boolean }>(this.gasUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            action: 'addUser',
+            operatorEmail: opEmail,
+            user: u,
+            password: u.password || ''
+          })
         });
-        const getUrl = `${this.gasUrl}${this.gasUrl.includes('?') ? '&' : '?'}${queryParams.toString()}`;
-        const res = await this.fetchFromGas<{ success: boolean }>(getUrl);
         if (res.success) {
           successCount++;
         }
@@ -2487,11 +2775,15 @@ class ApiClient {
     localStorage.setItem(STORAGE_KEYS.LOCAL_SETTINGS, JSON.stringify(settings));
 
     // Broadcast to server shared settings so all devices/users get updated logoUrl and branding immediately
-    fetch('/api/settings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ settings })
-    }).catch(() => null);
+    try {
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ settings })
+      });
+    } catch {
+      // Continue cleanly to GAS sync
+    }
 
     // Audit Log
     const now = new Date();
@@ -2507,7 +2799,7 @@ class ApiClient {
     });
     localStorage.setItem(STORAGE_KEYS.LOCAL_AUDIT, JSON.stringify(auditLogs));
 
-    // 2. If connected to live GAS backend, attempt sync
+    // 2. If connected to live GAS backend, sync directly to Sheets
     if (this.isConnectedToLiveBackend()) {
       try {
         const res = await this.fetchFromGas<AppSettings>(this.gasUrl, {
@@ -2519,11 +2811,29 @@ class ApiClient {
             settings
           })
         });
-        if (res.success && res.data) {
-          return res;
+        if (res.success) {
+          return {
+            ...res,
+            data: { ...settings, ...(res.data || {}) },
+            sheetsSynced: true
+          };
         }
+        return {
+          success: true,
+          data: settings,
+          sheetsSynced: false,
+          sheetsError: res.error || 'Unknown Google Sheets error',
+          message: `Settings saved locally & on server, but Google Sheets sync reported: ${res.error || 'Unknown error'}`
+        };
       } catch (err) {
-        console.warn('Backend sync for saveSettings notice:', err);
+        const errMsg = err instanceof Error ? err.message : String(err);
+        return {
+          success: true,
+          data: settings,
+          sheetsSynced: false,
+          sheetsError: errMsg,
+          message: `Settings saved locally & on server, but Google Sheets sync failed: ${errMsg}`
+        };
       }
     }
 

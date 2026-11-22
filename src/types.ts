@@ -26,7 +26,8 @@ export interface User {
 
 export type TransactionType = 'INFLOW' | 'OUTFLOW';
 
-export type MembershipTier = 'Supporter' | 'Player' | 'Executive' | 'Academy' | 'Other';
+export type MemberGender = 'Male' | 'Female';
+export type MemberSchoolPreset = 'Ntare School' | "Bweranyagyi Girls' Secondary School" | 'Other';
 export type DuesStatus = 'Paid' | 'Partial' | 'Overdue';
 export type MemberProfileStatus = 'COMPLETE' | 'INCOMPLETE';
 
@@ -37,7 +38,9 @@ export interface Member {
   phone: string;
   email: string;
   address?: string;
-  tier?: MembershipTier;
+  gender?: MemberGender | '';
+  school?: string;
+  house?: string;
   role?: string;
   status?: string;
   lastPaymentDate?: string;
@@ -68,7 +71,9 @@ export interface MemberProfileSubmission {
   submittedEmail: string;
   submittedPhone: string;
   submittedAddress: string;
-  submittedTier: MembershipTier;
+  submittedGender?: MemberGender | '';
+  submittedSchool?: string;
+  submittedHouse?: string;
   preNllPaid: number;
   spotPaid: number;
   paidAfter: number;
@@ -203,6 +208,8 @@ export interface BackendResponse<T = unknown> {
   message?: string;
   data?: T;
   error?: string;
+  sheetsSynced?: boolean;
+  sheetsError?: string;
 }
 
 export interface AuthCheckResult {
@@ -320,7 +327,9 @@ export interface MemberClaimInfo {
   phone: string;
   email: string;
   address: string;
-  tier: MembershipTier;
+  gender?: MemberGender | '';
+  school?: string;
+  house?: string;
   preNllPaid: number;
   spotPaid: number;
   paidAfter: number;

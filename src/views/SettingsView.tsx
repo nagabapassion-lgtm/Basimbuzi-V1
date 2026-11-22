@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { AppSettings, ThemeMode } from '../types';
 import { 
@@ -46,6 +46,7 @@ const DEFAULT_EXPENSE_CATEGORIES = [
 export const SettingsView: React.FC = () => {
   const { settings, saveSettings, currentUser, theme, setTheme, addToast } = useApp();
 
+  const isDirtyRef = useRef(false);
   const [form, setForm] = useState<AppSettings>({ 
     ...settings,
     expenseCategories: settings.expenseCategories || DEFAULT_EXPENSE_CATEGORIES
@@ -56,6 +57,15 @@ export const SettingsView: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const isOwner = currentUser?.role === 'OWNER';
+
+  useEffect(() => {
+    if (!isDirtyRef.current) {
+      setForm({
+        ...settings,
+        expenseCategories: settings.expenseCategories || DEFAULT_EXPENSE_CATEGORIES
+      });
+    }
+  }, [settings]);
 
   if (!isOwner) {
     return (
@@ -73,6 +83,7 @@ export const SettingsView: React.FC = () => {
 
   const handleAddCategory = () => {
     if (newCategory.trim() && !form.paymentCategories.includes(newCategory.trim())) {
+      isDirtyRef.current = true;
       setForm(prev => ({
         ...prev,
         paymentCategories: [...prev.paymentCategories, newCategory.trim()]
@@ -86,6 +97,7 @@ export const SettingsView: React.FC = () => {
       addToast('At least one payment category is required.', 'error');
       return;
     }
+    isDirtyRef.current = true;
     setForm(prev => ({
       ...prev,
       paymentCategories: prev.paymentCategories.filter(c => c !== catToRemove)
@@ -95,6 +107,7 @@ export const SettingsView: React.FC = () => {
   const handleAddExpenseCategory = () => {
     const list = form.expenseCategories || DEFAULT_EXPENSE_CATEGORIES;
     if (newExpenseCategory.trim() && !list.includes(newExpenseCategory.trim())) {
+      isDirtyRef.current = true;
       setForm(prev => ({
         ...prev,
         expenseCategories: [...(prev.expenseCategories || DEFAULT_EXPENSE_CATEGORIES), newExpenseCategory.trim()]
@@ -109,6 +122,7 @@ export const SettingsView: React.FC = () => {
       addToast('At least one expense category is required.', 'error');
       return;
     }
+    isDirtyRef.current = true;
     setForm(prev => ({
       ...prev,
       expenseCategories: (prev.expenseCategories || DEFAULT_EXPENSE_CATEGORIES).filter(c => c !== catToRemove)
@@ -117,6 +131,7 @@ export const SettingsView: React.FC = () => {
 
   const handleAddMethod = () => {
     if (newMethod.trim() && !form.paymentMethods.includes(newMethod.trim())) {
+      isDirtyRef.current = true;
       setForm(prev => ({
         ...prev,
         paymentMethods: [...prev.paymentMethods, newMethod.trim()]
@@ -130,6 +145,7 @@ export const SettingsView: React.FC = () => {
       addToast('At least one payment method is required.', 'error');
       return;
     }
+    isDirtyRef.current = true;
     setForm(prev => ({
       ...prev,
       paymentMethods: prev.paymentMethods.filter(m => m !== methodToRemove)
@@ -153,6 +169,7 @@ export const SettingsView: React.FC = () => {
     setIsSaving(false);
 
     if (res.success) {
+      isDirtyRef.current = false;
       setSavedSuccess(true);
       setTimeout(() => setSavedSuccess(false), 4000);
     }
@@ -184,7 +201,13 @@ export const SettingsView: React.FC = () => {
         )}
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form
+        onChange={() => {
+          isDirtyRef.current = true;
+        }}
+        onSubmit={handleSubmit}
+        className="space-y-6"
+      >
         {/* Card 0: Theme & Visual Appearance */}
         <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-5 transition-colors">
           <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">

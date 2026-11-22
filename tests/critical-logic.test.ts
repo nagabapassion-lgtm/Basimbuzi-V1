@@ -131,3 +131,255 @@ describe('User Permissions & RBAC Tests', () => {
     assert.strictEqual(perms.canEditSettings, false);
   });
 });
+
+import {
+  cleanPhoneNumber,
+  isStaffOrPlaceholderEmail,
+  resolveCanonicalMemberNameKey,
+  PRE_CSV_COVERED_GAS_RECEIPTS,
+  PRE_CSV_COVERED_RECEIPT_SET,
+  UNRECORDED_LIVE_GAS_RECEIPTS,
+  computeLedgerMetrics,
+  compareTransactions
+} from '../src/utils/ledgerReconciliation';
+import {
+  computeDuesStatus,
+  parseUgxAmount,
+  NTARE_SCHOOL,
+  BWERANYAGYI_SCHOOL,
+  HOUSE_OPTIONS,
+  isHouseEligibleSchool,
+  normalizeMemberGender,
+  normalizeMemberSchool,
+  resolveSchoolFormState,
+  normalizeMemberHouse,
+  mergeMemberDirectories
+} from '../src/utils/memberImport';
+
+describe('Financial Ledger & Member Reconciliation Tests', () => {
+  test('computeLedgerMetrics separates inflows, outflows, opening balance, and ignores CANCELLED rows', () => {
+    const metrics = computeLedgerMetrics(
+      [
+        { receiptNumber: 'HIST-0001', type: 'INFLOW', amount: 100000, paymentStatus: 'COMPLETED', syncStatus: 'SYNCED' },
+        { receiptNumber: 'SB-2026-00070', type: 'INFLOW', amount: 50000, paymentStatus: 'COMPLETED', syncStatus: 'PENDING' },
+        { receiptNumber: 'EXP-2026-00001', type: 'OUTFLOW', amount: 35000, paymentStatus: 'COMPLETED', syncStatus: 'SYNCED' },
+        { receiptNumber: 'SB-2026-00071', type: 'INFLOW', amount: 999999, paymentStatus: 'CANCELLED', syncStatus: 'FAILED' }
+      ],
+      250000
+    );
+
+    assert.strictEqual(metrics.openingBalance, 250000);
+    assert.strictEqual(metrics.totalInflow, 150000);
+    assert.strictEqual(metrics.totalOutflow, 35000);
+    assert.strictEqual(metrics.netBalance, 365000);
+    assert.strictEqual(metrics.inflowCount, 2);
+    assert.strictEqual(metrics.outflowCount, 1);
+    assert.strictEqual(metrics.syncedCount, 2);
+    assert.strictEqual(metrics.pendingSyncCount, 1);
+    assert.strictEqual(metrics.failedSyncCount, 0);
+  });
+
+  test('Mission NLL covered GAS receipts dedup invariant matches exact 38 receipts and 629,000 UGX', () => {
+    assert.strictEqual(PRE_CSV_COVERED_GAS_RECEIPTS.length, 38);
+    assert.strictEqual(PRE_CSV_COVERED_RECEIPT_SET.size, 38);
+    const coveredTotal = PRE_CSV_COVERED_GAS_RECEIPTS.reduce((sum, r) => sum + r.amount, 0);
+    assert.strictEqual(coveredTotal, 629000);
+
+    // Ensure zero overlap between covered and unrecorded live receipts
+    for (const unrec of UNRECORDED_LIVE_GAS_RECEIPTS) {
+      assert.strictEqual(PRE_CSV_COVERED_RECEIPT_SET.has(unrec.receiptNumber.toUpperCase()), false);
+    }
+  });
+
+  test('cleanPhoneNumber removes bidi marks and normalizes Ugandan numbers', () => {
+    assert.strictEqual(cleanPhoneNumber('\u202A0772123456\u202C'), '+256772123456');
+    assert.strictEqual(cleanPhoneNumber('256 700 123-456'), '+256700123456');
+    assert.strictEqual(cleanPhoneNumber('755432109'), '+256755432109');
+    assert.strictEqual(cleanPhoneNumber('+254113952273'), '+254113952273');
+    assert.strictEqual(cleanPhoneNumber(''), '');
+  });
+
+  test('isStaffOrPlaceholderEmail strips synthetic and misattributed staff emails while allowing owner own payments', () => {
+    assert.strictEqual(isStaffOrPlaceholderEmail('noreply@whatsapp.direct', 'Sarah Namubiru'), true);
+    assert.strictEqual(isStaffOrPlaceholderEmail('no-reply@scbasimbuzi.org', 'Sarah Namubiru'), true);
+    assert.strictEqual(isStaffOrPlaceholderEmail('jotham.itubgo@gmail.com', 'Reagan Lutakome'), true);
+    assert.strictEqual(isStaffOrPlaceholderEmail('nagabapassion@gmail.com', 'Ssenyange Eriya'), true);
+    assert.strictEqual(isStaffOrPlaceholderEmail('nagabapassion@gmail.com', 'Nagaba Passion'), false);
+    assert.strictEqual(isStaffOrPlaceholderEmail('sarah.real@gmail.com', 'Sarah Namubiru'), false);
+    assert.strictEqual(isStaffOrPlaceholderEmail('custom.admin@club.org', 'John Doe', ['custom.admin@club.org']), true);
+  });
+
+  test('resolveCanonicalMemberNameKey unifies inverted & alias payer names', () => {
+    assert.strictEqual(resolveCanonicalMemberNameKey('Atweta Ben'), 'atweeta ben');
+    assert.strictEqual(resolveCanonicalMemberNameKey('Shadrack   Asiimwe'), 'asiimwe shadrack');
+    assert.strictEqual(resolveCanonicalMemberNameKey('Brason'), 'ahamya brason');
+    assert.strictEqual(resolveCanonicalMemberNameKey('Grace Mpora'), 'mpora grace');
+  });
+
+  test('computeDuesStatus & parseUgxAmount handle member balance edge cases', () => {
+    assert.strictEqual(parseUgxAmount('UGX 125,000'), 125000);
+    assert.strictEqual(parseUgxAmount('—'), 0);
+    assert.strictEqual(computeDuesStatus(100000, 100000), 'Paid');
+    assert.strictEqual(computeDuesStatus(150000, 100000), 'Paid');
+    assert.strictEqual(computeDuesStatus(50000, 100000), 'Partial');
+    assert.strictEqual(computeDuesStatus(0, 100000), 'Overdue');
+  });
+
+  test('compareTransactions orders latest receipts ahead regardless of input order or single-digit times', () => {
+    const manzi = { receiptNumber: 'SB-2026-00065', date: '2026-11-21', time: '22:22:20' };
+    const earlierExp = { receiptNumber: 'EXP-2026-00007', date: '2026-11-21', time: '22:15:42' };
+    const morning = { receiptNumber: 'SB-2026-00064', date: '2026-11-21', time: '9:05:00' };
+    const midMorning = { receiptNumber: 'SB-2026-00063', date: '2026-11-21', time: '10:00:00' };
+
+    const sortedDesc = [earlierExp, morning, manzi, midMorning].sort((a, b) => compareTransactions(a, b, 'desc'));
+    assert.deepStrictEqual(
+      sortedDesc.map(r => r.receiptNumber),
+      ['SB-2026-00065', 'EXP-2026-00007', 'SB-2026-00063', 'SB-2026-00064']
+    );
+
+    const sortedAsc = [manzi, earlierExp].sort((a, b) => compareTransactions(a, b, 'asc'));
+    assert.deepStrictEqual(
+      sortedAsc.map(r => r.receiptNumber),
+      ['EXP-2026-00007', 'SB-2026-00065']
+    );
+  });
+});
+
+describe('Expanded Membership Profile Helpers (Gender, School & Conditional House)', () => {
+  test('normalizeMemberGender accepts Male/Female variants and rejects invalid values', () => {
+    assert.strictEqual(normalizeMemberGender('Male'), 'Male');
+    assert.strictEqual(normalizeMemberGender('m'), 'Male');
+    assert.strictEqual(normalizeMemberGender('Female'), 'Female');
+    assert.strictEqual(normalizeMemberGender('F'), 'Female');
+    assert.strictEqual(normalizeMemberGender('unknown'), '');
+    assert.strictEqual(normalizeMemberGender(''), '');
+  });
+
+  test('normalizeMemberSchool & resolveSchoolFormState handle Ntare, Bweranyagyi, and Other schools', () => {
+    assert.strictEqual(normalizeMemberSchool('Ntare School'), NTARE_SCHOOL);
+    assert.strictEqual(normalizeMemberSchool('ntare'), NTARE_SCHOOL);
+    assert.strictEqual(normalizeMemberSchool("Bweranyagyi Girls\u2019 Secondary School"), BWERANYAGYI_SCHOOL);
+    assert.strictEqual(normalizeMemberSchool('Other', 'Makerere College School'), 'Makerere College School');
+    assert.strictEqual(normalizeMemberSchool('Other', ''), '');
+
+    assert.deepStrictEqual(resolveSchoolFormState(NTARE_SCHOOL), {
+      schoolChoice: NTARE_SCHOOL,
+      otherSchool: ''
+    });
+    assert.deepStrictEqual(resolveSchoolFormState(BWERANYAGYI_SCHOOL), {
+      schoolChoice: BWERANYAGYI_SCHOOL,
+      otherSchool: ''
+    });
+    assert.deepStrictEqual(resolveSchoolFormState('Makerere College School'), {
+      schoolChoice: 'Other',
+      otherSchool: 'Makerere College School'
+    });
+  });
+
+  test('normalizeMemberHouse enforces official 11-house list only for Ntare and Bweranyagyi schools', () => {
+    assert.strictEqual(HOUSE_OPTIONS.length, 11);
+    assert.strictEqual(isHouseEligibleSchool(NTARE_SCHOOL), true);
+    assert.strictEqual(isHouseEligibleSchool(BWERANYAGYI_SCHOOL), true);
+    assert.strictEqual(isHouseEligibleSchool('Makerere College School'), false);
+    assert.strictEqual(isHouseEligibleSchool('Other'), false);
+
+    assert.strictEqual(normalizeMemberHouse('Africa House', NTARE_SCHOOL), 'Africa House');
+    assert.strictEqual(normalizeMemberHouse('aggrey', NTARE_SCHOOL), 'Aggrey House');
+    assert.strictEqual(normalizeMemberHouse('Bangizi Jed', BWERANYAGYI_SCHOOL), 'Bangizi Jed');
+    assert.strictEqual(normalizeMemberHouse('Kamugungunu', BWERANYAGYI_SCHOOL), 'Kamugungunu');
+    assert.strictEqual(normalizeMemberHouse('Unlisted House', NTARE_SCHOOL), '');
+    assert.strictEqual(normalizeMemberHouse('Aggrey House', 'Makerere College School'), '');
+    assert.strictEqual(normalizeMemberHouse('Aggrey House', 'Other'), '');
+    assert.strictEqual(normalizeMemberHouse('Aggrey House', ''), '');
+  });
+
+  test('mergeMemberDirectories recovers saved Google Sheets details over stale local JSON and keeps newer local edits', () => {
+    const localMembers = [
+      {
+        id: 'SB-M-0200',
+        memberId: 'SB-M-0200',
+        name: 'Nagaba Passion',
+        phone: '',
+        email: '',
+        address: '',
+        tier: 'Supporter',
+        preNllPaid: 30000,
+        spotPaid: 50000,
+        paidAfter: 20000,
+        historicalPaid: 100000,
+        livePaid: 0,
+        totalContributed: 100000,
+        expectedTargetUgx: 100000,
+        profileStatus: 'INCOMPLETE',
+        updatedAt: '2026-11-21T18:17:00.000Z'
+      },
+      {
+        id: 'SB-M-0201',
+        memberId: 'SB-M-0201',
+        name: 'John Doe',
+        phone: '+256772111222',
+        email: 'john.new@gmail.com',
+        address: 'Ntare',
+        gender: 'Male',
+        school: NTARE_SCHOOL,
+        house: 'Aggrey House',
+        historicalPaid: 100000,
+        expectedTargetUgx: 100000,
+        profileStatus: 'COMPLETE',
+        updatedAt: '2026-11-22T10:00:00.000Z'
+      }
+    ];
+
+    const remoteMembers = [
+      {
+        id: 'SB-M-0200',
+        memberId: 'SB-M-0200',
+        name: 'Nagaba Passion',
+        phone: '+256703643759',
+        email: 'nagabapassion@gmail.com',
+        address: 'Kampala road',
+        gender: 'Male',
+        school: NTARE_SCHOOL,
+        house: 'Pioneer House',
+        historicalPaid: 100000,
+        profileStatus: 'COMPLETE',
+        updatedAt: '2026-11-22T08:26:33.987Z'
+      },
+      {
+        id: 'SB-M-0201',
+        memberId: 'SB-M-0201',
+        name: 'John Doe',
+        phone: '+256772111222',
+        email: 'john.old@gmail.com',
+        address: 'Old Town',
+        gender: '',
+        school: '',
+        house: '',
+        historicalPaid: 100000,
+        profileStatus: 'COMPLETE',
+        updatedAt: '2026-11-21T12:00:00.000Z'
+      }
+    ];
+
+    const result = mergeMemberDirectories(localMembers, remoteMembers, 100000);
+    assert.strictEqual(result.changed, true);
+    assert.strictEqual(result.contactUpdatedMemberIds.includes('SB-M-0200'), true);
+
+    const nagaba = result.members.find(m => m.id === 'SB-M-0200');
+    assert.strictEqual(nagaba.phone, '+256703643759');
+    assert.strictEqual(nagaba.email, 'nagabapassion@gmail.com');
+    assert.strictEqual(nagaba.address, 'Kampala road');
+    assert.strictEqual(nagaba.gender, 'Male');
+    assert.strictEqual(nagaba.school, NTARE_SCHOOL);
+    assert.strictEqual(nagaba.house, 'Pioneer House');
+    assert.strictEqual(nagaba.profileStatus, 'COMPLETE');
+    assert.strictEqual('tier' in nagaba, false);
+
+    const john = result.members.find(m => m.id === 'SB-M-0201');
+    assert.strictEqual(john.email, 'john.new@gmail.com');
+    assert.strictEqual(john.address, 'Ntare');
+    assert.strictEqual(john.house, 'Aggrey House');
+  });
+});
+
+

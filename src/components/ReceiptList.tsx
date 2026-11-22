@@ -25,38 +25,6 @@ interface ReceiptListProps {
   organizationName?: string;
 }
 
-// Container variant triggering staggered animation of children
-const listContainerVariants = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.06,
-      delayChildren: 0.04
-    }
-  }
-};
-
-// Item variant: slide in smoothly from the right
-const cardItemVariants = {
-  hidden: { 
-    opacity: 0, 
-    x: 40,
-    scale: 0.97
-  },
-  show: { 
-    opacity: 1, 
-    x: 0,
-    scale: 1,
-    transition: {
-      type: 'spring' as const,
-      stiffness: 280,
-      damping: 22,
-      mass: 0.8
-    }
-  }
-};
-
 export const ReceiptList: React.FC<ReceiptListProps> = ({
   receipts,
   onSelectReceipt,
@@ -73,12 +41,7 @@ export const ReceiptList: React.FC<ReceiptListProps> = ({
   }
 
   return (
-    <motion.div
-      variants={listContainerVariants}
-      initial="hidden"
-      animate="show"
-      className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-    >
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {receipts.map((tx) => {
         const isOutflow = tx.type === 'OUTFLOW';
         const isSent = tx.emailStatus === 'SENT';
@@ -88,10 +51,10 @@ export const ReceiptList: React.FC<ReceiptListProps> = ({
         return (
           <motion.div
             key={tx.receiptNumber}
-            variants={cardItemVariants}
-            whileHover={{ scale: 1.03, y: -2 }}
-            whileTap={{ scale: 0.98 }}
-            transition={{ type: 'spring', stiffness: 350, damping: 22 }}
+            initial={false}
+            whileHover={{ scale: 1.02, y: -2 }}
+            whileTap={{ scale: 0.99 }}
+            transition={{ type: 'spring', stiffness: 350, damping: 24 }}
             onClick={() => onSelectReceipt(tx)}
             className={`group relative rounded-3xl p-6 text-white shadow-xl hover:shadow-2xl border transition-all duration-300 transform-gpu cursor-pointer overflow-hidden flex flex-col justify-between min-h-[240px] ${
               isOutflow
@@ -263,6 +226,6 @@ export const ReceiptList: React.FC<ReceiptListProps> = ({
           </motion.div>
         );
       })}
-    </motion.div>
+    </div>
   );
 };

@@ -4,7 +4,19 @@ import {
   publicSiteService,
   ReceiptVerificationResult
 } from '../../services/publicSiteService';
-import { MemberClaimInfo, MemberPaymentSummary, MembershipTier } from '../../types';
+import { MemberClaimInfo, MemberGender, MemberPaymentSummary, MemberSchoolPreset } from '../../types';
+import {
+  BWERANYAGYI_SCHOOL,
+  GENDER_OPTIONS,
+  HOUSE_OPTIONS,
+  isHouseEligibleSchool,
+  normalizeMemberGender,
+  normalizeMemberHouse,
+  normalizeMemberSchool,
+  NTARE_SCHOOL,
+  resolveSchoolFormState,
+  SCHOOL_PRESET_OPTIONS
+} from '../../utils/memberImport';
 import {
   ArrowLeft,
   CheckCircle2,
@@ -31,8 +43,6 @@ interface MemberPortalPageProps {
   onBackHome: () => void;
 }
 
-const TIER_OPTIONS: MembershipTier[] = ['Supporter', 'Player', 'Executive', 'Academy', 'Other'];
-
 export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
   clubName,
   clubEmail,
@@ -52,7 +62,10 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
     email: '',
     phone: '',
     address: '',
-    tier: 'Supporter' as MembershipTier
+    gender: '' as '' | MemberGender,
+    schoolChoice: '' as '' | MemberSchoolPreset,
+    otherSchool: '',
+    house: ''
   });
   const [claimSubmitting, setClaimSubmitting] = useState(false);
   const [claimSubmittedMsg, setClaimSubmittedMsg] = useState<string | null>(null);
@@ -78,7 +91,10 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
     fullName: '',
     phone: '',
     address: '',
-    tier: 'Supporter' as MembershipTier
+    gender: '' as '' | MemberGender,
+    schoolChoice: '' as '' | MemberSchoolPreset,
+    otherSchool: '',
+    house: ''
   });
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileMessage, setProfileMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
@@ -98,12 +114,16 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
       setClaimLoading(false);
       if (res.success && res.data) {
         setClaimInfo(res.data);
+        const resolvedSchool = resolveSchoolFormState(res.data.school);
         setClaimForm({
           fullName: res.data.name || '',
           email: res.data.email || '',
           phone: res.data.phone || '',
           address: res.data.address || '',
-          tier: res.data.tier || 'Supporter'
+          gender: normalizeMemberGender(res.data.gender),
+          schoolChoice: resolvedSchool.schoolChoice,
+          otherSchool: resolvedSchool.otherSchool,
+          house: normalizeMemberHouse(res.data.house, res.data.school)
         });
       } else {
         setClaimError(res.error || 'This profile update link is invalid or has expired.');
@@ -138,11 +158,15 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
         return;
       }
       setPaymentSummary(data);
+      const resolvedSchool = resolveSchoolFormState(data.memberProfile?.school);
       setProfileForm({
         fullName: data.memberProfile?.name || data.payerName || '',
         phone: data.memberProfile?.phone || data.phone || '',
         address: data.memberProfile?.address || '',
-        tier: (data.memberProfile?.tier || 'Supporter') as MembershipTier
+        gender: normalizeMemberGender(data.memberProfile?.gender),
+        schoolChoice: resolvedSchool.schoolChoice,
+        otherSchool: resolvedSchool.otherSchool,
+        house: normalizeMemberHouse(data.memberProfile?.house, data.memberProfile?.school)
       });
     },
     [handleSignOut]
@@ -158,8 +182,38 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
     e.preventDefault();
     if (!claimToken) return;
     setClaimError(null);
+
+    if (!claimForm.gender) {
+      setClaimError('Please select your gender (Male or Female).');
+      return;
+    }
+    if (!claimForm.schoolChoice) {
+      setClaimError('Please select your school.');
+      return;
+    }
+    if (claimForm.schoolChoice === 'Other' && !claimForm.otherSchool.trim()) {
+      setClaimError('Please enter the name of your school.');
+      return;
+    }
+    const resolvedSchool = normalizeMemberSchool(claimForm.schoolChoice, claimForm.otherSchool);
+    const resolvedHouse = isHouseEligibleSchool(claimForm.schoolChoice)
+      ? normalizeMemberHouse(claimForm.house, resolvedSchool)
+      : '';
+    if (isHouseEligibleSchool(claimForm.schoolChoice) && !resolvedHouse) {
+      setClaimError(`Please select your house at ${claimForm.schoolChoice}.`);
+      return;
+    }
+
     setClaimSubmitting(true);
-    const res = await publicSiteService.submitClaimProfile(claimToken, claimForm);
+    const res = await publicSiteService.submitClaimProfile(claimToken, {
+      fullName: claimForm.fullName,
+      email: claimForm.email,
+      phone: claimForm.phone,
+      address: claimForm.address,
+      gender: claimForm.gender,
+      school: resolvedSchool,
+      house: resolvedHouse
+    });
     setClaimSubmitting(false);
 
     if (res.success) {
@@ -179,8 +233,37 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
     e.preventDefault();
     if (!session?.token) return;
     setProfileMessage(null);
+
+    if (!profileForm.gender) {
+      setProfileMessage({ type: 'err', text: 'Please select your gender (Male or Female).' });
+      return;
+    }
+    if (!profileForm.schoolChoice) {
+      setProfileMessage({ type: 'err', text: 'Please select your school.' });
+      return;
+    }
+    if (profileForm.schoolChoice === 'Other' && !profileForm.otherSchool.trim()) {
+      setProfileMessage({ type: 'err', text: 'Please enter the name of your school.' });
+      return;
+    }
+    const resolvedSchool = normalizeMemberSchool(profileForm.schoolChoice, profileForm.otherSchool);
+    const resolvedHouse = isHouseEligibleSchool(profileForm.schoolChoice)
+      ? normalizeMemberHouse(profileForm.house, resolvedSchool)
+      : '';
+    if (isHouseEligibleSchool(profileForm.schoolChoice) && !resolvedHouse) {
+      setProfileMessage({ type: 'err', text: `Please select your house at ${profileForm.schoolChoice}.` });
+      return;
+    }
+
     setSavingProfile(true);
-    const res = await publicSiteService.updateMyProfile(session.token, profileForm);
+    const res = await publicSiteService.updateMyProfile(session.token, {
+      fullName: profileForm.fullName,
+      phone: profileForm.phone,
+      address: profileForm.address,
+      gender: profileForm.gender,
+      school: resolvedSchool,
+      house: resolvedHouse
+    });
     setSavingProfile(false);
 
     if (res.unauthorized) {
@@ -284,7 +367,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
               Complete Your Member Details
             </h1>
             <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-              Review your recorded club treasury contributions below (read-only), then fill in your full name, email, phone, address, and membership tier so your `/me` member portal can be activated.
+              Review your recorded club treasury contributions below (read-only), then fill in your full name, email, phone, address, gender, and school details so your `/me` member portal can be activated.
             </p>
           </div>
 
@@ -412,37 +495,103 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
                   </div>
                 </div>
 
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Physical Address / Residence *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={claimForm.address}
+                    onChange={e => setClaimForm({ ...claimForm, address: e.target.value })}
+                    placeholder="e.g. Kira / Ntinda, Kampala"
+                    className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                  />
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                      Physical Address / Residence *
+                      Gender *
                     </label>
-                    <input
-                      type="text"
+                    <select
                       required
-                      value={claimForm.address}
-                      onChange={e => setClaimForm({ ...claimForm, address: e.target.value })}
-                      placeholder="e.g. Kira / Ntinda, Kampala"
+                      value={claimForm.gender}
+                      onChange={e => setClaimForm({ ...claimForm, gender: e.target.value as '' | MemberGender })}
                       className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
-                    />
+                    >
+                      <option value="">Select gender...</option>
+                      {GENDER_OPTIONS.map(g => (
+                        <option key={g} value={g}>
+                          {g}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                      Membership Tier *
+                      School *
                     </label>
                     <select
-                      value={claimForm.tier}
-                      onChange={e => setClaimForm({ ...claimForm, tier: e.target.value as MembershipTier })}
+                      required
+                      value={claimForm.schoolChoice}
+                      onChange={e => {
+                        const nextSchool = e.target.value as '' | MemberSchoolPreset;
+                        setClaimForm(prev => ({
+                          ...prev,
+                          schoolChoice: nextSchool,
+                          otherSchool: nextSchool === 'Other' ? prev.otherSchool : '',
+                          house: isHouseEligibleSchool(nextSchool) ? prev.house : ''
+                        }));
+                      }}
                       className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
                     >
-                      {TIER_OPTIONS.map(t => (
-                        <option key={t} value={t}>
-                          {t}
+                      <option value="">Select school...</option>
+                      {SCHOOL_PRESET_OPTIONS.map(opt => (
+                        <option key={opt} value={opt}>
+                          {opt}
                         </option>
                       ))}
                     </select>
                   </div>
                 </div>
+
+                {claimForm.schoolChoice === 'Other' && (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Enter Name of School *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={claimForm.otherSchool}
+                      onChange={e => setClaimForm({ ...claimForm, otherSchool: e.target.value })}
+                      placeholder="Enter your school name"
+                      className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                    />
+                  </div>
+                )}
+
+                {(claimForm.schoolChoice === NTARE_SCHOOL || claimForm.schoolChoice === BWERANYAGYI_SCHOOL) && (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                      House ({claimForm.schoolChoice}) *
+                    </label>
+                    <select
+                      required
+                      value={claimForm.house}
+                      onChange={e => setClaimForm({ ...claimForm, house: e.target.value })}
+                      className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                    >
+                      <option value="">Select house...</option>
+                      {HOUSE_OPTIONS.map(h => (
+                        <option key={h} value={h}>
+                          {h}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 <button
                   type="submit"
@@ -605,9 +754,15 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
                   <span className="text-xs font-semibold text-blue-700 dark:text-blue-400">
                     Verified Member Account
                   </span>
-                  {paymentSummary?.memberProfile?.tier && (
+                  {paymentSummary?.memberProfile?.gender && (
                     <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                      {paymentSummary.memberProfile.tier} Tier
+                      {paymentSummary.memberProfile.gender}
+                    </span>
+                  )}
+                  {paymentSummary?.memberProfile?.school && (
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300">
+                      {paymentSummary.memberProfile.school}
+                      {paymentSummary.memberProfile.house ? ` · ${paymentSummary.memberProfile.house}` : ''}
                     </span>
                   )}
                 </div>
@@ -732,19 +887,83 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Membership Tier</label>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Gender *</label>
                   <select
-                    value={profileForm.tier}
-                    onChange={e => setProfileForm({ ...profileForm, tier: e.target.value as MembershipTier })}
+                    required
+                    value={profileForm.gender}
+                    onChange={e => setProfileForm({ ...profileForm, gender: e.target.value as '' | MemberGender })}
                     className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
                   >
-                    {TIER_OPTIONS.map(t => (
-                      <option key={t} value={t}>
-                        {t}
+                    <option value="">Select gender...</option>
+                    {GENDER_OPTIONS.map(g => (
+                      <option key={g} value={g}>
+                        {g}
                       </option>
                     ))}
                   </select>
                 </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">School *</label>
+                  <select
+                    required
+                    value={profileForm.schoolChoice}
+                    onChange={e => {
+                      const nextSchool = e.target.value as '' | MemberSchoolPreset;
+                      setProfileForm(prev => ({
+                        ...prev,
+                        schoolChoice: nextSchool,
+                        otherSchool: nextSchool === 'Other' ? prev.otherSchool : '',
+                        house: isHouseEligibleSchool(nextSchool) ? prev.house : ''
+                      }));
+                    }}
+                    className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                  >
+                    <option value="">Select school...</option>
+                    {SCHOOL_PRESET_OPTIONS.map(opt => (
+                      <option key={opt} value={opt}>
+                        {opt}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {profileForm.schoolChoice === 'Other' && (
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Enter Name of School *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={profileForm.otherSchool}
+                      onChange={e => setProfileForm({ ...profileForm, otherSchool: e.target.value })}
+                      placeholder="Enter your school name"
+                      className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                    />
+                  </div>
+                )}
+
+                {(profileForm.schoolChoice === NTARE_SCHOOL || profileForm.schoolChoice === BWERANYAGYI_SCHOOL) && (
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      House ({profileForm.schoolChoice}) *
+                    </label>
+                    <select
+                      required
+                      value={profileForm.house}
+                      onChange={e => setProfileForm({ ...profileForm, house: e.target.value })}
+                      className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                    >
+                      <option value="">Select house...</option>
+                      {HOUSE_OPTIONS.map(h => (
+                        <option key={h} value={h}>
+                          {h}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 <div className="sm:col-span-2 flex justify-end gap-2 pt-1">
                   <button
