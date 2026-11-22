@@ -10,9 +10,13 @@ import {
   AuthCheckResult,
   ThemeMode,
   UserPermissions,
-  resolveUserPermissions
+  resolveUserPermissions,
+  Member,
+  LedgerMetrics,
+  TransactionType
 } from '../types';
 import { api, SYSTEM_OWNER_EMAIL } from '../services/api';
+import { HARDCODED_LOGO_URL } from '../assets/brandLogo';
 
 export interface ToastMessage {
   id: string;
@@ -35,6 +39,9 @@ interface AppContextType {
   activeTab: ActiveTab;
   setActiveTab: (tab: ActiveTab) => void;
   transactions: Transaction[];
+  members: Member[];
+  payers: Member[];
+  ledgerMetrics: LedgerMetrics;
   users: User[];
   settings: AppSettings;
   auditLogs: AuditLogEntry[];
@@ -43,9 +50,38 @@ interface AppContextType {
   setGasUrl: (url: string) => void;
   sendLoginOtp: (email: string) => Promise<BackendResponse<{ email: string; code?: string; isLiveBackend?: boolean }>>;
   verifyLoginOtp: (email: string, code: string) => Promise<AuthCheckResult>;
+  loginWithPassword: (email: string, password: string) => Promise<AuthCheckResult>;
   login: (email: string) => Promise<boolean>;
   logout: () => void;
   refreshData: () => Promise<void>;
+  refreshMembers: () => Promise<void>;
+  recordTransaction: (payload: {
+    type?: TransactionType;
+    payerName?: string;
+    payee?: string;
+    category?: string;
+    voucherNumber?: string;
+    approvedBy?: string;
+    phone?: string;
+    email?: string;
+    amount: number | string;
+    paymentPurpose?: string;
+    paymentMethod: string;
+    paymentReference?: string;
+    notes?: string;
+    paymentStatus?: Transaction['paymentStatus'];
+  }) => Promise<BackendResponse<Transaction>>;
+  recordOutflow: (payload: {
+    payee: string;
+    amount: number | string;
+    category: string;
+    paymentMethod: string;
+    paymentReference?: string;
+    notes?: string;
+    approvedBy?: string;
+    phone?: string;
+    email?: string;
+  }) => Promise<BackendResponse<Transaction>>;
   generateReceipt: (payload: Omit<GenerateReceiptPayload, 'operatorEmail' | 'operatorName'>) => Promise<BackendResponse<Transaction>>;
   deleteTransaction: (receiptNumber: string) => Promise<BackendResponse<void>>;
   resendReceipt: (receiptNumber: string) => Promise<BackendResponse<Transaction>>;
@@ -69,13 +105,86 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 const AUTH_STORAGE_KEY = 'sc_basimbuzi_active_user_email_v2';
 const THEME_STORAGE_KEY = 'sc_basimbuzi_theme';
 
+const TAB_HASH_MAP: Record<string, ActiveTab> = {
+  dashboard: 'dashboard',
+  generate: 'generate',
+  receipt: 'generate',
+  'issue-receipt': 'generate',
+  transactions: 'transactions',
+  ledger: 'transactions',
+  members: 'members',
+  directory: 'members',
+  search: 'search',
+  reports: 'reports',
+  analytics: 'reports',
+  website: 'website',
+  news: 'website',
+  cms: 'website',
+  users: 'users',
+  administrators: 'users',
+  sync: 'sync',
+  settings: 'settings',
+  audit: 'audit',
+  logs: 'audit',
+  setup: 'setup'
+};
+
+const getTabFromHash = (): ActiveTab => {
+  if (typeof window === 'undefined') return 'dashboard';
+  const raw = window.location.hash.replace(/^#\/?/, '').trim().toLowerCase();
+  return TAB_HASH_MAP[raw] || 'dashboard';
+};
+
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isAccessDenied, setIsAccessDenied] = useState<boolean>(false);
   const [accessDeniedMessage, setAccessDeniedMessage] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
+  const [activeTab, setActiveTabState] = useState<ActiveTab>(() => getTabFromHash());
+
+  const setActiveTab = useCallback((tab: ActiveTab) => {
+    setActiveTabState(tab);
+    if (typeof window !== 'undefined') {
+      const inAdmin =
+        window.location.pathname.toLowerCase().startsWith('/admin') ||
+        window.location.hash.toLowerCase().startsWith('#/admin');
+      if (inAdmin && getTabFromHash() !== tab) {
+        window.location.hash = `/${tab}`;
+      }
+    }
+  }, []);
+
+  // Synchronize browser history and hash navigation (Back/Forward buttons, direct URLs)
+  useEffect(() => {
+    const handleHashChange = () => {
+      if (typeof window !== 'undefined') {
+        const inAdmin =
+          window.location.pathname.toLowerCase().startsWith('/admin') ||
+          window.location.hash.toLowerCase().startsWith('#/admin');
+        if (!inAdmin) return;
+      }
+      const nextTab = getTabFromHash();
+      setActiveTabState(nextTab);
+      setLastGeneratedReceipt(null);
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+
+    // If inside /admin and no tab hash is set yet, set default tab hash
+    if (typeof window !== 'undefined') {
+      const inAdmin =
+        window.location.pathname.toLowerCase().startsWith('/admin') ||
+        window.location.hash.toLowerCase().startsWith('#/admin');
+      if (inAdmin && (!window.location.hash || window.location.hash === '#/' || window.location.hash.toLowerCase() === '#/admin')) {
+        window.location.hash = `/${activeTab}`;
+      }
+    }
+
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+    };
+  }, [activeTab]);
   
   // Theme state
   const [theme, setThemeState] = useState<ThemeMode>(() => {
@@ -88,9 +197,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
 
   const [transactions, setTransactions] = useState<Transaction[]>(() => api.getStoredTransactions());
+  const [members, setMembers] = useState<Member[]>([]);
   const [users, setUsers] = useState<User[]>(() => api.getStoredUsers());
   const [settings, setSettings] = useState<AppSettings>(() => api.getStoredSettings());
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>(() => api.getStoredAuditLogs());
+  
+  // Real-time ledger metrics computed on-the-fly (incorporates opening balance)
+  const ledgerMetrics = useMemo(() => api.calculateLedgerMetrics(transactions, settings), [transactions, settings]);
+
+  // Live payer directory: merges historical/live transactions with Member Registry
+  const payers = useMemo(() => {
+    return api.getPayersFromTransactions(transactions, members);
+  }, [transactions, members]);
   
   const [gasUrl, setGasUrlState] = useState<string>(api.getGasUrl());
   const [isLiveBackend, setIsLiveBackend] = useState<boolean>(api.isConnectedToLiveBackend());
@@ -110,7 +228,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     localStorage.setItem(THEME_STORAGE_KEY, theme);
   }, [theme]);
 
-  // Dynamically synchronize browser tab favicon with custom logo or official SC Basimbuzi crest
+  // Dynamically synchronize browser tab favicon & OpenGraph social share card with custom logo or official SC Basimbuzi crest
   useEffect(() => {
     const targetUrl = settings.logoUrl && settings.logoUrl.trim() ? settings.logoUrl.trim() : '/favicon.svg';
     const iconLinks = document.querySelectorAll<HTMLLinkElement>("link[rel~='icon'], link[rel='apple-touch-icon']");
@@ -125,7 +243,106 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       newLink.href = targetUrl;
       document.head.appendChild(newLink);
     }
+
+    // Synchronize social share card image (OpenGraph / Twitter / WhatsApp)
+    try {
+      if (typeof window !== 'undefined') {
+        const origin = window.location.origin;
+        const logoToUse = (settings.logoUrl && !settings.logoUrl.endsWith('.svg'))
+          ? (settings.logoUrl.startsWith('http') ? settings.logoUrl : `${origin}${settings.logoUrl.startsWith('/') ? '' : '/'}${settings.logoUrl}`)
+          : `${origin}/logo.png`;
+
+        const setMetaContent = (selector: string, attr: string, val: string) => {
+          let el = document.querySelector<HTMLMetaElement>(selector);
+          if (!el) {
+            el = document.createElement('meta');
+            const match = selector.match(/meta\[([a-zA-Z:]+)="([^"]+)"\]/);
+            if (match) {
+              el.setAttribute(match[1], match[2]);
+              document.head.appendChild(el);
+            }
+          }
+          if (el) el.setAttribute(attr, val);
+        };
+
+        setMetaContent('meta[property="og:image"]', 'content', logoToUse);
+        setMetaContent('meta[property="og:image:secure_url"]', 'content', logoToUse);
+        setMetaContent('meta[name="twitter:image"]', 'content', logoToUse);
+        setMetaContent('meta[property="og:url"]', 'content', origin);
+      }
+    } catch {}
   }, [settings.logoUrl]);
+
+  // Synchronize shared server settings (logoUrl & branding) and shared users across all devices
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        const sRes = await fetch('/api/settings').then(r => r.json());
+        if (isMounted && sRes && sRes.success && sRes.data) {
+          setSettings(prev => ({
+            ...prev,
+            ...sRes.data,
+            logoUrl: (sRes.data.logoUrl && sRes.data.logoUrl.trim()) ? sRes.data.logoUrl.trim() : (prev.logoUrl || HARDCODED_LOGO_URL)
+          }));
+        }
+      } catch {
+        // Non-blocking
+      }
+
+      try {
+        const uRes = await fetch('/api/users').then(r => r.json());
+        if (isMounted && uRes && uRes.success && Array.isArray(uRes.data) && uRes.data.length > 0) {
+          setUsers(prev => {
+            const map = new Map<string, User>();
+            for (const u of prev) {
+              if (u.email) map.set(u.email.toLowerCase().trim(), u);
+            }
+            for (const u of uRes.data) {
+              if (u.email) {
+                const k = u.email.toLowerCase().trim();
+                const exist = map.get(k);
+                map.set(k, exist ? { ...exist, ...u, password: u.password || exist.password } : u);
+              }
+            }
+            return Array.from(map.values());
+          });
+        }
+      } catch {
+        // Non-blocking
+      }
+    })();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Dynamically synchronize document title with the active admin page
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname.toLowerCase();
+      const hash = window.location.hash.toLowerCase();
+      if (!path.startsWith('/admin') && !hash.startsWith('#/admin')) {
+        return;
+      }
+    }
+    const titles: Record<ActiveTab, string> = {
+      dashboard: 'Dashboard',
+      generate: 'Issue Official Receipt',
+      transactions: 'Transaction Ledger',
+      members: 'Members Directory',
+      search: 'Search Receipts',
+      reports: 'Reports & Analytics',
+      website: 'Club News & Website CMS',
+      users: 'Administrators',
+      sync: 'Database Synchronization',
+      settings: 'Settings & Appearance',
+      audit: 'Audit Logs',
+      setup: 'Apps Script Backend'
+    };
+    const orgName = settings.organizationName || 'SC Basimbuzi';
+    document.title = `${titles[activeTab] || 'Management Portal'} | ${orgName}`;
+  }, [activeTab, settings.organizationName]);
 
   const toggleTheme = useCallback(() => {
     setThemeState(prev => (prev === 'light' ? 'dark' : 'light'));
@@ -165,6 +382,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setTransactions(data.transactions);
       setUsers(data.users);
       setAuditLogs(data.auditLogs);
+      // Fetch cached members for smart autofill
+      api.getMembers(user.email).then(mRes => {
+        if (mRes.success && mRes.data) {
+          setMembers(mRes.data);
+        }
+      }).catch(() => {});
       setLastSyncedAt(new Date());
     } catch {
       if (showFullSpinner) {
@@ -186,6 +409,31 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setIsLoading(true);
     try {
       const res = await api.verifyLoginOtp(email, code);
+      if (res.authorized && res.user) {
+        setCurrentUser(res.user);
+        setIsAuthenticated(true);
+        setIsAccessDenied(false);
+        setAccessDeniedMessage('');
+        localStorage.setItem(AUTH_STORAGE_KEY, res.user.email);
+        await loadDataForUser(res.user, false);
+        addToast(`Welcome back, ${res.user.name} (${res.user.role})`, 'success');
+      }
+      return res;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return {
+        authorized: false,
+        message: msg
+      };
+    } finally {
+      setIsLoading(false);
+    }
+  }, [loadDataForUser, addToast]);
+
+  const loginWithPassword = useCallback(async (email: string, password: string): Promise<AuthCheckResult> => {
+    setIsLoading(true);
+    try {
+      const res = await api.loginWithPassword(email, password);
       if (res.authorized && res.user) {
         setCurrentUser(res.user);
         setIsAuthenticated(true);
@@ -327,34 +575,98 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const userPermissions = useMemo(() => resolveUserPermissions(currentUser), [currentUser]);
 
-  const generateReceipt = async (
-    payload: Omit<GenerateReceiptPayload, 'operatorEmail' | 'operatorName'>
+  const refreshMembers = useCallback(async () => {
+    try {
+      const res = await api.getMembers(currentUser?.email);
+      if (res.success && res.data) {
+        setMembers(res.data);
+      }
+    } catch {}
+  }, [currentUser?.email]);
+
+  // Initial load of members
+  useEffect(() => {
+    api.getMembers().then(res => {
+      if (res.success && res.data) {
+        setMembers(res.data);
+      }
+    }).catch(() => {});
+  }, []);
+
+  const recordTransaction = async (
+    payload: {
+      type?: TransactionType;
+      payerName?: string;
+      payee?: string;
+      category?: string;
+      voucherNumber?: string;
+      approvedBy?: string;
+      phone?: string;
+      email?: string;
+      amount: number | string;
+      paymentPurpose?: string;
+      paymentMethod: string;
+      paymentReference?: string;
+      notes?: string;
+      paymentStatus?: Transaction['paymentStatus'];
+    }
   ): Promise<BackendResponse<Transaction>> => {
     if (!currentUser) {
       return { success: false, error: 'User is not logged in.' };
     }
 
-    const fullPayload: GenerateReceiptPayload = {
+    const fullPayload = {
       ...payload,
       operatorEmail: currentUser.email,
       operatorName: currentUser.name
     };
 
-    const res = await api.generateReceipt(fullPayload);
+    const res = await api.recordTransaction(fullPayload);
     if (res.success && res.data) {
       setTransactions(prev => [res.data!, ...prev]);
-      setLastGeneratedReceipt(res.data);
-      addToast(res.message || `Receipt ${res.data.receiptNumber} generated!`, 'success');
-      // Refresh audit logs in background
+      if (res.data.type !== 'OUTFLOW') {
+        setLastGeneratedReceipt(res.data);
+      }
+      addToast(res.message || `${res.data.type === 'OUTFLOW' ? 'Expense voucher' : 'Receipt'} recorded!`, 'success');
+      refreshMembers();
       if (currentUser.role === 'OWNER' || userPermissions.canViewReports) {
         api.getInitialData(currentUser.email).then(d => {
           setAuditLogs(d.auditLogs);
-        });
+        }).catch(() => {});
       }
     } else {
-      addToast(res.error || 'Failed to generate receipt', 'error');
+      addToast(res.error || 'Failed to record transaction', 'error');
     }
     return res;
+  };
+
+  const recordOutflow = async (
+    payload: {
+      payee: string;
+      amount: number | string;
+      category: string;
+      paymentMethod: string;
+      paymentReference?: string;
+      notes?: string;
+      approvedBy?: string;
+      phone?: string;
+      email?: string;
+    }
+  ): Promise<BackendResponse<Transaction>> => {
+    return recordTransaction({
+      ...payload,
+      type: 'OUTFLOW',
+      payerName: payload.payee
+    });
+  };
+
+  const generateReceipt = async (
+    payload: Omit<GenerateReceiptPayload, 'operatorEmail' | 'operatorName'>
+  ): Promise<BackendResponse<Transaction>> => {
+    return recordTransaction({
+      ...payload,
+      type: 'INFLOW'
+    });
   };
 
   const deleteTransaction = async (receiptNumber: string): Promise<BackendResponse<void>> => {
@@ -536,6 +848,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         activeTab,
         setActiveTab,
         transactions,
+        members: members.length > 0 ? members : payers,
+        payers,
+        ledgerMetrics,
         users,
         settings,
         auditLogs,
@@ -544,9 +859,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setGasUrl,
         sendLoginOtp,
         verifyLoginOtp,
+        loginWithPassword,
         login,
         logout,
         refreshData,
+        refreshMembers,
+        recordTransaction,
+        recordOutflow,
         generateReceipt,
         deleteTransaction,
         resendReceipt,

@@ -7,7 +7,8 @@ import {
   downloadReceiptImage, 
   copyReceiptImageToClipboard,
   shareReceiptViaWebShare,
-  formatWhatsAppPhoneNumber
+  formatWhatsAppPhoneNumber,
+  isMobileDevice
 } from '../utils/whatsappReceipt';
 import { 
   X, 
@@ -142,7 +143,7 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
             </div>
             <div>
               <h3 className="font-bold text-sm">Send Receipt via WhatsApp</h3>
-              <p className="text-[11px] text-emerald-100 font-mono">{receipt.receiptNumber}</p>
+              <p className="text-[11px] text-emerald-100 font-sans">{receipt.receiptNumber}</p>
             </div>
           </div>
           <button
@@ -169,11 +170,11 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
                 placeholder="e.g. 0772123456 or +256772123456"
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl text-sm font-mono focus:ring-2 focus:ring-emerald-500 outline-none"
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl text-sm font-sans focus:ring-2 focus:ring-emerald-500 outline-none"
               />
             </div>
             {cleanPhone ? (
-              <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-1 font-mono">
+              <p className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-1 font-sans">
                 International WhatsApp Format: +{cleanPhone}
               </p>
             ) : (
@@ -237,8 +238,8 @@ export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
               <span>Open WhatsApp Chat & Send Receipt</span>
             </button>
 
-            {/* Native Mobile Share (Sends image + message directly into WhatsApp app) */}
-            {typeof navigator !== 'undefined' && 'share' in navigator && (
+            {/* Native Mobile Share (Sends image + message directly into WhatsApp app) - mobile only */}
+            {isMobileDevice() && typeof navigator !== 'undefined' && 'share' in navigator && (
               <button
                 onClick={handleNativeShare}
                 disabled={isGenerating || isSharing}

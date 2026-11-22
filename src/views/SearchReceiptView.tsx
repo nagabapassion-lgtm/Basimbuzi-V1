@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
+import { publicSiteService } from '../services/publicSiteService';
 import { 
   Search, 
   FileText, 
@@ -10,13 +11,27 @@ import {
   Mail, 
   Phone,
   X,
-  Trash2
+  Trash2,
+  Wallet
 } from 'lucide-react';
 
 export const SearchReceiptView: React.FC = () => {
   const { transactions, setSelectedReceipt, resendReceipt, deleteTransaction, currentUser } = useApp();
   const [query, setQuery] = useState('');
+  const [targetUgx, setTargetUgx] = useState<number>(100000);
+  const [targetLabel, setTargetLabel] = useState<string>('2026 Season Membership Contribution');
   const isOwner = currentUser?.role === 'OWNER';
+
+  useEffect(() => {
+    publicSiteService.fetchPublicSite(false).then(payload => {
+      if (payload?.content?.membershipTargetUgx !== undefined) {
+        setTargetUgx(Number(payload.content.membershipTargetUgx) || 0);
+      }
+      if (payload?.content?.membershipTargetLabel) {
+        setTargetLabel(payload.content.membershipTargetLabel);
+      }
+    }).catch(() => {});
+  }, []);
 
   const searchResults = useMemo(() => {
     if (!query.trim()) {
@@ -31,10 +46,39 @@ export const SearchReceiptView: React.FC = () => {
         tx.email.toLowerCase().includes(q) ||
         (tx.phone && tx.phone.toLowerCase().includes(q)) ||
         (tx.paymentReference && tx.paymentReference.toLowerCase().includes(q)) ||
+        (tx.notes && tx.notes.toLowerCase().includes(q)) ||
         tx.paymentPurpose.toLowerCase().includes(q)
       );
     });
   }, [transactions, query]);
+
+  const payerSummary = useMemo(() => {
+    const inflows = searchResults.filter(tx => tx.type !== 'OUTFLOW' && !tx.receiptNumber.startsWith('EXP-'));
+    if (inflows.length === 0) return null;
+    const distinctNames = new Set(inflows.map(tx => tx.payerName.trim().toLowerCase()));
+    if (distinctNames.size !== 1) return null;
+
+    let totalPaid = 0;
+    let pending = 0;
+    for (const tx of inflows) {
+      const amt = Number(tx.amount) || 0;
+      if (tx.paymentStatus === 'COMPLETED') totalPaid += amt;
+      else if (tx.paymentStatus === 'PENDING') pending += amt;
+    }
+    const effectiveTarget = targetUgx > 0 ? targetUgx : totalPaid + pending;
+    const remaining = effectiveTarget > 0 ? Math.max(0, effectiveTarget - totalPaid) : 0;
+    const pct = effectiveTarget > 0 ? Math.min(100, Math.round((totalPaid / effectiveTarget) * 100)) : 100;
+
+    return {
+      payerName: inflows[0].payerName,
+      count: inflows.length,
+      totalPaid,
+      pending,
+      effectiveTarget,
+      remaining,
+      pct
+    };
+  }, [searchResults, targetUgx]);
 
   const handlePrint = (tx: (typeof transactions)[0]) => {
     setSelectedReceipt(tx);
@@ -88,7 +132,7 @@ export const SearchReceiptView: React.FC = () => {
               <button
                 key={t.receiptNumber}
                 onClick={() => setQuery(t.receiptNumber)}
-                className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-mono text-[11px] transition cursor-pointer"
+                className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-sans text-[11px] transition cursor-pointer"
               >
                 {t.receiptNumber}
               </button>
@@ -114,6 +158,48 @@ export const SearchReceiptView: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-3">
+              {payerSummary && (
+                <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-blue-200 dark:border-blue-900/60 shadow-xs space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Wallet className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                      <span className="text-sm font-bold text-slate-900 dark:text-white">
+                        {payerSummary.payerName} — Payment Summary ({payerSummary.count} receipt{payerSummary.count === 1 ? '' : 's'})
+                      </span>
+                    </div>
+                    <span
+                      className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
+                        payerSummary.remaining === 0 && payerSummary.totalPaid > 0
+                          ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                          : 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+                      }`}
+                    >
+                      {payerSummary.remaining === 0 && payerSummary.totalPaid > 0 ? 'FULLY PAID' : 'BALANCE REMAINING'}
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400">{targetLabel}</div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700">
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400">Total Paid</div>
+                      <div className="text-sm sm:text-base font-bold font-mono text-emerald-600 dark:text-emerald-400 tabular-nums">
+                        {payerSummary.totalPaid.toLocaleString()} UGX
+                      </div>
+                    </div>
+                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700">
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400">Expected Target</div>
+                      <div className="text-sm sm:text-base font-bold font-mono text-slate-900 dark:text-white tabular-nums">
+                        {payerSummary.effectiveTarget.toLocaleString()} UGX
+                      </div>
+                    </div>
+                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700">
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400">Remaining</div>
+                      <div className="text-sm sm:text-base font-bold font-mono text-amber-600 dark:text-amber-400 tabular-nums">
+                        {payerSummary.remaining.toLocaleString()} UGX
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
               {searchResults.map(tx => (
                 <div
                   key={tx.receiptNumber}
@@ -121,7 +207,7 @@ export const SearchReceiptView: React.FC = () => {
                 >
                   <div className="space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-mono font-bold text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2.5 py-1 rounded-lg border border-blue-200 dark:border-blue-800">
+                      <span className="font-sans font-bold text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2.5 py-1 rounded-lg border border-blue-200 dark:border-blue-800">
                         {tx.receiptNumber}
                       </span>
                       <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
@@ -142,9 +228,13 @@ export const SearchReceiptView: React.FC = () => {
                         <User className="w-3.5 h-3.5 text-slate-400" />
                         <strong className="text-slate-800 dark:text-white">{tx.payerName}</strong>
                       </div>
-                      <div className="flex items-center gap-1 font-mono text-slate-500 dark:text-slate-400">
+                      <div className="flex items-center gap-1 font-sans text-slate-500 dark:text-slate-400">
                         <Mail className="w-3.5 h-3.5 text-slate-400" />
-                        {tx.email}
+                        {tx.email ? (
+                          tx.email
+                        ) : (
+                          <span className="italic text-slate-400 dark:text-slate-500">No email provided</span>
+                        )}
                       </div>
                       {tx.phone && (
                         <div className="flex items-center gap-1">
@@ -160,13 +250,13 @@ export const SearchReceiptView: React.FC = () => {
                       </span>
                       <span>Method: <strong className="text-slate-700 dark:text-slate-200">{tx.paymentMethod}</strong></span>
                       {tx.paymentReference && (
-                        <span className="font-mono">Ref: {tx.paymentReference}</span>
+                        <span className="font-sans">Ref: {tx.paymentReference}</span>
                       )}
                     </div>
                   </div>
 
                   <div className="flex flex-col sm:items-end justify-between gap-3 shrink-0 pt-3 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-800">
-                    <div className="text-lg sm:text-xl font-extrabold text-blue-600 dark:text-blue-400 font-mono">
+                    <div className="text-lg sm:text-xl font-extrabold text-blue-600 dark:text-blue-400 font-sans">
                       {Number(tx.amount).toLocaleString()} UGX
                     </div>
 

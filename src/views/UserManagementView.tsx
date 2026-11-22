@@ -23,8 +23,20 @@ import {
   CloudUpload,
   Send,
   HelpCircle,
-  ExternalLink
+  ExternalLink,
+  Eye,
+  EyeOff,
+  Copy,
+  Lock,
+  Sparkles
 } from 'lucide-react';
+
+const generateRandomPassword = (prefix = 'Staff'): string => {
+  const symbols = ['@', '#', '$', '%'];
+  const sym = symbols[Math.floor(Math.random() * symbols.length)];
+  const num = Math.floor(1000 + Math.random() * 9000);
+  return `${prefix}${sym}${num}`;
+};
 
 export const UserManagementView: React.FC = () => {
   const { 
@@ -62,6 +74,8 @@ export const UserManagementView: React.FC = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(true);
   const [role, setRole] = useState<UserRole>('ADMIN');
   const [status, setStatus] = useState<'ACTIVE' | 'INACTIVE'>('ACTIVE');
   const [permissions, setPermissions] = useState<UserPermissions>(getDefaultPermissions('ADMIN'));
@@ -73,11 +87,24 @@ export const UserManagementView: React.FC = () => {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
+  const [editPassword, setEditPassword] = useState('');
+  const [showEditPassword, setShowEditPassword] = useState(false);
   const [editRole, setEditRole] = useState<UserRole>('ADMIN');
   const [editStatus, setEditStatus] = useState<'ACTIVE' | 'INACTIVE'>('ACTIVE');
   const [editPermissions, setEditPermissions] = useState<UserPermissions>(getDefaultPermissions('ADMIN'));
   const [isEditSubmitting, setIsEditSubmitting] = useState(false);
   const [editModalError, setEditModalError] = useState<string | null>(null);
+
+  // Dedicated Quick Password Change Modal
+  const [quickPasswordUser, setQuickPasswordUser] = useState<User | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(true);
+  const [isSavingPassword, setIsSavingPassword] = useState(false);
+  const [quickPasswordError, setQuickPasswordError] = useState<string | null>(null);
+
+  // Table show/hide passwords & copy feedback
+  const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({});
+  const [copiedEmail, setCopiedEmail] = useState<string | null>(null);
 
   // Deletion modal state
   const [userToDelete, setUserToDelete] = useState<{ email: string; name: string } | null>(null);
@@ -142,6 +169,8 @@ export const UserManagementView: React.FC = () => {
   const openAddModal = () => {
     setName('');
     setEmail('');
+    setPassword(generateRandomPassword('Staff'));
+    setShowPassword(true);
     setRole('ADMIN');
     setStatus('ACTIVE');
     setPermissions(getDefaultPermissions('ADMIN'));
@@ -153,10 +182,65 @@ export const UserManagementView: React.FC = () => {
     setEditingUser(user);
     setEditName(user.name);
     setEditEmail(user.email);
+    setEditPassword(user.password || '');
+    setShowEditPassword(false);
     setEditRole(user.role);
     setEditStatus(user.status);
     setEditPermissions(resolveUserPermissions(user));
     setEditModalError(null);
+  };
+
+  const handleOpenQuickPassword = (user: User) => {
+    setQuickPasswordUser(user);
+    setNewPassword(user.password || generateRandomPassword('Staff'));
+    setShowNewPassword(true);
+    setQuickPasswordError(null);
+  };
+
+  const handleQuickPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickPasswordUser) return;
+    setQuickPasswordError(null);
+
+    const cleanPass = newPassword.trim();
+    if (!cleanPass) {
+      setQuickPasswordError('Please enter a password.');
+      return;
+    }
+    if (cleanPass.length < 4) {
+      setQuickPasswordError('Password must be at least 4 characters.');
+      return;
+    }
+
+    setIsSavingPassword(true);
+    try {
+      const res = await editUser(quickPasswordUser.email, {
+        password: cleanPass
+      });
+      if (res.success) {
+        setQuickPasswordUser(null);
+      } else {
+        setQuickPasswordError(res.error || 'Failed to update password.');
+      }
+    } finally {
+      setIsSavingPassword(false);
+    }
+  };
+
+  const handleCopyPassword = (pwd?: string, email?: string) => {
+    if (!pwd) return;
+    navigator.clipboard.writeText(pwd);
+    if (email) {
+      setCopiedEmail(email);
+      setTimeout(() => setCopiedEmail(null), 2500);
+    }
+  };
+
+  const toggleTablePasswordVisibility = (email: string) => {
+    setVisiblePasswords(prev => ({
+      ...prev,
+      [email]: !prev[email]
+    }));
   };
 
   const handleAddSubmit = async (e: React.FormEvent) => {
@@ -175,12 +259,24 @@ export const UserManagementView: React.FC = () => {
       return;
     }
 
+    const cleanPassword = password.trim();
+    if (!cleanPassword) {
+      setModalError('Please assign a login password for this staff member.');
+      return;
+    }
+
+    if (cleanPassword.length < 4) {
+      setModalError('Password must be at least 4 characters long.');
+      return;
+    }
+
     setIsSubmitting(true);
     const res = await addUser({
       name: name.trim(),
       email: cleanEmail,
       role,
       status,
+      password: cleanPassword,
       permissions
     });
     setIsSubmitting(false);
@@ -209,12 +305,19 @@ export const UserManagementView: React.FC = () => {
       return;
     }
 
+    const cleanPassword = editPassword.trim();
+    if (cleanPassword && cleanPassword.length < 4) {
+      setEditModalError('Password must be at least 4 characters long.');
+      return;
+    }
+
     setIsEditSubmitting(true);
     const res = await editUser(editingUser.email, {
       name: editName.trim(),
       email: cleanEmail,
       role: editRole,
       status: editStatus,
+      password: cleanPassword || undefined,
       permissions: editPermissions
     });
     setIsEditSubmitting(false);
@@ -365,6 +468,7 @@ export const UserManagementView: React.FC = () => {
                 <th className="px-5 py-3.5">User / Name</th>
                 <th className="px-5 py-3.5">Email</th>
                 <th className="px-5 py-3.5">Role</th>
+                <th className="px-5 py-3.5">Login Password</th>
                 <th className="px-5 py-3.5">Assigned Permissions</th>
                 <th className="px-5 py-3.5 text-center">Status</th>
                 <th className="px-5 py-3.5 text-right">Actions</th>
@@ -408,10 +512,53 @@ export const UserManagementView: React.FC = () => {
                           ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800' 
                           : u.role === 'ADMIN'
                           ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800'
+                          : u.role === 'MEDIA'
+                          ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
                           : 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
                       }`}>
-                        {isUserOwner ? 'OWNER' : u.role === 'ADMIN' ? 'ADMIN' : 'RECEIPT ISSUER'}
+                        {isUserOwner ? 'OWNER' : u.role === 'ADMIN' ? 'ADMIN' : u.role === 'MEDIA' ? 'MEDIA OFFICER' : 'RECEIPT ISSUER'}
                       </span>
+                    </td>
+
+                    {/* Password column with show/hide toggle, copy button, and quick edit */}
+                    <td className="px-5 py-4 font-mono text-xs text-slate-700 dark:text-slate-300">
+                      <div className="flex items-center gap-1.5 flex-nowrap">
+                        <div className="bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 inline-flex items-center gap-1 font-mono text-xs">
+                          <Lock className="w-3 h-3 text-slate-400 shrink-0" />
+                          <span>
+                            {visiblePasswords[u.email] 
+                              ? (u.password || 'Not set') 
+                              : '••••••••'}
+                          </span>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => toggleTablePasswordVisibility(u.email)}
+                          title={visiblePasswords[u.email] ? 'Hide password' : 'Show password'}
+                          className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 rounded transition cursor-pointer"
+                        >
+                          {visiblePasswords[u.email] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleCopyPassword(u.password || '', u.email)}
+                          title="Copy password to share"
+                          className="p-1 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 rounded transition cursor-pointer"
+                        >
+                          {copiedEmail === u.email ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleOpenQuickPassword(u)}
+                          title="Edit / Reset Password"
+                          className="px-2 py-0.5 text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-900 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/60 transition cursor-pointer"
+                        >
+                          Edit
+                        </button>
+                      </div>
                     </td>
 
                     <td className="px-5 py-4">
@@ -439,6 +586,11 @@ export const UserManagementView: React.FC = () => {
                         {perms.canEditSettings && (
                           <span className="text-[10px] bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded">
                             Settings
+                          </span>
+                        )}
+                        {perms.canManageWebsite && (
+                          <span className="text-[10px] bg-cyan-50 dark:bg-cyan-950/60 text-cyan-700 dark:text-cyan-300 px-1.5 py-0.5 rounded">
+                            Website CMS
                           </span>
                         )}
                       </div>
@@ -607,11 +759,49 @@ export const UserManagementView: React.FC = () => {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="e.g. brenda.admin@scbasimbuzi.org"
+                  placeholder="e.g. staff.member@gmail.com"
                   className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl text-sm focus:ring-2 focus:ring-blue-600 outline-none"
                 />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Initial Login Password <span className="text-red-500">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newP = generateRandomPassword('Staff');
+                      setPassword(newP);
+                      setShowPassword(true);
+                    }}
+                    className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1 font-semibold cursor-pointer"
+                  >
+                    <Sparkles className="w-3 h-3" />
+                    <span>Generate Secure</span>
+                  </button>
+                </div>
+                <div className="relative">
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter or generate password"
+                    className="w-full pl-10 pr-10 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl text-sm font-mono focus:ring-2 focus:ring-blue-600 outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(p => !p)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition cursor-pointer"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
                 <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
-                  Login OTP verification codes will be sent to this email.
+                  Give this password to the staff member to log in. You can change or reset it anytime.
                 </p>
               </div>
 
@@ -627,6 +817,7 @@ export const UserManagementView: React.FC = () => {
                   >
                     <option value="ADMIN">Administrator (Full Admin)</option>
                     <option value="ISSUER">Receipt Issuer (Cashier)</option>
+                    <option value="MEDIA">Media &amp; Comms Officer (Website &amp; News Only)</option>
                   </select>
                 </div>
 
@@ -699,6 +890,16 @@ export const UserManagementView: React.FC = () => {
                       className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4"
                     />
                     <span>Can Modify System & Organization Settings</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer text-slate-800 dark:text-slate-200">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(permissions.canManageWebsite)}
+                      onChange={(e) => setPermissions(p => ({ ...p, canManageWebsite: e.target.checked }))}
+                      className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4"
+                    />
+                    <span>Can Publish Club News, Fixtures &amp; Website Content</span>
                   </label>
                 </div>
               </div>
@@ -779,6 +980,47 @@ export const UserManagementView: React.FC = () => {
                 />
               </div>
 
+              {/* Password Section */}
+              <div className="bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700/80">
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    User Login Password
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newP = generateRandomPassword('Staff');
+                      setEditPassword(newP);
+                      setShowEditPassword(true);
+                    }}
+                    className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1 font-semibold cursor-pointer"
+                  >
+                    <Sparkles className="w-3 h-3" />
+                    <span>Generate New</span>
+                  </button>
+                </div>
+                <div className="relative">
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                  <input
+                    type={showEditPassword ? 'text' : 'password'}
+                    value={editPassword}
+                    onChange={(e) => setEditPassword(e.target.value)}
+                    placeholder="Enter or generate new password"
+                    className="w-full pl-10 pr-10 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl text-sm font-mono focus:ring-2 focus:ring-blue-600 outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowEditPassword(p => !p)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition cursor-pointer"
+                  >
+                    {showEditPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+                  System Owner / Manager can view, edit, or reset this account&apos;s password at any time.
+                </p>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
@@ -793,6 +1035,7 @@ export const UserManagementView: React.FC = () => {
                     {editingUser.role === 'OWNER' && <option value="OWNER">System Owner</option>}
                     <option value="ADMIN">Administrator (Full Admin)</option>
                     <option value="ISSUER">Receipt Issuer (Cashier)</option>
+                    <option value="MEDIA">Media &amp; Comms Officer (Website &amp; News Only)</option>
                   </select>
                 </div>
 
@@ -872,6 +1115,17 @@ export const UserManagementView: React.FC = () => {
                     />
                     <span>Can Modify System & Organization Settings</span>
                   </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer text-slate-800 dark:text-slate-200">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(editPermissions.canManageWebsite)}
+                      disabled={editingUser.role === 'OWNER'}
+                      onChange={(e) => setEditPermissions(p => ({ ...p, canManageWebsite: e.target.checked }))}
+                      className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4"
+                    />
+                    <span>Can Publish Club News, Fixtures &amp; Website Content</span>
+                  </label>
                 </div>
               </div>
 
@@ -890,6 +1144,112 @@ export const UserManagementView: React.FC = () => {
                 >
                   {isEditSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
                   <span>{isEditSubmitting ? 'Saving...' : 'Save Changes'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Dedicated Quick Password Reset Dialog */}
+      {quickPasswordUser && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 max-w-md w-full rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+            <div className="bg-slate-900 px-6 py-4 flex items-center justify-between text-white border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                  <KeyRound className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm">Change Login Password</h3>
+                  <p className="text-[11px] text-slate-400 font-mono truncate max-w-[220px]">
+                    {quickPasswordUser.email}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setQuickPasswordUser(null)}
+                className="text-slate-400 hover:text-white cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleQuickPasswordSubmit} className="p-6 space-y-4">
+              {quickPasswordError && (
+                <div className="bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-900/60 rounded-xl p-3 text-xs text-red-800 dark:text-red-300 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+                  <span>{quickPasswordError}</span>
+                </div>
+              )}
+
+              <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
+                <span className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-0.5">
+                  Staff Account
+                </span>
+                <div className="font-bold text-sm text-slate-900 dark:text-white flex items-center justify-between">
+                  <span>{quickPasswordUser.name}</span>
+                  <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900">
+                    {quickPasswordUser.role}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    New Login Password
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewPassword(generateRandomPassword('Staff'));
+                      setShowNewPassword(true);
+                    }}
+                    className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1 font-semibold cursor-pointer"
+                  >
+                    <Sparkles className="w-3 h-3" />
+                    <span>Generate Secure</span>
+                  </button>
+                </div>
+                <div className="relative">
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                  <input
+                    type={showNewPassword ? 'text' : 'password'}
+                    required
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Enter new password"
+                    className="w-full pl-10 pr-10 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl text-sm font-mono focus:ring-2 focus:ring-blue-600 outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(p => !p)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition cursor-pointer"
+                  >
+                    {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+                  Once saved, the user will use this new password to sign into the system.
+                </p>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setQuickPasswordUser(null)}
+                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-xl transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingPassword || !newPassword.trim()}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 text-white text-xs font-semibold rounded-xl transition inline-flex items-center gap-1.5 shadow-sm shadow-blue-600/20 cursor-pointer"
+                >
+                  {isSavingPassword ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                  <span>{isSavingPassword ? 'Saving...' : 'Update Password'}</span>
                 </button>
               </div>
             </form>

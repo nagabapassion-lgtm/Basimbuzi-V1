@@ -1,10 +1,34 @@
 @import "tailwindcss";
 
+@theme {
+  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-heading: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
 @custom-variant dark (&:where(.dark, .dark *));
+
+*, html, body, button, input, select, textarea, h1, h2, h3, h4, h5, h6, p, span, div, a, label, table, th, td, .font-heading, .font-sans {
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif !important;
+}
+
+.public-site-root,
+.public-site-root p,
+.public-site-root span,
+.public-site-root div,
+.public-site-root a,
+.public-site-root button,
+.public-site-root input,
+.public-site-root select,
+.public-site-root textarea,
+.public-site-root label,
+.public-site-root li {
+  font-family: 'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
 
 html {
   color-scheme: light;
-  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  scroll-behavior: smooth;
 }
 
 html.dark {
@@ -14,7 +38,6 @@ html.dark {
 body {
   background-color: #f8fafc;
   color: #0f172a;
-  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 html.dark body {
@@ -22,14 +45,16 @@ html.dark body {
   color: #f8fafc;
 }
 
-/* Typography Headings */
-h1, h2, h3, .font-heading {
-  font-family: 'Outfit', 'Plus Jakarta Sans', sans-serif;
+/* Typography Headings & Numbers */
+h1, h2, h3, h4, h5, h6, .font-heading,
+.public-site-root h1, .public-site-root h2, .public-site-root h3, .public-site-root h4, .public-site-root .font-heading {
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
   letter-spacing: -0.025em;
 }
 
-.font-mono {
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+.font-mono,
+.public-site-root .font-mono {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
 }
 
 /* Fancy Transparent Frosted Tab Effects */
@@ -74,37 +99,109 @@ h1, h2, h3, .font-heading {
 
 @layer base {
   @media print {
-    body {
-      background: white !important;
-      color: black !important;
-      padding: 0 !important;
-      margin: 0 !important;
-    }
-
+    /* Completely hide navigation, app chrome, main view pages, toasts, modals chrome */
     #app-sidebar,
     header,
+    main,
     #toast-container,
-    .print\:hidden {
+    .print\:hidden,
+    [aria-hidden="true"] {
       display: none !important;
+      visibility: hidden !important;
+      height: 0 !important;
+      width: 0 !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      overflow: hidden !important;
     }
 
+    /* Reset HTML & Body for pure white paper printing */
+    html,
+    body {
+      background: #ffffff !important;
+      color: #0f172a !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      min-height: auto !important;
+      height: auto !important;
+      overflow: visible !important;
+      font-size: 11pt !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    /* Neutralize root app containers */
+    #root,
+    #root > div {
+      display: block !important;
+      min-height: auto !important;
+      height: auto !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      background: transparent !important;
+      overflow: visible !important;
+    }
+
+    /* Modal Backdrop loses fixed positioning and background darkening */
     #receipt-modal-backdrop {
       position: static !important;
-      background: none !important;
+      display: block !important;
+      inset: auto !important;
+      background: transparent !important;
       padding: 0 !important;
+      margin: 0 auto !important;
       backdrop-filter: none !important;
+      overflow: visible !important;
+      width: 100% !important;
     }
 
+    /* Modal Container loses rounded corners, shadows, and borders */
     #receipt-modal-container {
+      display: block !important;
       box-shadow: none !important;
       border: none !important;
+      border-radius: 0 !important;
       max-width: 100% !important;
-      margin: 0 !important;
+      width: 100% !important;
+      margin: 0 auto !important;
+      padding: 0 !important;
+      background: #ffffff !important;
+      overflow: visible !important;
     }
 
+    /* The Isolated Official Printable Receipt Paper */
     #printable-receipt {
-      padding: 0 !important;
-      margin: 0 !important;
+      display: block !important;
+      box-sizing: border-box !important;
+      width: 100% !important;
+      max-width: 760px !important;
+      margin: 0 auto !important;
+      padding: 24px 32px !important;
+      background: #ffffff !important;
+      color: #0f172a !important;
+      border: 1px solid #cbd5e1 !important;
+      border-radius: 12px !important;
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+    }
+
+    /* The Isolated Official Printable Executive Presentation Report */
+    #printable-presentation-report {
+      display: block !important;
+      visibility: visible !important;
+      box-sizing: border-box !important;
+      width: 100% !important;
+      max-width: 860px !important;
+      margin: 0 auto !important;
+      padding: 20px !important;
+      background: #ffffff !important;
+      color: #0f172a !important;
+      overflow: visible !important;
+    }
+
+    @page {
+      size: auto;
+      margin: 10mm 12mm;
     }
   }
 }

@@ -1,5 +1,7 @@
 import React, { useState, useMemo } from 'react';
+import { motion } from 'motion/react';
 import { useApp } from '../context/AppContext';
+import { usePaymentHistory } from '../hooks/usePaymentHistory';
 import { Transaction } from '../types';
 import { 
   Search, 
@@ -15,24 +17,89 @@ import {
   X,
   Trash2,
   AlertTriangle,
-  Loader2
+  Loader2,
+  Clock,
+  RefreshCw,
+  CreditCard,
+  ListOrdered,
+  Wifi,
+  Sparkles,
+  ExternalLink,
+  MessageSquare,
+  Check,
+  ArrowDownLeft,
+  ArrowUpRight,
+  Scale,
+  BadgeDollarSign
 } from 'lucide-react';
+import { WhatsAppShareModal } from '../components/WhatsAppShareModal';
+import { ReceiptList } from '../components/ReceiptList';
+import { ExpenseVoucherModal } from '../components/ExpenseVoucherModal';
+
+const listContainerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.05,
+      delayChildren: 0.05
+    }
+  }
+};
+
+const cardItemVariants = {
+  hidden: { opacity: 0, x: 45 },
+  show: { 
+    opacity: 1, 
+    x: 0, 
+    transition: { 
+      type: 'spring', 
+      damping: 20, 
+      stiffness: 260 
+    } 
+  }
+};
 
 export const TransactionsView: React.FC = () => {
   const { 
-    transactions, 
     setSelectedReceipt, 
     resendReceipt, 
     deleteTransaction, 
     currentUser, 
     userPermissions,
-    settings 
+    settings,
+    addToast
   } = useApp();
+
+  const {
+    transactions,
+    isLoading,
+    error: historyError,
+    isQuotaLimited,
+    refetch,
+    lastFetchedAt
+  } = usePaymentHistory();
 
   const isOwner = currentUser?.role === 'OWNER';
   const canDelete = isOwner || userPermissions.canDeleteTransactions;
 
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>(() => {
+    try {
+      const saved = localStorage.getItem('sc_basimbuzi_ledger_view_mode');
+      if (saved === 'cards' || saved === 'table') return saved;
+    } catch {}
+    return 'table';
+  });
+
+  const handleSetViewMode = (mode: 'cards' | 'table') => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem('sc_basimbuzi_ledger_view_mode', mode);
+    } catch {}
+  };
+
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterType, setFilterType] = useState<'ALL' | 'INFLOW' | 'OUTFLOW'>('ALL');
   const [filterPurpose, setFilterPurpose] = useState<string>('ALL');
   const [filterMethod, setFilterMethod] = useState<string>('ALL');
   const [filterEmailStatus, setFilterEmailStatus] = useState<string>('ALL');
@@ -51,6 +118,11 @@ export const TransactionsView: React.FC = () => {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // WhatsApp modal state
+  const [whatsAppReceipt, setWhatsAppReceipt] = useState<Transaction | null>(null);
+  // Expense voucher modal state
+  const [selectedVoucher, setSelectedVoucher] = useState<Transaction | null>(null);
+
   // Filter & Sort Pipeline
   const filteredTransactions = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
@@ -58,6 +130,9 @@ export const TransactionsView: React.FC = () => {
     const currentYear = today.substring(0, 4);
 
     return transactions.filter(tx => {
+      // 0. Transaction Type Filter (Integrated Financial Ledger)
+      if (filterType === 'INFLOW' && tx.type === 'OUTFLOW') return false;
+      if (filterType === 'OUTFLOW' && tx.type !== 'OUTFLOW') return false;
       // 1. Search Query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
@@ -134,7 +209,34 @@ export const TransactionsView: React.FC = () => {
     return filteredTransactions.slice(start, start + pageSize);
   }, [filteredTransactions, currentPage, pageSize]);
 
-  // Total filtered revenue sum
+  // Integrated Ledger Metrics for filtered revenue and disbursements
+  const filteredLedger = useMemo(() => {
+    let inflow = 0;
+    let outflow = 0;
+    let inflowCount = 0;
+    let outflowCount = 0;
+
+    for (const tx of filteredTransactions) {
+      if (tx.paymentStatus === 'CANCELLED') continue;
+      const amt = Number(tx.amount) || 0;
+      if (tx.type === 'OUTFLOW') {
+        outflow += amt;
+        outflowCount++;
+      } else {
+        inflow += amt;
+        inflowCount++;
+      }
+    }
+
+    return {
+      totalInflow: inflow,
+      totalOutflow: outflow,
+      netBalance: inflow - outflow,
+      inflowCount,
+      outflowCount
+    };
+  }, [filteredTransactions]);
+
   const totalFilteredAmount = useMemo(() => {
     return filteredTransactions.reduce((sum, tx) => sum + (Number(tx.amount) || 0), 0);
   }, [filteredTransactions]);
@@ -152,36 +254,36 @@ export const TransactionsView: React.FC = () => {
     if (filteredTransactions.length === 0) return;
 
     const headers = [
-      'Receipt Number',
+      'Type',
+      'Identifier / Receipt',
       'Date',
       'Time',
-      'Payer Name',
+      'Payer / Payee',
       'Phone',
       'Email',
       'Amount (UGX)',
-      'Purpose',
+      'Purpose / Category',
       'Payment Method',
       'Payment Reference',
       'Recorded By',
       'Payment Status',
-      'Email Status',
       'Notes'
     ];
 
     const rows = filteredTransactions.map(tx => [
+      `"${tx.type || 'INFLOW'}"`,
       `"${tx.receiptNumber}"`,
       `"${tx.date}"`,
       `"${tx.time}"`,
-      `"${tx.payerName.replace(/"/g, '""')}"`,
+      `"${(tx.type === 'OUTFLOW' ? (tx.payee || tx.payerName) : tx.payerName).replace(/"/g, '""')}"`,
       `"${(tx.phone || '').replace(/"/g, '""')}"`,
-      `"${tx.email}"`,
-      tx.amount,
-      `"${tx.paymentPurpose}"`,
+      `"${tx.email || ''}"`,
+      tx.type === 'OUTFLOW' ? -Number(tx.amount) : Number(tx.amount),
+      `"${(tx.category || tx.paymentPurpose || '').replace(/"/g, '""')}"`,
       `"${tx.paymentMethod}"`,
       `"${(tx.paymentReference || '').replace(/"/g, '""')}"`,
       `"${tx.generatedBy.replace(/"/g, '""')}"`,
       `"${tx.paymentStatus}"`,
-      `"${tx.emailStatus}"`,
       `"${(tx.notes || '').replace(/"/g, '""')}"`
     ]);
 
@@ -225,19 +327,68 @@ export const TransactionsView: React.FC = () => {
     filterDateRange !== 'ALL';
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto py-6 px-4 sm:px-6">
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+      className="space-y-6 max-w-7xl mx-auto py-6 px-4 sm:px-6"
+    >
       {/* Header & Export */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs transition-colors">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
             Transaction Ledger
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-            Full ledger of all official receipts issued &bull; Total: {filteredTransactions.length} records ({totalFilteredAmount.toLocaleString()} UGX)
-          </p>
+          <div className="flex items-center gap-2 mt-0.5">
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+              {filteredTransactions.length} records &bull; Net Balance: <span className="font-bold text-slate-900 dark:text-white">UGX {filteredLedger.netBalance.toLocaleString()}</span> (Inflow: +{filteredLedger.totalInflow.toLocaleString()}, Outflow: -{filteredLedger.totalOutflow.toLocaleString()})
+            </p>
+            {lastFetchedAt && (
+              <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">
+                <Clock className="w-3 h-3" />
+                <span>Synced {lastFetchedAt.toLocaleTimeString()}</span>
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
+          {/* View Mode Toggle: Credit Cards vs Table */}
+          <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
+            <button
+              onClick={() => handleSetViewMode('table')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                viewMode === 'table'
+                  ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <ListOrdered className="w-3.5 h-3.5" />
+              <span>Table</span>
+            </button>
+            <button
+              onClick={() => handleSetViewMode('cards')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                viewMode === 'cards'
+                  ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <CreditCard className="w-3.5 h-3.5" />
+              <span>Cards</span>
+            </button>
+          </div>
+
+          <button
+            onClick={() => refetch()}
+            disabled={isLoading}
+            className="px-3.5 py-2 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-xl transition inline-flex items-center gap-1.5 cursor-pointer"
+            title="Refresh payment records from Google Sheets"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-blue-600' : ''}`} />
+            <span>{isLoading ? 'Syncing...' : 'Refresh'}</span>
+          </button>
+
           <button
             onClick={() => setShowFilters(prev => !prev)}
             className={`px-3.5 py-2 text-xs font-semibold rounded-xl border transition inline-flex items-center gap-1.5 cursor-pointer ${
@@ -262,8 +413,147 @@ export const TransactionsView: React.FC = () => {
         </div>
       </div>
 
+      {/* Integrated Financial Ledger Overview Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {/* Net Financial Balance */}
+        <div className="bg-gradient-to-br from-slate-900 via-slate-850 to-indigo-950 text-white p-5 rounded-2xl border border-indigo-900/50 shadow-md relative overflow-hidden">
+          <div className="flex items-center justify-between text-xs font-semibold text-indigo-300 uppercase tracking-wider">
+            <span>Net Financial Balance</span>
+            <Scale className="w-4 h-4 text-indigo-400" />
+          </div>
+          <div className="mt-2 text-2xl font-black tracking-tight text-white">
+            UGX {filteredLedger.netBalance.toLocaleString()}
+          </div>
+          <div className="mt-1 text-[11px] text-indigo-200/70">
+            Total Inflow minus Outflow ({filteredLedger.inflowCount + filteredLedger.outflowCount} records)
+          </div>
+        </div>
+
+        {/* Total Inflow */}
+        <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-emerald-200 dark:border-emerald-900/50 shadow-xs">
+          <div className="flex items-center justify-between text-xs font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">
+            <span>Total Inflow (Receipts)</span>
+            <ArrowDownLeft className="w-4 h-4 text-emerald-600" />
+          </div>
+          <div className="mt-2 text-2xl font-black tracking-tight text-emerald-600 dark:text-emerald-400">
+            + UGX {filteredLedger.totalInflow.toLocaleString()}
+          </div>
+          <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+            {filteredLedger.inflowCount} receipts issued
+          </div>
+        </div>
+
+        {/* Total Outflow */}
+        <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-rose-200 dark:border-rose-900/50 shadow-xs">
+          <div className="flex items-center justify-between text-xs font-semibold text-rose-700 dark:text-rose-400 uppercase tracking-wider">
+            <span>Total Outflow (Expenses)</span>
+            <ArrowUpRight className="w-4 h-4 text-rose-600" />
+          </div>
+          <div className="mt-2 text-2xl font-black tracking-tight text-rose-600 dark:text-rose-400">
+            - UGX {filteredLedger.totalOutflow.toLocaleString()}
+          </div>
+          <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+            {filteredLedger.outflowCount} expense vouchers recorded
+          </div>
+        </div>
+      </div>
+
+      {/* Quota Limit Notice Banner */}
+      {isQuotaLimited && (
+        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50 p-4 rounded-2xl flex items-start justify-between gap-3 text-amber-800 dark:text-amber-200 text-xs">
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold text-xs text-amber-900 dark:text-amber-100">
+                Google Apps Script URL Fetch / Daily Quota Limit Encountered
+              </p>
+              <p className="mt-0.5 text-slate-600 dark:text-slate-300">
+                Google's web app request quota was reached. To ensure uninterrupted operation, your system is serving local cached transactions. You can continue issuing receipts normally.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => refetch()}
+            className="shrink-0 font-semibold underline hover:text-amber-900 dark:hover:text-amber-100"
+          >
+            Retry Now
+          </button>
+        </div>
+      )}
+
+      {/* Generic Error Banner */}
+      {!isQuotaLimited && historyError && (
+        <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 p-4 rounded-2xl flex items-start justify-between gap-3 text-red-800 dark:text-red-200 text-xs">
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold text-xs text-red-900 dark:text-red-100">Data Sync Warning</p>
+              <p className="mt-0.5 text-slate-600 dark:text-slate-300">{historyError}</p>
+            </div>
+          </div>
+          <button
+            onClick={() => refetch()}
+            className="shrink-0 font-semibold underline hover:text-red-900 dark:hover:text-red-100"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Search & Filter Bar */}
       <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4 transition-colors">
+        {/* Transaction Type Filter Segment */}
+        <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center space-x-1.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-bold">
+            <button
+              type="button"
+              onClick={() => {
+                setFilterType('ALL');
+                setCurrentPage(1);
+              }}
+              className={`px-3 py-1.5 rounded-lg transition ${
+                filterType === 'ALL'
+                  ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800'
+              }`}
+            >
+              All Records
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setFilterType('INFLOW');
+                setCurrentPage(1);
+              }}
+              className={`px-3 py-1.5 rounded-lg transition flex items-center space-x-1 ${
+                filterType === 'INFLOW'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-emerald-600'
+              }`}
+            >
+              <ArrowDownLeft className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Inflows Only</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setFilterType('OUTFLOW');
+                setCurrentPage(1);
+              }}
+              className={`px-3 py-1.5 rounded-lg transition flex items-center space-x-1 ${
+                filterType === 'OUTFLOW'
+                  ? 'bg-rose-600 text-white shadow-xs'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-rose-600'
+              }`}
+            >
+              <ArrowUpRight className="w-3.5 h-3.5 text-rose-300" />
+              <span>Outflows Only</span>
+            </button>
+          </div>
+          <span className="text-xs text-slate-500 dark:text-slate-400">
+            Net Ledger: <span className="font-bold text-slate-800 dark:text-slate-200">UGX {filteredLedger.netBalance.toLocaleString()}</span>
+          </span>
+        </div>
         <div className="relative">
           <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3.5 top-3" />
           <input
@@ -394,72 +684,156 @@ export const TransactionsView: React.FC = () => {
         )}
       </div>
 
-      {/* Main Ledger Table */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden transition-colors">
-        {paginatedTransactions.length === 0 ? (
-          <div className="p-16 text-center text-slate-500 dark:text-slate-400 text-sm">
-            <Receipt className="w-12 h-12 mx-auto text-slate-300 dark:text-slate-600 mb-3" />
-            <p className="font-bold text-slate-800 dark:text-slate-200 text-base">No transactions found</p>
-            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 max-w-sm mx-auto">
-              No ledger records match the active criteria.
-            </p>
-            {hasActiveFilters && (
-              <button
-                onClick={resetFilters}
-                className="mt-4 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-semibold rounded-xl transition cursor-pointer"
+      {/* Main Ledger Content: Credit Cards Grid vs Table View */}
+      {paginatedTransactions.length === 0 ? (
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-16 text-center text-slate-500 dark:text-slate-400 text-sm shadow-xs">
+          <Receipt className="w-12 h-12 mx-auto text-slate-300 dark:text-slate-600 mb-3" />
+          <p className="font-bold text-slate-800 dark:text-slate-200 text-base">No transactions found</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 max-w-sm mx-auto">
+            No ledger records match the active search or filter criteria.
+          </p>
+          {hasActiveFilters && (
+            <button
+              onClick={resetFilters}
+              className="mt-4 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-semibold rounded-xl transition cursor-pointer"
+            >
+              Clear all filters
+            </button>
+          )}
+        </div>
+      ) : viewMode === 'cards' ? (
+        /* Modern Credit Card Grid View with Staggered Entrance */
+        <div className="space-y-6">
+          <ReceiptList
+            key={`cards-grid-${currentPage}-${filterPurpose}-${filterMethod}`}
+            receipts={paginatedTransactions}
+            onSelectReceipt={(tx) => setSelectedReceipt(tx)}
+            onResendReceipt={(num) => resendReceipt(num)}
+            onShareWhatsApp={(tx) => setWhatsAppReceipt(tx)}
+            onDeleteReceipt={canDelete ? (num) => setDeleteTarget(num) : undefined}
+            onPrintReceipt={(tx) => {
+              setSelectedReceipt(tx);
+              setTimeout(() => window.print(), 300);
+            }}
+            isAdminOrOwner={canDelete}
+            currency="UGX"
+            organizationName={settings.organizationName || 'SC BASIMBUZI'}
+          />
+
+          {/* Pagination Controls for Card View */}
+          <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400 shadow-xs">
+            <div className="flex items-center gap-2">
+              <span>Show</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-lg px-2 py-1 outline-none text-xs font-semibold"
               >
-                Clear all filters
+                <option value={9}>9 cards</option>
+                <option value={12}>12 cards</option>
+                <option value={24}>24 cards</option>
+                <option value={48}>48 cards</option>
+              </select>
+              <span>entries &bull; Page {currentPage} of {totalPages}</span>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="p-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40 rounded-lg transition cursor-pointer"
+                aria-label="Previous page"
+              >
+                <ChevronLeft className="w-4 h-4" />
               </button>
-            )}
+              <span className="font-semibold text-slate-800 dark:text-slate-200 px-2">
+                {currentPage}
+              </span>
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className="p-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40 rounded-lg transition cursor-pointer"
+                aria-label="Next page"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
-        ) : (
-          <>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  <tr>
-                    <th 
-                      onClick={() => handleSort('receiptNumber')}
-                      className="px-4 py-3.5 cursor-pointer hover:text-slate-900 dark:hover:text-white select-none"
-                    >
-                      <div className="flex items-center gap-1">
-                        <span>Receipt #</span>
-                        <ArrowUpDown className="w-3 h-3" />
-                      </div>
-                    </th>
-                    <th 
-                      onClick={() => handleSort('date')}
-                      className="px-4 py-3.5 cursor-pointer hover:text-slate-900 dark:hover:text-white select-none"
-                    >
-                      <div className="flex items-center gap-1">
-                        <span>Date & Time</span>
-                        <ArrowUpDown className="w-3 h-3" />
-                      </div>
-                    </th>
-                    <th className="px-4 py-3.5">Payer Details</th>
-                    <th 
-                      onClick={() => handleSort('amount')}
-                      className="px-4 py-3.5 text-right cursor-pointer hover:text-slate-900 dark:hover:text-white select-none"
-                    >
-                      <div className="flex items-center justify-end gap-1">
-                        <span>Amount (UGX)</span>
-                        <ArrowUpDown className="w-3 h-3" />
-                      </div>
-                    </th>
-                    <th className="px-4 py-3.5">Purpose & Method</th>
-                    <th className="px-4 py-3.5">Operator</th>
-                    <th className="px-4 py-3.5 text-center">Email</th>
-                    <th className="px-4 py-3.5 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-                  {paginatedTransactions.map((tx) => (
+        </div>
+      ) : (
+        /* Traditional Ledger Table View */
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden transition-colors">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                <tr>
+                  <th className="px-4 py-3.5">Type</th>
+                  <th 
+                    onClick={() => handleSort('receiptNumber')}
+                    className="px-4 py-3.5 cursor-pointer hover:text-slate-900 dark:hover:text-white select-none"
+                  >
+                    <div className="flex items-center gap-1">
+                      <span>Ref / Voucher #</span>
+                      <ArrowUpDown className="w-3 h-3" />
+                    </div>
+                  </th>
+                  <th 
+                    onClick={() => handleSort('date')}
+                    className="px-4 py-3.5 cursor-pointer hover:text-slate-900 dark:hover:text-white select-none"
+                  >
+                    <div className="flex items-center gap-1">
+                      <span>Date & Time</span>
+                      <ArrowUpDown className="w-3 h-3" />
+                    </div>
+                  </th>
+                  <th className="px-4 py-3.5">Payer / Payee</th>
+                  <th 
+                    onClick={() => handleSort('amount')}
+                    className="px-4 py-3.5 text-right cursor-pointer hover:text-slate-900 dark:hover:text-white select-none"
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      <span>Amount (UGX)</span>
+                      <ArrowUpDown className="w-3 h-3" />
+                    </div>
+                  </th>
+                  <th className="px-4 py-3.5">Purpose / Category</th>
+                  <th className="px-4 py-3.5">Recorded By</th>
+                  <th className="px-4 py-3.5 text-center">Status / Email</th>
+                  <th className="px-4 py-3.5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                {paginatedTransactions.map((tx) => {
+                  const isOutflow = tx.type === 'OUTFLOW';
+                  return (
                     <tr 
                       key={tx.receiptNumber}
-                      onClick={() => setSelectedReceipt(tx)}
+                      onClick={() => isOutflow ? setSelectedVoucher(tx) : setSelectedReceipt(tx)}
                       className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 cursor-pointer transition-colors"
                     >
-                      <td className="px-4 py-3.5 font-mono font-bold text-xs text-slate-900 dark:text-white">
+                      <td className="px-4 py-3.5 whitespace-nowrap">
+                        <span className={`inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
+                          isOutflow
+                            ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800'
+                            : 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                        }`}>
+                          {isOutflow ? (
+                            <>
+                              <ArrowUpRight className="w-3 h-3" />
+                              <span>OUTFLOW</span>
+                            </>
+                          ) : (
+                            <>
+                              <ArrowDownLeft className="w-3 h-3" />
+                              <span>INFLOW</span>
+                            </>
+                          )}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5 font-sans font-bold text-xs text-slate-900 dark:text-white whitespace-nowrap">
                         {tx.receiptNumber}
                       </td>
                       <td className="px-4 py-3.5 text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">
@@ -467,67 +841,127 @@ export const TransactionsView: React.FC = () => {
                         <div className="text-[10px] text-slate-400 dark:text-slate-500">{tx.time}</div>
                       </td>
                       <td className="px-4 py-3.5">
-                        <div className="font-semibold text-xs text-slate-900 dark:text-white">{tx.payerName}</div>
-                        <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">{tx.email}</div>
+                        <div className="flex items-center space-x-1.5">
+                          <span className="font-semibold font-sans text-xs text-slate-900 dark:text-white">
+                            {isOutflow ? (tx.payee || tx.payerName) : tx.payerName}
+                          </span>
+                          {isOutflow && (
+                            <span className="text-[9px] px-1 py-0.2 rounded font-semibold bg-rose-100 dark:bg-rose-900/60 text-rose-700 dark:text-rose-300">
+                              Payee
+                            </span>
+                          )}
+                        </div>
+                        {tx.email && !tx.email.toLowerCase().includes('no-reply') && !tx.email.toLowerCase().includes('whatsapp.direct') ? (
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400 font-sans">{tx.email}</div>
+                        ) : !isOutflow ? (
+                          <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                            <MessageSquare className="w-3 h-3" />
+                            <span>WhatsApp Only</span>
+                          </div>
+                        ) : null}
                         {tx.phone && <div className="text-[10px] text-slate-400 dark:text-slate-500">{tx.phone}</div>}
                       </td>
-                      <td className="px-4 py-3.5 text-right font-bold text-xs text-blue-600 dark:text-blue-400 font-mono whitespace-nowrap">
-                        {Number(tx.amount).toLocaleString()}
+                      <td className={`px-4 py-3.5 text-right font-bold text-xs font-sans whitespace-nowrap ${
+                        isOutflow ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
+                      }`}>
+                        {isOutflow ? '-' : '+'} {Number(tx.amount).toLocaleString()}
                       </td>
                       <td className="px-4 py-3.5 text-xs">
-                        <div className="font-medium text-slate-800 dark:text-slate-200">{tx.paymentPurpose}</div>
+                        <div className="font-medium text-slate-800 dark:text-slate-200">
+                          {tx.category || tx.paymentPurpose}
+                        </div>
                         <div className="text-[11px] text-slate-500 dark:text-slate-400">{tx.paymentMethod}</div>
                         {tx.paymentReference && (
-                          <div className="text-[10px] font-mono text-slate-400 dark:text-slate-500">Ref: {tx.paymentReference}</div>
+                          <div className="text-[10px] font-sans text-slate-400 dark:text-slate-500">Ref: {tx.paymentReference}</div>
                         )}
                       </td>
                       <td className="px-4 py-3.5 text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">
                         {tx.generatedBy}
                       </td>
                       <td className="px-4 py-3.5 text-center">
-                        <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                          tx.emailStatus === 'SENT' 
-                            ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800' 
-                            : 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
-                        }`}>
-                          {tx.emailStatus}
-                        </span>
+                        {isOutflow ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 font-sans">
+                            <Check className="w-3 h-3 text-emerald-500" />
+                            <span>VOUCHER</span>
+                          </span>
+                        ) : tx.emailStatus === 'SENT' && tx.email && !tx.email.toLowerCase().includes('no-reply') && !tx.email.toLowerCase().includes('whatsapp.direct') ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-sans">
+                            <Check className="w-3 h-3 text-blue-600" />
+                            <span>SENT</span>
+                          </span>
+                        ) : tx.emailStatus === 'FAILED' ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-50 dark:bg-red-950/60 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 font-sans">
+                            <span>FAILED</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-sans">
+                            <span>RECORDED</span>
+                          </span>
+                        )}
                       </td>
                       <td 
                         className="px-4 py-3.5 text-right"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => setSelectedReceipt(tx)}
-                            title="View Receipt"
-                            className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition cursor-pointer"
-                          >
-                            <FileText className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSelectedReceipt(tx);
-                              setTimeout(() => window.print(), 300);
-                            }}
-                            title="Print Receipt"
-                            className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition cursor-pointer"
-                          >
-                            <Printer className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => resendReceipt(tx.receiptNumber)}
-                            title="Resend Receipt Email"
-                            className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/50 rounded-lg transition cursor-pointer"
-                          >
-                            <RotateCw className="w-4 h-4" />
-                          </button>
+                          {isOutflow ? (
+                            <>
+                              <button
+                                onClick={() => setSelectedVoucher(tx)}
+                                title="View Expense Voucher"
+                                className="p-1.5 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition cursor-pointer"
+                              >
+                                <FileText className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => setSelectedVoucher(tx)}
+                                title="Print Voucher"
+                                className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition cursor-pointer"
+                              >
+                                <Printer className="w-4 h-4" />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => setSelectedReceipt(tx)}
+                                title="View Receipt"
+                                className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition cursor-pointer"
+                              >
+                                <FileText className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => setWhatsAppReceipt(tx)}
+                                title="Send to WhatsApp"
+                                className="p-1.5 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-lg transition cursor-pointer"
+                              >
+                                <MessageSquare className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setSelectedReceipt(tx);
+                                  setTimeout(() => window.print(), 300);
+                                }}
+                                title="Print Receipt"
+                                className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition cursor-pointer"
+                              >
+                                <Printer className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => resendReceipt(tx.receiptNumber)}
+                                title="Resend Receipt Email"
+                                className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/50 rounded-lg transition cursor-pointer"
+                              >
+                                <RotateCw className="w-4 h-4" />
+                              </button>
+                            </>
+                          )}
 
                           {/* Authorized Deletion Option */}
                           {canDelete && (
                             <button
                               onClick={() => setDeleteTarget(tx.receiptNumber)}
-                              title="Delete Receipt"
+                              title="Delete Record"
                               className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 rounded-lg transition cursor-pointer"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -536,56 +970,56 @@ export const TransactionsView: React.FC = () => {
                         </div>
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination Controls for Table View */}
+          <div className="p-4 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
+            <div className="flex items-center gap-2">
+              <span>Show</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-lg px-2 py-1 outline-none text-xs font-semibold"
+              >
+                <option value={10}>10</option>
+                <option value={15}>15</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+              </select>
+              <span>entries &bull; Page {currentPage} of {totalPages}</span>
             </div>
 
-            {/* Pagination Controls */}
-            <div className="p-4 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
-              <div className="flex items-center gap-2">
-                <span>Show</span>
-                <select
-                  value={pageSize}
-                  onChange={(e) => {
-                    setPageSize(Number(e.target.value));
-                    setCurrentPage(1);
-                  }}
-                  className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-lg px-2 py-1 outline-none text-xs font-semibold"
-                >
-                  <option value={10}>10</option>
-                  <option value={15}>15</option>
-                  <option value={25}>25</option>
-                  <option value={50}>50</option>
-                </select>
-                <span>entries &bull; Page {currentPage} of {totalPages}</span>
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1}
-                  className="p-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40 rounded-lg transition cursor-pointer"
-                  aria-label="Previous page"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <span className="font-semibold text-slate-800 dark:text-slate-200 px-2">
-                  {currentPage}
-                </span>
-                <button
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages}
-                  className="p-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40 rounded-lg transition cursor-pointer"
-                  aria-label="Next page"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="p-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40 rounded-lg transition cursor-pointer"
+                aria-label="Previous page"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="font-semibold text-slate-800 dark:text-slate-200 px-2">
+                {currentPage}
+              </span>
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className="p-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40 rounded-lg transition cursor-pointer"
+                aria-label="Next page"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
             </div>
-          </>
-        )}
-      </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirmation Modal */}
       {deleteTarget && (
@@ -636,6 +1070,22 @@ export const TransactionsView: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+      {/* WhatsApp Share Modal */}
+      {whatsAppReceipt && (
+        <WhatsAppShareModal
+          receipt={whatsAppReceipt}
+          settings={settings}
+          onClose={() => setWhatsAppReceipt(null)}
+          onSuccessToast={(msg) => addToast(msg, 'success')}
+        />
+      )}
+
+      {/* Expense Voucher Modal for Outflows */}
+      <ExpenseVoucherModal
+        voucher={selectedVoucher}
+        onClose={() => setSelectedVoucher(null)}
+        settings={settings}
+      />
+    </motion.div>
   );
 };

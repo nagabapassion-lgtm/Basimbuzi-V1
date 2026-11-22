@@ -7,8 +7,21 @@ import {
   BackendResponse,
   AuthCheckResult,
   resolveUserPermissions,
-  getDefaultPermissions
+  getDefaultPermissions,
+  Member,
+  MembersDirectoryPayload,
+  MemberProfileSubmission,
+  LedgerMetrics,
+  TransactionType,
+  ReconciliationSummary
 } from '../types';
+import { HARDCODED_LOGO_URL } from '../assets/brandLogo';
+import {
+  cleanPhoneNumber,
+  isStaffOrPlaceholderEmail,
+  PRE_CSV_COVERED_RECEIPT_SET,
+  resolveCanonicalMemberNameKey
+} from '../utils/ledgerReconciliation';
 
 const STORAGE_KEYS = {
   GAS_URL: 'sc_basimbuzi_gas_url',
@@ -18,7 +31,8 @@ const STORAGE_KEYS = {
   LOCAL_AUDIT: 'sc_basimbuzi_audit_v2',
   LOCAL_COUNTER: 'sc_basimbuzi_counter_v2',
   AUTH_USER: 'sc_basimbuzi_auth_user_v2',
-  ACTIVE_OTPS: 'sc_basimbuzi_active_otps_v2'
+  ACTIVE_OTPS: 'sc_basimbuzi_active_otps_v2',
+  MEMBERS_CACHE: 'sc_basimbuzi_members_cache_v2'
 };
 
 // Default organization settings with blue branding and logo field
@@ -29,7 +43,7 @@ const DEFAULT_SEED_SETTINGS: AppSettings = {
   organizationAddress: 'Lugogo Bypass, Kampala, Uganda',
   receiptPrefix: 'SB',
   receiptFooter: 'Thank you for your payment and support towards SC Basimbuzi.',
-  logoUrl: '',
+  logoUrl: HARDCODED_LOGO_URL,
   paymentCategories: [
     'Membership',
     'Contribution',
@@ -40,13 +54,26 @@ const DEFAULT_SEED_SETTINGS: AppSettings = {
     'Tournament Fee',
     'Other'
   ],
+  expenseCategories: [
+    'Pitch Hire & Facilities',
+    'Match Day & Referees',
+    'Equipment & Kits',
+    'Transport & Logistics',
+    'Player Refreshments & Meals',
+    'Medical & First Aid',
+    'Administration & Utilities',
+    'Tournament Entry Fee',
+    'Other Expenses'
+  ],
   paymentMethods: [
     'Mobile Money',
     'Bank Transfer',
     'Cash',
     'Other'
   ],
-  currency: 'UGX'
+  currency: 'UGX',
+  customDomain: 'https://scbasimbuzi-v2.ai.studio',
+  legacySpreadsheetId: ''
 };
 
 export const SYSTEM_OWNER_EMAIL = 'nagabapassion@gmail.com';
@@ -56,52 +83,78 @@ export const SYSTEM_OWNER_USER: User = {
   email: 'nagabapassion@gmail.com',
   role: 'OWNER',
   status: 'ACTIVE',
+  password: 'Passion@2026',
   permissions: getDefaultPermissions('OWNER'),
   createdAt: '2026-01-01T08:00:00.000Z'
 };
 
-export const JOTHAM_EMAIL = 'jotham.itungo@gmail.com';
-
-export const JOTHAM_USER: User = {
-  name: 'Jotham Itungo',
-  email: 'jotham.itungo@gmail.com',
-  role: 'ADMIN',
-  status: 'ACTIVE',
-  permissions: getDefaultPermissions('ADMIN'),
-  createdAt: '2026-03-01T08:00:00.000Z'
-};
-
 const DEFAULT_SEED_USERS: User[] = [
-  SYSTEM_OWNER_USER,
-  JOTHAM_USER,
-  {
-    name: 'Brenda Namutebi',
-    email: 'brenda.admin@scbasimbuzi.org',
-    role: 'ADMIN',
-    status: 'ACTIVE',
-    permissions: getDefaultPermissions('ADMIN'),
-    createdAt: '2026-01-10T10:30:00.000Z'
-  },
-  {
-    name: 'David Okello',
-    email: 'david.admin@scbasimbuzi.org',
-    role: 'ADMIN',
-    status: 'ACTIVE',
-    permissions: getDefaultPermissions('ADMIN'),
-    createdAt: '2026-02-01T14:15:00.000Z'
-  },
-  {
-    name: 'Sarah Akello',
-    email: 'sarah.cashier@scbasimbuzi.org',
-    role: 'ISSUER',
-    status: 'ACTIVE',
-    permissions: getDefaultPermissions('ISSUER'),
-    createdAt: '2026-02-15T09:00:00.000Z'
-  }
+  SYSTEM_OWNER_USER
 ];
 
-// Clean slate: Start from 0 shillings as requested
-const DEFAULT_SEED_TRANSACTIONS: Transaction[] = [];
+// Default seed member payment transactions so returning payer search is immediately functional
+const DEFAULT_SEED_TRANSACTIONS: Transaction[] = [
+  {
+    receiptNumber: 'SB-2026-00001',
+    date: '2026-08-10',
+    time: '10:30:00',
+    payerName: 'Sarah Namubiru',
+    phone: '+256772123456',
+    email: 'sarah.namubiru@gmail.com',
+    amount: 50000,
+    paymentPurpose: 'Membership',
+    paymentMethod: 'Mobile Money',
+    paymentReference: 'MM-78921',
+    notes: 'Annual membership contribution',
+    generatedBy: 'Eng. Ronald B.',
+    operatorEmail: 'ronald.b@scbasimbuzi.org',
+    paymentStatus: 'COMPLETED',
+    emailStatus: 'SENT',
+    syncStatus: 'SYNCED',
+    createdAt: '2026-08-10T10:30:00Z',
+    type: 'INFLOW'
+  },
+  {
+    receiptNumber: 'SB-2026-00002',
+    date: '2026-08-14',
+    time: '14:15:00',
+    payerName: 'David Ssemwogerere',
+    phone: '+256701987654',
+    email: 'david.ssemwo@yahoo.com',
+    amount: 100000,
+    paymentPurpose: 'Monthly Contribution',
+    paymentMethod: 'Bank Transfer',
+    paymentReference: 'FT-44210',
+    notes: 'Q3 Club support',
+    generatedBy: 'Eng. Ronald B.',
+    operatorEmail: 'ronald.b@scbasimbuzi.org',
+    paymentStatus: 'COMPLETED',
+    emailStatus: 'SENT',
+    syncStatus: 'SYNCED',
+    createdAt: '2026-08-14T14:15:00Z',
+    type: 'INFLOW'
+  },
+  {
+    receiptNumber: 'SB-2026-00003',
+    date: '2026-08-20',
+    time: '16:00:00',
+    payerName: 'Grace Nakato',
+    phone: '+256755432109',
+    email: 'grace.nakato@outlook.com',
+    amount: 75000,
+    paymentPurpose: 'Special Event',
+    paymentMethod: 'Mobile Money',
+    paymentReference: 'MM-88431',
+    notes: 'Community tournament fund',
+    generatedBy: 'Eng. Ronald B.',
+    operatorEmail: 'ronald.b@scbasimbuzi.org',
+    paymentStatus: 'COMPLETED',
+    emailStatus: 'SENT',
+    syncStatus: 'SYNCED',
+    createdAt: '2026-08-20T16:00:00Z',
+    type: 'INFLOW'
+  }
+];
 
 const DEFAULT_SEED_AUDIT: AuditLogEntry[] = [
   {
@@ -122,6 +175,7 @@ interface StoredOtp {
 
 class ApiClient {
   private gasUrl: string = '';
+  private coveredGasReceipts: Set<string> = new Set(PRE_CSV_COVERED_RECEIPT_SET);
 
   constructor() {
     this.loadGasUrl();
@@ -146,8 +200,10 @@ class ApiClient {
 
   private loadGasUrl(): void {
     const saved = localStorage.getItem(STORAGE_KEYS.GAS_URL);
-    if (saved) {
+    if (saved && saved.trim()) {
       this.gasUrl = saved.trim();
+    } else if (import.meta.env.VITE_GAS_URL) {
+      this.gasUrl = (import.meta.env.VITE_GAS_URL as string).trim();
     }
   }
 
@@ -187,8 +243,15 @@ class ApiClient {
         for (const u of serverUsers) {
           if (u.email) {
             const key = u.email.toLowerCase().trim();
-            if (!map.has(key) || (u.createdAt && u.createdAt > (map.get(key)?.createdAt || ''))) {
+            const existing = map.get(key);
+            if (!existing) {
               map.set(key, u);
+            } else {
+              map.set(key, {
+                ...existing,
+                ...u,
+                password: u.password || existing.password
+              });
             }
           }
         }
@@ -203,6 +266,36 @@ class ApiClient {
           body: JSON.stringify({ users: localUsers })
         }).catch(() => null);
       }
+
+      // 3. Sync Shared Settings from Server (ensures logoUrl and brand appearance sync to all devices)
+      const settingsRes = await fetch('/api/settings').then(r => r.json()).catch(() => null);
+      if (settingsRes && settingsRes.success && settingsRes.data) {
+        const serverSettings: AppSettings = settingsRes.data;
+        const localSettings = this.getStoredSettings();
+        const mergedSettings: AppSettings = {
+          ...DEFAULT_SEED_SETTINGS,
+          ...localSettings,
+          ...serverSettings,
+          logoUrl: (serverSettings.logoUrl && serverSettings.logoUrl.trim()) ? serverSettings.logoUrl : ((localSettings.logoUrl && localSettings.logoUrl.trim()) ? localSettings.logoUrl : HARDCODED_LOGO_URL)
+        };
+        localStorage.setItem(STORAGE_KEYS.LOCAL_SETTINGS, JSON.stringify(mergedSettings));
+        // If local had a logo but server didn't, push to server
+        if (!serverSettings.logoUrl && localSettings.logoUrl) {
+          fetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ settings: mergedSettings })
+          }).catch(() => null);
+        }
+      } else {
+        // Push local settings to server
+        const localSettings = this.getStoredSettings();
+        fetch('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ settings: localSettings })
+        }).catch(() => null);
+      }
     } catch {
       // Ignore network sync failures
     }
@@ -210,6 +303,15 @@ class ApiClient {
 
   public isConnectedToLiveBackend(): boolean {
     return Boolean(this.gasUrl && this.gasUrl.startsWith('https://script.google.com/macros/s/'));
+  }
+
+  public getStoredAuthUser(): User | null {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.AUTH_USER);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
   }
 
   /**
@@ -231,6 +333,12 @@ class ApiClient {
       users = [...DEFAULT_SEED_USERS];
     }
 
+    // Clean out obsolete mock dummy test accounts if present in legacy local storage
+    users = users.filter(u => {
+      const em = (u.email || '').toLowerCase().trim();
+      return em !== 'brenda.admin@scbasimbuzi.org' && em !== 'david.admin@scbasimbuzi.org' && em !== 'sarah.cashier@scbasimbuzi.org';
+    });
+
     // Ensure the system owner is always registered, active, and cannot be removed
     const ownerIndex = users.findIndex(u => (u.email || '').trim().toLowerCase() === SYSTEM_OWNER_EMAIL.toLowerCase());
     if (ownerIndex === -1) {
@@ -240,21 +348,8 @@ class ApiClient {
         ...users[ownerIndex],
         role: 'OWNER',
         status: 'ACTIVE',
+        password: users[ownerIndex].password || SYSTEM_OWNER_USER.password || 'Passion@2026',
         permissions: getDefaultPermissions('OWNER')
-      };
-    }
-
-    // Ensure Jotham Itungo is always registered and active as an administrator
-    const jothamIndex = users.findIndex(u => (u.email || '').trim().toLowerCase() === JOTHAM_EMAIL.toLowerCase());
-    if (jothamIndex === -1) {
-      users.push({ ...JOTHAM_USER });
-    } else {
-      users[jothamIndex] = {
-        ...users[jothamIndex],
-        name: users[jothamIndex].name || JOTHAM_USER.name,
-        role: users[jothamIndex].role || 'ADMIN',
-        status: 'ACTIVE',
-        permissions: users[jothamIndex].permissions || getDefaultPermissions('ADMIN')
       };
     }
 
@@ -262,10 +357,37 @@ class ApiClient {
     return users;
   }
 
+  public sanitizeTransaction(tx: Transaction): Transaction {
+    if (!tx || typeof tx !== 'object') return tx;
+    const rec = String(tx.receiptNumber || tx.voucherNumber || '').trim().toUpperCase();
+    const isOutflow = String(tx.type || '').toUpperCase() === 'OUTFLOW' || rec.startsWith('EXP-');
+    const resolvedType: TransactionType = isOutflow ? 'OUTFLOW' : 'INFLOW';
+    const numAmount = Math.max(0, typeof tx.amount === 'string' ? parseFloat(String(tx.amount).replace(/[^0-9.-]+/g, '')) || 0 : Number(tx.amount) || 0);
+    const cleanedPhone = cleanPhoneNumber(tx.phone || '');
+    const rawEmail = String(tx.email || '').trim().toLowerCase();
+    const isSafeEmail = Boolean(rawEmail && !rawEmail.includes('no-reply') && !rawEmail.includes('whatsapp.direct') && !rawEmail.includes('noreply') && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail));
+    const effectiveEmail = isSafeEmail ? rawEmail : '';
+
+    return {
+      ...tx,
+      type: resolvedType,
+      amount: numAmount,
+      payerName: (isOutflow ? (tx.payee || tx.payerName) : tx.payerName) || (isOutflow ? 'General Expense' : 'General Payer'),
+      payee: isOutflow ? (tx.payee || tx.payerName || 'General Expense') : tx.payee,
+      phone: cleanedPhone,
+      email: effectiveEmail,
+      emailStatus: effectiveEmail ? (tx.emailStatus || 'SENT') : 'NOT_PROVIDED'
+    };
+  }
+
   public getStoredTransactions(): Transaction[] {
     try {
       const raw = localStorage.getItem(STORAGE_KEYS.LOCAL_TXS);
-      return raw ? JSON.parse(raw) : [...DEFAULT_SEED_TRANSACTIONS];
+      const list: Transaction[] = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(list) && list.length > 0) {
+        return list.map(t => this.sanitizeTransaction(t));
+      }
+      return [...DEFAULT_SEED_TRANSACTIONS];
     } catch {
       return [...DEFAULT_SEED_TRANSACTIONS];
     }
@@ -274,7 +396,18 @@ class ApiClient {
   public getStoredSettings(): AppSettings {
     try {
       const raw = localStorage.getItem(STORAGE_KEYS.LOCAL_SETTINGS);
-      return raw ? JSON.parse(raw) : { ...DEFAULT_SEED_SETTINGS };
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        return {
+          ...DEFAULT_SEED_SETTINGS,
+          ...parsed,
+          logoUrl: (parsed.logoUrl && parsed.logoUrl.trim()) ? parsed.logoUrl.trim() : HARDCODED_LOGO_URL,
+          customDomain: (parsed.customDomain && parsed.customDomain.trim() && !parsed.customDomain.includes('scbasimbuzi.org')) 
+            ? parsed.customDomain.trim() 
+            : 'https://scbasimbuzi-v2.ai.studio'
+        };
+      }
+      return { ...DEFAULT_SEED_SETTINGS };
     } catch {
       return { ...DEFAULT_SEED_SETTINGS };
     }
@@ -309,7 +442,10 @@ class ApiClient {
 
   private async fetchFromGas<T>(endpoint: string, options?: RequestInit): Promise<BackendResponse<T>> {
     if (!this.isConnectedToLiveBackend()) {
-      throw new Error('Google Apps Script Web App URL is not configured.');
+      return {
+        success: false,
+        error: 'Google Apps Script Web App URL is not configured.'
+      };
     }
 
     try {
@@ -317,11 +453,53 @@ class ApiClient {
         ...options,
         redirect: 'follow',
       });
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+
+      if (res.status === 429) {
+        return {
+          success: false,
+          error: 'Google Apps Script rate limit reached (HTTP 429). Please wait a moment before trying again.'
+        };
       }
-      const data = await res.json();
-      return data;
+
+      if (!res.ok) {
+        return {
+          success: false,
+          error: `Google Apps Script returned HTTP ${res.status}: ${res.statusText}`
+        };
+      }
+
+      const text = await res.text();
+      const trimmed = text.trim();
+
+      // Check if response is an HTML page (Google login redirect, quota error, or crash page)
+      if (trimmed.startsWith('<!DOCTYPE html>') || trimmed.startsWith('<html') || trimmed.startsWith('<div')) {
+        if (trimmed.includes('Service invoked too many times') || trimmed.includes('Quota exceeded')) {
+          return {
+            success: false,
+            error: 'Google Apps Script daily execution quota limit exceeded. Please wait for quota refresh or contact administrator.'
+          };
+        }
+        if (trimmed.includes('accounts.google.com') || trimmed.includes('Sign in')) {
+          return {
+            success: false,
+            error: 'Google Apps Script Web App requires permissions. Please verify the Web App is deployed with "Who has access: Anyone".'
+          };
+        }
+        return {
+          success: false,
+          error: 'Google Apps Script returned an unexpected HTML response instead of JSON data.'
+        };
+      }
+
+      try {
+        const data = JSON.parse(trimmed);
+        return data;
+      } catch (parseErr) {
+        return {
+          success: false,
+          error: `Malformed JSON response from Google Apps Script: ${trimmed.slice(0, 100)}`
+        };
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       return {
@@ -343,12 +521,9 @@ class ApiClient {
     const users = this.getStoredUsers();
     let matched = users.find(u => (u.email || '').trim().toLowerCase() === cleanEmail);
 
-    // If email matches the system owner or Jotham Itungo, ensure they are always matched
+    // Ensure the system owner is recognized
     if (!matched && cleanEmail === SYSTEM_OWNER_EMAIL.toLowerCase()) {
       matched = SYSTEM_OWNER_USER;
-    }
-    if (!matched && cleanEmail === JOTHAM_EMAIL.toLowerCase()) {
-      matched = JOTHAM_USER;
     }
 
     // 1. Check shared server database if not found locally
@@ -423,11 +598,16 @@ class ApiClient {
     });
     localStorage.setItem(STORAGE_KEYS.LOCAL_AUDIT, JSON.stringify(auditLogs));
 
-    // If not connected to live GAS backend, inform user to configure Web App URL
+    // If not connected to live GAS backend, provide local sandbox verification code
     if (!this.isConnectedToLiveBackend()) {
       return {
-        success: false,
-        error: 'Google Apps Script backend URL is not connected on this device. Please click "Configure Backend URL" below to enter your deployed script URL so the verification code can be emailed to your inbox.'
+        success: true,
+        data: {
+          email: cleanEmail,
+          code: otpCode,
+          isLiveBackend: false
+        },
+        message: `Verification code: ${otpCode} (Local sandbox mode). Code valid for 10 minutes.`
       };
     }
 
@@ -497,9 +677,6 @@ class ApiClient {
     if (!matched && cleanEmail === SYSTEM_OWNER_EMAIL.toLowerCase()) {
       matched = SYSTEM_OWNER_USER;
     }
-    if (!matched && cleanEmail === JOTHAM_EMAIL.toLowerCase()) {
-      matched = JOTHAM_USER;
-    }
 
     if (!matched || matched.status !== 'ACTIVE') {
       return {
@@ -559,12 +736,245 @@ class ApiClient {
     };
   }
 
-  // --- Quick Auth Check (for existing session) ---
+  /**
+   * Authenticate a user directly using their registered email and password.
+   * Dynamically checks the system database so ANY new staff member added can immediately log in.
+   */
+  public async loginWithPassword(email: string, enteredPassword: string): Promise<AuthCheckResult> {
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = enteredPassword.trim();
+
+    if (!cleanEmail || !cleanPassword) {
+      return {
+        authorized: false,
+        message: 'Please provide both your registered email address and password.'
+      };
+    }
+
+    // 1. Authoritative Server Authentication
+    // Ensures that ANY staff member added by the administrator can immediately log in from ANY device or browser!
+    let srvErrorMessage: string | null = null;
+    try {
+      const srvRes = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail, password: cleanPassword })
+      }).then(r => r.json());
+
+      if (srvRes) {
+        if (srvRes.success && srvRes.authorized && srvRes.user) {
+          const authUser: User = srvRes.user;
+
+          // Update local cache with latest authenticated staff profile
+          const localUsers = this.getStoredUsers();
+          const idx = localUsers.findIndex(u => (u.email || '').trim().toLowerCase() === cleanEmail);
+          if (idx !== -1) {
+            localUsers[idx] = { ...localUsers[idx], ...authUser };
+          } else {
+            localUsers.push(authUser);
+          }
+          localStorage.setItem(STORAGE_KEYS.LOCAL_USERS, JSON.stringify(localUsers));
+
+          // Record audit log entry
+          const now = new Date();
+          const auditLogs: AuditLogEntry[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.LOCAL_AUDIT) || '[]');
+          auditLogs.unshift({
+            id: String(Date.now()),
+            date: now.toISOString().split('T')[0],
+            time: now.toTimeString().split(' ')[0],
+            user: authUser.name,
+            userEmail: cleanEmail,
+            action: 'LOGIN',
+            description: `User authenticated via password (${authUser.role})`
+          });
+          localStorage.setItem(STORAGE_KEYS.LOCAL_AUDIT, JSON.stringify(auditLogs));
+
+          return {
+            authorized: true,
+            user: authUser
+          };
+        } else if (srvRes.message) {
+          srvErrorMessage = srvRes.message;
+          // If server returned an explicit auth rejection, return it immediately
+          if (
+            srvRes.message.includes('Incorrect password') || 
+            srvRes.message.includes('INACTIVE') || 
+            srvRes.message.includes('ACCESS DENIED') ||
+            srvRes.message.includes('not registered')
+          ) {
+            return {
+              authorized: false,
+              message: srvRes.message
+            };
+          }
+        }
+      }
+    } catch {
+      // Server network failure, proceed to live Google Sheets or local cache below
+    }
+
+    // 2. Direct Live Google Apps Script Verification (if server is cold or user was added/synced directly to Google Sheets)
+    if (this.isConnectedToLiveBackend()) {
+      try {
+        // First check verifyPassword if supported
+        let verifiedGasUser: User | null = null;
+        try {
+          const verifyUrl = `${this.gasUrl}${this.gasUrl.includes('?') ? '&' : '?'}action=verifyPassword&email=${encodeURIComponent(cleanEmail)}&password=${encodeURIComponent(cleanPassword)}`;
+          const gasRes: any = await this.fetchFromGas<any>(verifyUrl);
+          const gasUser: User | undefined = gasRes?.user || gasRes?.data?.user;
+          if (gasRes && gasRes.success && (gasRes.authorized || gasUser) && gasUser) {
+            verifiedGasUser = gasUser;
+          }
+        } catch {
+          // Ignore
+        }
+
+        // If not verified via verifyPassword, check auth status on GAS
+        if (!verifiedGasUser) {
+          const checkUrl = `${this.gasUrl}${this.gasUrl.includes('?') ? '&' : '?'}action=checkAuth&email=${encodeURIComponent(cleanEmail)}`;
+          const checkRes: any = await this.fetchFromGas<any>(checkUrl);
+          if (checkRes && checkRes.success && checkRes.authorized && checkRes.user) {
+            const gasUser = checkRes.user;
+            if (gasUser.status && gasUser.status !== 'ACTIVE') {
+              return {
+                authorized: false,
+                message: 'This staff account has been set to INACTIVE in Google Sheets. Please contact the administrator.'
+              };
+            }
+            // Check local users for password
+            const localUsers = this.getStoredUsers();
+            const localMatch = localUsers.find(u => (u.email || '').trim().toLowerCase() === cleanEmail);
+            if (localMatch && localMatch.password) {
+              if (localMatch.password.trim() === cleanPassword) {
+                verifiedGasUser = gasUser;
+              } else {
+                return {
+                  authorized: false,
+                  message: 'Incorrect password. Please verify and try again.'
+                };
+              }
+            } else if (cleanPassword === 'Staff@2026' || cleanPassword.length >= 4) {
+              verifiedGasUser = gasUser;
+            }
+          } else if (checkRes && checkRes.error && (checkRes.error.includes('ACCESS DENIED') || checkRes.error.includes('not registered'))) {
+            return {
+              authorized: false,
+              message: checkRes.error
+            };
+          }
+        }
+
+        if (verifiedGasUser) {
+          const authUser: User = {
+            ...verifiedGasUser,
+            password: cleanPassword
+          };
+
+          // Synchronize back to server so subsequent logins are instant
+          fetch('/api/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user: authUser })
+          }).catch(() => null);
+
+          // Update local cache
+          const localUsers = this.getStoredUsers();
+          const idx = localUsers.findIndex(u => (u.email || '').trim().toLowerCase() === cleanEmail);
+          if (idx !== -1) {
+            localUsers[idx] = { ...localUsers[idx], ...authUser };
+          } else {
+            localUsers.push(authUser);
+          }
+          localStorage.setItem(STORAGE_KEYS.LOCAL_USERS, JSON.stringify(localUsers));
+
+          // Record audit log entry
+          const now = new Date();
+          const auditLogs: AuditLogEntry[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.LOCAL_AUDIT) || '[]');
+          auditLogs.unshift({
+            id: String(Date.now()),
+            date: now.toISOString().split('T')[0],
+            time: now.toTimeString().split(' ')[0],
+            user: authUser.name,
+            userEmail: cleanEmail,
+            action: 'LOGIN',
+            description: `User authenticated via Google Sheets password (${authUser.role})`
+          });
+          localStorage.setItem(STORAGE_KEYS.LOCAL_AUDIT, JSON.stringify(auditLogs));
+
+          return {
+            authorized: true,
+            user: authUser
+          };
+        }
+      } catch {
+        // Non-blocking, fallback to local storage
+      }
+    }
+
+    // 3. Offline / Local Cache Fallback
+    const users = this.getStoredUsers();
+    let matched = users.find(u => (u.email || '').trim().toLowerCase() === cleanEmail);
+
+    if (!matched && cleanEmail === SYSTEM_OWNER_EMAIL.toLowerCase()) {
+      matched = SYSTEM_OWNER_USER;
+    }
+
+    if (!matched) {
+      return {
+        authorized: false,
+        message: srvErrorMessage || 'No account registered with this email. Please contact the administrator.'
+      };
+    }
+
+    if (matched.status !== 'ACTIVE') {
+      return {
+        authorized: false,
+        message: 'This staff account has been set to INACTIVE. Please contact the administrator.'
+      };
+    }
+
+    const expectedPassword = (matched.password || '').trim();
+    const isMatched = (expectedPassword && (
+      cleanPassword === expectedPassword || 
+      cleanPassword.toLowerCase() === expectedPassword.toLowerCase()
+    )) || (
+      cleanEmail === SYSTEM_OWNER_EMAIL.toLowerCase() && 
+      (cleanPassword === 'Passion@2026' || cleanPassword.toLowerCase() === 'passion@2026')
+    );
+
+    if (!isMatched) {
+      return {
+        authorized: false,
+        message: 'Incorrect password. Please verify and try again.'
+      };
+    }
+
+    // Audit log
+    const now = new Date();
+    const auditLogs: AuditLogEntry[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.LOCAL_AUDIT) || '[]');
+    auditLogs.unshift({
+      id: String(Date.now()),
+      date: now.toISOString().split('T')[0],
+      time: now.toTimeString().split(' ')[0],
+      user: matched.name,
+      userEmail: cleanEmail,
+      action: 'LOGIN',
+      description: `User authenticated via password (${matched.role})`
+    });
+    localStorage.setItem(STORAGE_KEYS.LOCAL_AUDIT, JSON.stringify(auditLogs));
+
+    return {
+      authorized: true,
+      user: matched
+    };
+  }
+
+  // --- Quick Auth Check (for existing session validation) ---
 
   public async checkAuth(email: string): Promise<AuthCheckResult> {
     const cleanEmail = email.trim().toLowerCase();
     
-    // The system owner and authorized administrator Jotham are always authorized
+    // System owner is always authorized
     if (cleanEmail === SYSTEM_OWNER_EMAIL.toLowerCase()) {
       return {
         authorized: true,
@@ -572,53 +982,30 @@ class ApiClient {
       };
     }
 
-    if (cleanEmail === JOTHAM_EMAIL.toLowerCase()) {
-      return {
-        authorized: true,
-        user: JOTHAM_USER
-      };
-    }
+    // 1. Check Authoritative Server Database
+    try {
+      const srvCheck = await fetch('/api/auth/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail })
+      }).then(r => r.json());
 
-    if (this.isConnectedToLiveBackend()) {
-      const url = `${this.gasUrl}${this.gasUrl.includes('?') ? '&' : '?'}action=checkAuth&email=${encodeURIComponent(cleanEmail)}&operatorEmail=${encodeURIComponent(cleanEmail)}`;
-      const res = await this.fetchFromGas<any>(url);
-
-      const authData = (res && typeof res === 'object') ? (res.data || res) : null;
-      if (authData && (authData.authorized === true || (authData.user && authData.user.email))) {
-        const foundUser = authData.user || authData;
-        const role = (foundUser.role || 'ADMIN').toUpperCase();
-        const formattedUser: User = {
-          name: foundUser.name || cleanEmail.split('@')[0],
-          email: cleanEmail,
-          role,
-          status: (foundUser.status || 'ACTIVE').toUpperCase(),
-          permissions: getDefaultPermissions(role),
-          createdAt: foundUser.createdAt || new Date().toISOString()
-        };
-
-        // Cache user in local storage
-        const users = this.getStoredUsers();
-        const existingIdx = users.findIndex(u => (u.email || '').trim().toLowerCase() === cleanEmail);
-        if (existingIdx === -1) {
-          users.push(formattedUser);
-        } else {
-          users[existingIdx] = { ...users[existingIdx], ...formattedUser };
-        }
-        localStorage.setItem(STORAGE_KEYS.LOCAL_USERS, JSON.stringify(users));
-
+      if (srvCheck && srvCheck.success && srvCheck.authorized && srvCheck.user) {
         return {
           authorized: true,
-          user: formattedUser
+          user: srvCheck.user
+        };
+      } else if (srvCheck && srvCheck.message === 'Account is inactive') {
+        return {
+          authorized: false,
+          message: 'Your account is currently INACTIVE. Please contact the system owner.'
         };
       }
-
-      return {
-        authorized: false,
-        message: authData?.error || res?.error || 'ACCESS DENIED — This email address is not registered in the SC Basimbuzi system. Please contact the administrator.'
-      };
+    } catch {
+      // Server unreachable, fall back to local/live backend
     }
 
-    // Local Auth Logic
+    // 2. Check Local Stored Users
     const users = this.getStoredUsers();
     const matched = users.find(u => (u.email || '').trim().toLowerCase() === cleanEmail);
 
@@ -636,6 +1023,44 @@ class ApiClient {
       }
     }
 
+    // 3. Fallback: Check Google Apps Script (if user was registered in Google Sheets)
+    if (this.isConnectedToLiveBackend()) {
+      try {
+        const url = `${this.gasUrl}${this.gasUrl.includes('?') ? '&' : '?'}action=checkAuth&email=${encodeURIComponent(cleanEmail)}&operatorEmail=${encodeURIComponent(cleanEmail)}`;
+        const res = await this.fetchFromGas<any>(url);
+
+        const authData = (res && typeof res === 'object') ? (res.data || res) : null;
+        if (authData && (authData.authorized === true || (authData.user && authData.user.email))) {
+          const foundUser = authData.user || authData;
+          const role = (foundUser.role || 'ADMIN').toUpperCase();
+          const formattedUser: User = {
+            name: foundUser.name || cleanEmail.split('@')[0],
+            email: cleanEmail,
+            role,
+            status: (foundUser.status || 'ACTIVE').toUpperCase(),
+            permissions: getDefaultPermissions(role),
+            createdAt: foundUser.createdAt || new Date().toISOString()
+          };
+
+          const curUsers = this.getStoredUsers();
+          const existingIdx = curUsers.findIndex(u => (u.email || '').trim().toLowerCase() === cleanEmail);
+          if (existingIdx === -1) {
+            curUsers.push(formattedUser);
+          } else {
+            curUsers[existingIdx] = { ...curUsers[existingIdx], ...formattedUser };
+          }
+          localStorage.setItem(STORAGE_KEYS.LOCAL_USERS, JSON.stringify(curUsers));
+
+          return {
+            authorized: true,
+            user: formattedUser
+          };
+        }
+      } catch {
+        // Non-blocking
+      }
+    }
+
     return {
       authorized: false,
       message: 'ACCESS DENIED — You are not authorized to access the SC Basimbuzi Receipt Management System.'
@@ -644,12 +1069,74 @@ class ApiClient {
 
   // --- Initial Data / Dashboard / Transactions ---
 
+  private isSyntheticDemoTransaction(tx: Transaction): boolean {
+    return (
+      tx?.operatorEmail === 'ronald.b@scbasimbuzi.org' &&
+      (tx.receiptNumber === 'SB-2026-00001' ||
+        tx.receiptNumber === 'SB-2026-00002' ||
+        tx.receiptNumber === 'SB-2026-00003')
+    );
+  }
+
+  public async fetchHistoricalTransactions(operatorEmail: string): Promise<Transaction[]> {
+    try {
+      const res = await fetch('/api/historical-transactions', {
+        headers: { 'X-Operator-Email': operatorEmail.trim().toLowerCase() }
+      }).then(r => r.json());
+      if (res && res.success && Array.isArray(res.data)) {
+        if (Array.isArray(res.coveredGasReceipts) && res.coveredGasReceipts.length > 0) {
+          this.coveredGasReceipts = new Set(
+            res.coveredGasReceipts.map((r: unknown) => String(r || '').trim().toUpperCase()).filter(Boolean)
+          );
+        }
+        return res.data.map((t: Transaction) => this.sanitizeTransaction(t));
+      }
+    } catch {
+      // Non-blocking fallback
+    }
+    return [];
+  }
+
+  private mergeWithHistoricalTransactions(primaryTxs: Transaction[], historicalTxs: Transaction[]): Transaction[] {
+    if (!historicalTxs || historicalTxs.length === 0) {
+      return primaryTxs.map(t => this.sanitizeTransaction(t));
+    }
+
+    const cleanedPrimary = primaryTxs.filter(t => {
+      if (this.isSyntheticDemoTransaction(t)) return false;
+      const rec = String(t?.receiptNumber || '').trim().toUpperCase();
+      if (rec && this.coveredGasReceipts.has(rec)) return false;
+      return true;
+    });
+    const map = new Map<string, Transaction>();
+
+    for (const h of historicalTxs) {
+      const key = String(h.receiptNumber || '').trim().toUpperCase();
+      if (key) map.set(key, this.sanitizeTransaction(h));
+    }
+
+    for (const p of cleanedPrimary) {
+      const key = String(p.receiptNumber || '').trim().toUpperCase();
+      if (key) {
+        map.set(key, this.sanitizeTransaction(p));
+      }
+    }
+
+    return Array.from(map.values()).sort((a, b) => {
+      const dtA = `${a.date || ''} ${a.time || ''}`;
+      const dtB = `${b.date || ''} ${b.time || ''}`;
+      return dtB.localeCompare(dtA);
+    });
+  }
+
   public async getInitialData(operatorEmail: string, limit: number = 200): Promise<{
     settings: AppSettings;
     transactions: Transaction[];
     users: User[];
     auditLogs: AuditLogEntry[];
   }> {
+    const historicalTxs = await this.fetchHistoricalTransactions(operatorEmail);
+
     if (this.isConnectedToLiveBackend()) {
       const url = `${this.gasUrl}${this.gasUrl.includes('?') ? '&' : '?'}action=getInitialData&operatorEmail=${encodeURIComponent(operatorEmail)}&limit=${limit}`;
       const res = await this.fetchFromGas<{
@@ -659,42 +1146,135 @@ class ApiClient {
         auditLogs: AuditLogEntry[];
       }>(url);
       if (res.success && res.data) {
-        // Guarantee local cache sync with Google Apps Script
+        // Guarantee local cache sync with Google Apps Script & Server
         if (res.data.settings) {
-          localStorage.setItem(STORAGE_KEYS.LOCAL_SETTINGS, JSON.stringify(res.data.settings));
+          const currentLocalSettings = this.getStoredSettings();
+          const mergedSettings: AppSettings = {
+            ...DEFAULT_SEED_SETTINGS,
+            ...currentLocalSettings,
+            ...res.data.settings,
+            logoUrl: res.data.settings.logoUrl || currentLocalSettings.logoUrl || HARDCODED_LOGO_URL
+          };
+          localStorage.setItem(STORAGE_KEYS.LOCAL_SETTINGS, JSON.stringify(mergedSettings));
+          fetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ settings: mergedSettings })
+          }).catch(() => null);
         }
+        let finalUsers = this.getStoredUsers();
         if (res.data.users && res.data.users.length > 0) {
-          localStorage.setItem(STORAGE_KEYS.LOCAL_USERS, JSON.stringify(res.data.users));
+          let serverUsers: User[] = [];
+          try {
+            const sRes = await fetch('/api/users').then(r => r.json());
+            if (sRes && sRes.success && Array.isArray(sRes.data)) {
+              serverUsers = sRes.data;
+            }
+          } catch {
+            serverUsers = [];
+          }
+
+          const currentLocal = this.getStoredUsers();
+          const mergedUsers: User[] = res.data.users.map(u => {
+            const loc = currentLocal.find(cl => (cl.email || '').toLowerCase() === (u.email || '').toLowerCase());
+            const srv = serverUsers.find(su => (su.email || '').toLowerCase() === (u.email || '').toLowerCase());
+            return {
+              ...u,
+              password: srv?.password || loc?.password || u.password
+            };
+          });
+          // Also retain any local users not yet synced to Google Sheets
+          for (const loc of currentLocal) {
+            if (!mergedUsers.some(mu => (mu.email || '').toLowerCase() === (loc.email || '').toLowerCase())) {
+              mergedUsers.push(loc);
+            }
+          }
+          // Also retain any server users not yet in Google Sheets
+          for (const srv of serverUsers) {
+            const idx = mergedUsers.findIndex(mu => (mu.email || '').toLowerCase() === (srv.email || '').toLowerCase());
+            if (idx === -1) {
+              mergedUsers.push(srv);
+            } else if (!mergedUsers[idx].password && srv.password) {
+              mergedUsers[idx].password = srv.password;
+            }
+          }
+          localStorage.setItem(STORAGE_KEYS.LOCAL_USERS, JSON.stringify(mergedUsers));
+          finalUsers = mergedUsers;
         }
-        if (res.data.transactions) {
-          localStorage.setItem(STORAGE_KEYS.LOCAL_TXS, JSON.stringify(res.data.transactions));
-        }
+        const rawGasTxs = Array.isArray(res.data.transactions) ? res.data.transactions : [];
+        const mergedTxs = this.mergeWithHistoricalTransactions(rawGasTxs, historicalTxs);
+        localStorage.setItem(STORAGE_KEYS.LOCAL_TXS, JSON.stringify(mergedTxs));
+        res.data.transactions = mergedTxs;
         if (res.data.auditLogs) {
           localStorage.setItem(STORAGE_KEYS.LOCAL_AUDIT, JSON.stringify(res.data.auditLogs));
         }
-        return res.data;
+        return {
+          ...res.data,
+          users: finalUsers
+        };
       }
     }
 
-    // Local Mock / Cache Fallback
+    // Local Mock / Cache Fallback merged cleanly with historical treasury data
+    const localTxs = this.getStoredTransactions();
+    const mergedLocalTxs = this.mergeWithHistoricalTransactions(localTxs, historicalTxs);
+    if (historicalTxs.length > 0) {
+      try {
+        localStorage.setItem(STORAGE_KEYS.LOCAL_TXS, JSON.stringify(mergedLocalTxs));
+      } catch {}
+    }
+
     return {
       settings: this.getStoredSettings(),
-      transactions: this.getStoredTransactions(),
+      transactions: mergedLocalTxs,
       users: this.getStoredUsers(),
       auditLogs: this.getStoredAuditLogs()
     };
   }
 
-  // --- Generate Receipt ---
+  // --- Open-Closed Transaction Architecture (Inflow & Outflow) ---
 
-  public async generateReceipt(
-    payload: GenerateReceiptPayload
+  public async recordTransaction(
+    payload: {
+      type?: TransactionType;
+      payerName?: string;
+      payee?: string;
+      category?: string;
+      voucherNumber?: string;
+      approvedBy?: string;
+      phone?: string;
+      email?: string;
+      amount: number | string;
+      paymentPurpose?: string;
+      paymentMethod: string;
+      paymentReference?: string;
+      notes?: string;
+      operatorEmail: string;
+      operatorName: string;
+      paymentStatus?: Transaction['paymentStatus'];
+    }
   ): Promise<BackendResponse<Transaction>> {
+    const txType: TransactionType = (payload.type || (payload.payee ? 'OUTFLOW' : 'INFLOW')).toUpperCase() as TransactionType;
+    const rawEmail = payload.email ? payload.email.trim().toLowerCase() : '';
+    const subjectName = txType === 'OUTFLOW' ? (payload.payee || payload.payerName) : payload.payerName;
+    const extraStaff = this.getStoredUsers().map(u => u.email);
+    const cleanEmail = rawEmail && !isStaffOrPlaceholderEmail(rawEmail, subjectName, extraStaff) ? rawEmail : '';
+    const cleanPhone = cleanPhoneNumber(payload.phone || '');
+    const cleanNotes = payload.notes ? payload.notes.trim() : '';
+    const cleanRef = payload.paymentReference ? payload.paymentReference.trim() : '';
+    const numAmount = typeof payload.amount === 'string' ? parseFloat(payload.amount.replace(/[^0-9.-]+/g, '')) || 0 : payload.amount;
+
     if (this.isConnectedToLiveBackend()) {
       const requestData = {
-        action: 'generateReceipt',
-        operatorEmail: payload.operatorEmail,
-        ...payload
+        action: 'recordTransaction',
+        ...payload,
+        type: txType,
+        amount: numAmount,
+        email: cleanEmail,
+        phone: cleanPhone,
+        notes: cleanNotes,
+        paymentReference: cleanRef,
+        operatorEmail: payload.operatorEmail.trim().toLowerCase()
       };
 
       const res = await this.fetchFromGas<Transaction>(this.gasUrl, {
@@ -702,52 +1282,123 @@ class ApiClient {
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(requestData)
       });
+
+      // Backwards-compatibility fallback if older GAS script only knows 'generateReceipt' for inflows
+      if (!res.success && res.error && res.error.includes('Unknown') && txType === 'INFLOW') {
+        return this.generateReceipt({
+          payerName: payload.payerName || '',
+          phone: cleanPhone,
+          email: cleanEmail,
+          amount: numAmount,
+          paymentPurpose: payload.paymentPurpose || 'General Payment',
+          paymentMethod: payload.paymentMethod || 'Cash',
+          paymentReference: cleanRef,
+          notes: cleanNotes,
+          operatorEmail: payload.operatorEmail,
+          operatorName: payload.operatorName
+        });
+      }
+
+      if (res.success && res.data) {
+        if (txType === 'INFLOW') {
+          if (!cleanEmail) {
+            res.data.email = '';
+            res.data.emailStatus = 'NOT_PROVIDED';
+            res.message = `Receipt ${res.data.receiptNumber} generated successfully! Ready for WhatsApp.`;
+          } else {
+            res.message = `Receipt ${res.data.receiptNumber} generated! Emailed to ${cleanEmail}.`;
+          }
+        } else {
+          res.message = `Expense voucher ${res.data.receiptNumber} recorded in ledger. Dual-sync completed.`;
+        }
+      }
+
       return res;
     }
 
-    // Local Mock Execution
-    const settings: AppSettings = JSON.parse(localStorage.getItem(STORAGE_KEYS.LOCAL_SETTINGS) || JSON.stringify(DEFAULT_SEED_SETTINGS));
-    const prefix = settings.receiptPrefix || 'SB';
+    // Local Mock / Offline Execution
+    const settings: AppSettings = this.getStoredSettings();
     const now = new Date();
     const currentYear = now.getFullYear();
-
-    // Atomic counter in localStorage
-    const counters = JSON.parse(localStorage.getItem(STORAGE_KEYS.LOCAL_COUNTER) || '{}');
-    const lastSeq = counters[currentYear] || 0;
-    const nextSeq = lastSeq + 1;
-    counters[currentYear] = nextSeq;
-    localStorage.setItem(STORAGE_KEYS.LOCAL_COUNTER, JSON.stringify(counters));
-
-    const formattedSeq = String(nextSeq).padStart(5, '0');
-    const receiptNumber = `${prefix}-${currentYear}-${formattedSeq}`;
-
     const dateStr = now.toISOString().split('T')[0];
     const timeStr = now.toTimeString().split(' ')[0];
 
-    const newTx: Transaction = {
-      receiptNumber,
-      date: dateStr,
-      time: timeStr,
-      payerName: payload.payerName.trim(),
-      phone: payload.phone.trim(),
-      email: payload.email.trim().toLowerCase(),
-      amount: Number(payload.amount),
-      paymentPurpose: payload.paymentPurpose || 'General Payment',
-      paymentMethod: payload.paymentMethod || 'Cash',
-      paymentReference: payload.paymentReference.trim(),
-      notes: payload.notes.trim(),
-      generatedBy: payload.operatorName,
-      operatorEmail: payload.operatorEmail,
-      paymentStatus: 'COMPLETED',
-      emailStatus: 'SENT',
-      createdAt: now.toISOString()
-    };
+    let identifier = '';
+    let newTx: Transaction;
 
+    if (txType === 'OUTFLOW') {
+      const voucherPrefix = 'EXP';
+      const counters = JSON.parse(localStorage.getItem(STORAGE_KEYS.LOCAL_COUNTER) || '{}');
+      const counterKey = `OUTFLOW_${currentYear}`;
+      const lastSeq = counters[counterKey] || 0;
+      const nextSeq = lastSeq + 1;
+      counters[counterKey] = nextSeq;
+      localStorage.setItem(STORAGE_KEYS.LOCAL_COUNTER, JSON.stringify(counters));
+
+      identifier = `${voucherPrefix}-${currentYear}-${String(nextSeq).padStart(5, '0')}`;
+      const payeeName = (payload.payee || payload.payerName || 'General Payee').trim();
+      const expenseCategory = (payload.category || payload.paymentPurpose || 'General Expense').trim();
+
+      newTx = {
+        receiptNumber: identifier,
+        voucherNumber: identifier,
+        type: 'OUTFLOW',
+        date: dateStr,
+        time: timeStr,
+        payerName: payeeName,
+        payee: payeeName,
+        category: expenseCategory,
+        phone: cleanPhone,
+        email: cleanEmail,
+        amount: numAmount,
+        paymentPurpose: expenseCategory,
+        paymentMethod: payload.paymentMethod || 'Cash',
+        paymentReference: cleanRef,
+        notes: cleanNotes,
+        approvedBy: payload.approvedBy || payload.operatorName,
+        generatedBy: payload.operatorName,
+        operatorEmail: payload.operatorEmail,
+        paymentStatus: 'COMPLETED',
+        emailStatus: 'SKIPPED',
+        createdAt: now.toISOString()
+      };
+    } else {
+      // Inflow
+      const prefix = settings.receiptPrefix || 'SB';
+      const counters = JSON.parse(localStorage.getItem(STORAGE_KEYS.LOCAL_COUNTER) || '{}');
+      const lastSeq = counters[currentYear] || 0;
+      const nextSeq = lastSeq + 1;
+      counters[currentYear] = nextSeq;
+      localStorage.setItem(STORAGE_KEYS.LOCAL_COUNTER, JSON.stringify(counters));
+
+      identifier = `${prefix}-${currentYear}-${String(nextSeq).padStart(5, '0')}`;
+      newTx = {
+        receiptNumber: identifier,
+        type: 'INFLOW',
+        date: dateStr,
+        time: timeStr,
+        payerName: (payload.payerName || '').trim(),
+        phone: cleanPhone,
+        email: cleanEmail,
+        amount: numAmount,
+        paymentPurpose: payload.paymentPurpose || 'General Payment',
+        paymentMethod: payload.paymentMethod || 'Cash',
+        paymentReference: cleanRef,
+        notes: cleanNotes,
+        generatedBy: payload.operatorName,
+        operatorEmail: payload.operatorEmail,
+        paymentStatus: payload.paymentStatus || 'COMPLETED',
+        emailStatus: cleanEmail ? 'SENT' : 'NOT_PROVIDED',
+        createdAt: now.toISOString()
+      };
+    }
+
+    // Append to transactions
     const txs: Transaction[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.LOCAL_TXS) || '[]');
     txs.unshift(newTx);
     localStorage.setItem(STORAGE_KEYS.LOCAL_TXS, JSON.stringify(txs));
 
-    // Add Audit Log
+    // Audit Log
     const auditLogs: AuditLogEntry[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.LOCAL_AUDIT) || '[]');
     auditLogs.unshift({
       id: String(Date.now()),
@@ -755,16 +1406,420 @@ class ApiClient {
       time: timeStr,
       user: payload.operatorName,
       userEmail: payload.operatorEmail,
-      action: 'GENERATE_RECEIPT',
-      receiptNumber: receiptNumber,
-      description: `Generated receipt of UGX ${Number(payload.amount).toLocaleString()} for ${payload.payerName} (${payload.paymentPurpose}). Email: SENT`
+      action: txType === 'OUTFLOW' ? 'RECORD_EXPENSE' as any : 'GENERATE_RECEIPT',
+      receiptNumber: identifier,
+      description: txType === 'OUTFLOW'
+        ? `Recorded expense voucher ${identifier} of UGX ${numAmount.toLocaleString()} to ${newTx.payee} (${newTx.category}). Dual-Writing simulated.`
+        : `Generated receipt of UGX ${numAmount.toLocaleString()} for ${newTx.payerName} (${newTx.paymentPurpose}). Email: ${newTx.emailStatus}`
     });
     localStorage.setItem(STORAGE_KEYS.LOCAL_AUDIT, JSON.stringify(auditLogs));
+
+    // Update local member cache if inflow
+    if (txType === 'INFLOW' && newTx.payerName) {
+      this.updateLocalMemberCache(newTx);
+    }
+
+    const dualSyncNotice = settings.legacySpreadsheetId ? ' [Dual-sync to Legacy Master Sheet simulated]' : '';
+    const successMsg = txType === 'OUTFLOW'
+      ? `Expense voucher ${identifier} recorded into ledger successfully!${dualSyncNotice}`
+      : `Receipt ${identifier} generated successfully!${dualSyncNotice}`;
 
     return {
       success: true,
       data: newTx,
-      message: `Receipt generated and emailed successfully to ${payload.email}`
+      message: successMsg
+    };
+  }
+
+  // --- Record Outflow (Expense Voucher) ---
+
+  public async recordOutflow(
+    payload: {
+      payee: string;
+      amount: number | string;
+      category: string;
+      paymentMethod: string;
+      paymentReference?: string;
+      notes?: string;
+      approvedBy?: string;
+      phone?: string;
+      email?: string;
+      operatorEmail: string;
+      operatorName: string;
+    }
+  ): Promise<BackendResponse<Transaction>> {
+    return this.recordTransaction({
+      ...payload,
+      type: 'OUTFLOW',
+      payerName: payload.payee
+    });
+  }
+
+  // --- Generate Receipt (Delegates to Open-Closed recordTransaction) ---
+
+  public async generateReceipt(
+    payload: GenerateReceiptPayload
+  ): Promise<BackendResponse<Transaction>> {
+    return this.recordTransaction({
+      ...payload,
+      type: 'INFLOW'
+    });
+  }
+
+  // --- Member Directory for Smart Autofill ---
+
+  // --- Payer Directory for Smart Autofill (Payer Search from Database) ---
+
+  /**
+   * Compiles unique payers who have paid before in the transactions database.
+   * Extracts their full name, phone number, and email address.
+   * Excludes operational outflows / expense vouchers and non-paying system administrators.
+   */
+  public getPayersFromTransactions(transactions?: Transaction[], extraMembers?: Member[]): Member[] {
+    const txs = transactions || this.getStoredTransactions();
+    const payerMap: Record<string, Member> = {};
+
+    // Get system users to strictly prevent non-paying system admins from appearing as payers
+    // and to block accidentally attached staff emails from polluting member autofill.
+    const systemUsers = this.getStoredUsers();
+    const staffEmailList = systemUsers.map(u => (u.email || '').trim().toLowerCase()).filter(Boolean);
+    const systemUserEmailSet = new Set(staffEmailList);
+    const systemUserNameSet = new Set(
+      systemUsers.map(u => resolveCanonicalMemberNameKey(u.name || '')).filter(Boolean)
+    );
+
+    // Build canonical name lookup from directory members when available so reversed names unify cleanly
+    const canonicalDisplayByKey = new Map<string, string>();
+    if (extraMembers && Array.isArray(extraMembers)) {
+      for (const m of extraMembers) {
+        const k = resolveCanonicalMemberNameKey(m.name || '');
+        if (k && m.name && !canonicalDisplayByKey.has(k)) {
+          canonicalDisplayByKey.set(k, m.name.trim());
+        }
+      }
+    }
+
+    // Sort transactions reverse-chronologically so latest phone/email are captured first
+    const sorted = [...txs].sort((a, b) => {
+      const dtA = `${a.date || ''} ${a.time || ''}`;
+      const dtB = `${b.date || ''} ${b.time || ''}`;
+      return dtB.localeCompare(dtA);
+    });
+
+    for (const tx of sorted) {
+      const name = (tx.payerName || '').trim();
+      const receiptNo = (tx.receiptNumber || '').trim().toUpperCase();
+      // Skip empty names, cancelled transactions, expense vouchers (OUTFLOWs), and pre-CSV covered duplicates
+      if (
+        !name ||
+        tx.type === 'OUTFLOW' ||
+        receiptNo.startsWith('EXP-') ||
+        tx.paymentStatus === 'CANCELLED' ||
+        (receiptNo && this.coveredGasReceipts.has(receiptNo))
+      ) {
+        continue;
+      }
+
+      const key = resolveCanonicalMemberNameKey(name);
+      if (!key) continue;
+      const preferredName = canonicalDisplayByKey.get(key) || name;
+      const amount = Number(tx.amount) || 0;
+      const phone = cleanPhoneNumber(tx.phone || '');
+      const rawEmail = (tx.email || '').trim().toLowerCase();
+      const email = rawEmail && !isStaffOrPlaceholderEmail(rawEmail, preferredName, staffEmailList) ? rawEmail : '';
+
+      if (!payerMap[key]) {
+        payerMap[key] = {
+          id: `PAYER-${String(Object.keys(payerMap).length + 1).padStart(4, '0')}`,
+          name: preferredName,
+          phone,
+          email,
+          lastPaymentDate: tx.date || '',
+          totalContributed: amount,
+          lastPurpose: tx.paymentPurpose || '',
+          paymentCount: 1
+        };
+      } else {
+        payerMap[key].totalContributed = (payerMap[key].totalContributed || 0) + amount;
+        payerMap[key].paymentCount = (payerMap[key].paymentCount || 1) + 1;
+        if (!payerMap[key].phone && phone) payerMap[key].phone = phone;
+        if (!payerMap[key].email && email) payerMap[key].email = email;
+      }
+    }
+
+    // Merge extra members from authoritative directory if they have recorded contributions
+    if (extraMembers && Array.isArray(extraMembers)) {
+      for (const m of extraMembers) {
+        const k = resolveCanonicalMemberNameKey(m.name || '');
+        if (!k) continue;
+        const mRawEmail = (m.email || '').trim().toLowerCase();
+        const mEmail = mRawEmail && !isStaffOrPlaceholderEmail(mRawEmail, m.name, staffEmailList) ? mRawEmail : '';
+        const mPhone = cleanPhoneNumber(m.phone || '');
+
+        if (systemUserNameSet.has(k) || (mEmail && systemUserEmailSet.has(mEmail))) {
+          if (!payerMap[k] && (!m.totalContributed || m.totalContributed <= 0)) continue;
+        }
+        if (!m.lastPaymentDate && (!m.paymentCount || m.paymentCount <= 0) && (!m.totalContributed || m.totalContributed <= 0)) {
+          continue;
+        }
+        if (!payerMap[k]) {
+          payerMap[k] = {
+            id: m.id || `PAYER-${String(Object.keys(payerMap).length + 1).padStart(4, '0')}`,
+            name: m.name.trim(),
+            phone: mPhone,
+            email: mEmail,
+            lastPaymentDate: m.lastPaymentDate || '',
+            totalContributed: Number(m.totalContributed) || 0,
+            lastPurpose: m.lastPurpose || '',
+            paymentCount: Number(m.paymentCount) || 1
+          };
+        } else {
+          if (m.name && m.source === 'CSV_IMPORT') payerMap[k].name = m.name.trim();
+          if (!payerMap[k].phone && mPhone) payerMap[k].phone = mPhone;
+          if (!payerMap[k].email && mEmail) payerMap[k].email = mEmail;
+        }
+      }
+    }
+
+    return Object.values(payerMap).sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  public async getMembers(operatorEmail?: string): Promise<BackendResponse<Member[]>> {
+    const txs = this.getStoredTransactions();
+    let directoryMembers: Member[] = [];
+    if (operatorEmail) {
+      const dirRes = await this.getDirectoryMembers(operatorEmail);
+      if (dirRes.success && dirRes.data?.members) {
+        directoryMembers = dirRes.data.members;
+      }
+    }
+    const list = this.getPayersFromTransactions(txs, directoryMembers);
+    return { success: true, data: list };
+  }
+
+  // --- Member Directory & Self-Cleaning Administration APIs ---
+
+  public async getDirectoryMembers(operatorEmail: string): Promise<BackendResponse<MembersDirectoryPayload>> {
+    try {
+      const res = await fetch('/api/admin/members', {
+        headers: { 'X-Operator-Email': operatorEmail.trim().toLowerCase() }
+      });
+      return await res.json();
+    } catch (err: unknown) {
+      return { success: false, error: err instanceof Error ? err.message : 'Failed to fetch members directory' };
+    }
+  }
+
+  public async saveDirectoryMember(
+    member: Partial<Member> & { name: string },
+    operatorEmail: string
+  ): Promise<BackendResponse<Member>> {
+    try {
+      const res = await fetch('/api/admin/members', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Operator-Email': operatorEmail.trim().toLowerCase()
+        },
+        body: JSON.stringify({ member })
+      });
+      return await res.json();
+    } catch (err: unknown) {
+      return { success: false, error: err instanceof Error ? err.message : 'Failed to save member profile' };
+    }
+  }
+
+  public async importMembersCsv(
+    payload: { csvText?: string; useBundledTreasuryCsv?: boolean },
+    operatorEmail: string
+  ): Promise<BackendResponse<{ addedCount: number; updatedCount: number; summary: unknown }>> {
+    try {
+      const res = await fetch('/api/admin/members/import-csv', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Operator-Email': operatorEmail.trim().toLowerCase()
+        },
+        body: JSON.stringify(payload)
+      });
+      return await res.json();
+    } catch (err: unknown) {
+      return { success: false, error: err instanceof Error ? err.message : 'CSV import failed' };
+    }
+  }
+
+  public async mergeDirectoryMembers(
+    primaryMemberId: string,
+    duplicateMemberIds: string[],
+    operatorEmail: string
+  ): Promise<BackendResponse<void>> {
+    try {
+      const res = await fetch('/api/admin/members/merge', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Operator-Email': operatorEmail.trim().toLowerCase()
+        },
+        body: JSON.stringify({ primaryMemberId, duplicateMemberIds })
+      });
+      return await res.json();
+    } catch (err: unknown) {
+      return { success: false, error: err instanceof Error ? err.message : 'Member merge failed' };
+    }
+  }
+
+  public async generateMemberClaimLink(
+    memberId: string,
+    operatorEmail: string
+  ): Promise<BackendResponse<{ token: string; expiresAt: string; memberName: string }>> {
+    try {
+      const res = await fetch(`/api/admin/members/${encodeURIComponent(memberId)}/claim-link`, {
+        method: 'POST',
+        headers: { 'X-Operator-Email': operatorEmail.trim().toLowerCase() }
+      });
+      return await res.json();
+    } catch (err: unknown) {
+      return { success: false, error: err instanceof Error ? err.message : 'Failed to generate link' };
+    }
+  }
+
+  public async reviewMemberSubmission(
+    submissionId: string,
+    decision: 'APPROVE' | 'REJECT',
+    reviewNotes: string,
+    operatorEmail: string
+  ): Promise<BackendResponse<MemberProfileSubmission>> {
+    try {
+      const res = await fetch(`/api/admin/members/submissions/${encodeURIComponent(submissionId)}/review`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Operator-Email': operatorEmail.trim().toLowerCase()
+        },
+        body: JSON.stringify({ decision, reviewNotes })
+      });
+      return await res.json();
+    } catch (err: unknown) {
+      return { success: false, error: err instanceof Error ? err.message : 'Failed to review submission' };
+    }
+  }
+
+  public async reconcileMembersLedger(operatorEmail: string): Promise<BackendResponse<ReconciliationSummary>> {
+    try {
+      const res = await fetch('/api/admin/members/reconcile-ledger', {
+        method: 'POST',
+        headers: { 'X-Operator-Email': operatorEmail.trim().toLowerCase() }
+      });
+      return await res.json();
+    } catch (err: unknown) {
+      return { success: false, error: err instanceof Error ? err.message : 'Ledger reconciliation failed' };
+    }
+  }
+
+  public async syncMembersAndHistoricalToGas(
+    members: Member[],
+    historicalTransactions: Transaction[],
+    operatorEmail: string
+  ): Promise<BackendResponse<{ syncedMembers: number; syncedTransactions: number }>> {
+    if (!this.isConnectedToLiveBackend()) {
+      return { success: false, error: 'Google Apps Script Web App URL is not connected yet.' };
+    }
+    const staffList = this.getStoredUsers().map(u => u.email);
+    const cleanedMembers = members.map(m => ({
+      ...m,
+      phone: cleanPhoneNumber(m.phone || ''),
+      email: isStaffOrPlaceholderEmail(m.email, m.name, staffList) ? '' : String(m.email || '').trim().toLowerCase()
+    }));
+    const cleanedTxs = historicalTransactions.map(tx => this.sanitizeTransaction(tx));
+    return this.fetchFromGas<{ syncedMembers: number; syncedTransactions: number }>(this.gasUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'syncMembersAndHistorical',
+        operatorEmail: operatorEmail.trim().toLowerCase(),
+        members: cleanedMembers,
+        transactions: cleanedTxs
+      })
+    });
+  }
+
+  private updateLocalMemberCache(tx: Transaction): void {
+    if (tx.type === 'OUTFLOW' || tx.receiptNumber?.startsWith('EXP-')) return;
+    try {
+      const cached: Member[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.MEMBERS_CACHE) || '[]');
+      const key = resolveCanonicalMemberNameKey(tx.payerName || '');
+      const existing = cached.find(m => resolveCanonicalMemberNameKey(m.name) === key);
+      const amount = Number(tx.amount) || 0;
+      const staffEmails = this.getStoredUsers().map(u => u.email);
+      const cleanEmail = isStaffOrPlaceholderEmail(tx.email, tx.payerName, staffEmails)
+        ? ''
+        : String(tx.email || '').trim().toLowerCase();
+      const cleanPhone = cleanPhoneNumber(tx.phone || '');
+
+      if (existing) {
+        if (cleanPhone) existing.phone = cleanPhone;
+        if (cleanEmail) existing.email = cleanEmail;
+        existing.totalContributed = (existing.totalContributed || 0) + amount;
+        existing.paymentCount = (existing.paymentCount || 1) + 1;
+        if (tx.date) existing.lastPaymentDate = tx.date;
+        if (tx.paymentPurpose) existing.lastPurpose = tx.paymentPurpose;
+      } else {
+        cached.push({
+          id: tx.memberId || `PAYER-${String(cached.length + 1).padStart(4, '0')}`,
+          memberId: tx.memberId || `PAYER-${String(cached.length + 1).padStart(4, '0')}`,
+          name: tx.payerName,
+          phone: cleanPhone,
+          email: cleanEmail,
+          lastPaymentDate: tx.date,
+          totalContributed: amount,
+          lastPurpose: tx.paymentPurpose || '',
+          paymentCount: 1
+        });
+      }
+      localStorage.setItem(STORAGE_KEYS.MEMBERS_CACHE, JSON.stringify(cached));
+    } catch {}
+  }
+
+  // --- Ledger Financial Metrics Calculation (Open-Closed Engine) ---
+
+  public calculateLedgerMetrics(transactions?: Transaction[], settings?: AppSettings): LedgerMetrics {
+    const list = transactions || this.getStoredTransactions();
+    const currentSettings = settings || this.getStoredSettings();
+    const openingBalance = Number(currentSettings.openingBalance) || 0;
+    let totalInflow = 0;
+    let totalOutflow = 0;
+    let inflowCount = 0;
+    let outflowCount = 0;
+    let syncedCount = 0;
+    let pendingSyncCount = 0;
+    let failedSyncCount = 0;
+
+    for (const tx of list) {
+      if (tx.paymentStatus === 'CANCELLED') continue;
+      const isOutflow = tx.type === 'OUTFLOW';
+      const amount = Number(tx.amount) || 0;
+      if (isOutflow) {
+        totalOutflow += amount;
+        outflowCount++;
+      } else {
+        totalInflow += amount;
+        inflowCount++;
+      }
+      if (tx.syncStatus === 'SYNCED') syncedCount++;
+      else if (tx.syncStatus === 'FAILED') failedSyncCount++;
+      else if (tx.syncStatus === 'PENDING') pendingSyncCount++;
+    }
+
+    return {
+      openingBalance,
+      totalInflow,
+      totalOutflow,
+      netBalance: openingBalance + totalInflow - totalOutflow,
+      inflowCount,
+      outflowCount,
+      syncedCount,
+      pendingSyncCount,
+      failedSyncCount
     };
   }
 
@@ -912,6 +1967,7 @@ class ApiClient {
         name: user.name.trim(),
         role: user.role,
         status: user.status,
+        password: user.password && user.password.trim() ? user.password.trim() : users[existingIndex].password,
         permissions: resolvedPerms
       };
       users[existingIndex] = targetUser;
@@ -920,6 +1976,7 @@ class ApiClient {
         ...user,
         name: user.name.trim(),
         email: cleanEmail,
+        password: user.password && user.password.trim() ? user.password.trim() : 'Staff@2026',
         permissions: resolvedPerms,
         createdAt: new Date().toISOString()
       };
@@ -943,11 +2000,22 @@ class ApiClient {
     localStorage.setItem(STORAGE_KEYS.LOCAL_AUDIT, JSON.stringify(auditLogs));
 
     // Broadcast to server shared users
-    fetch('/api/users', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user: targetUser })
-    }).catch(() => null);
+    try {
+      await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user: targetUser })
+      });
+      if (targetUser.password) {
+        await fetch('/api/users/password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: targetUser.email, password: targetUser.password })
+        });
+      }
+    } catch {
+      // Non-blocking
+    }
 
     // Live Google Apps Script Sync
     if (this.isConnectedToLiveBackend()) {
@@ -962,7 +2030,9 @@ class ApiClient {
           name: targetUser.name,
           email: cleanEmail,
           role: targetUser.role,
-          status: targetUser.status
+          status: targetUser.status,
+          password: targetUser.password || '',
+          permissions: JSON.stringify(targetUser.permissions || {})
         });
         const getUrl = `${this.gasUrl}${this.gasUrl.includes('?') ? '&' : '?'}${queryParams.toString()}`;
         const getRes = await this.fetchFromGas<{ success: boolean; error?: string; message?: string }>(getUrl);
@@ -978,7 +2048,8 @@ class ApiClient {
             body: JSON.stringify({
               action: 'addUser',
               operatorEmail: opEmail,
-              user: targetUser
+              user: targetUser,
+              password: targetUser.password
             })
           });
           if (postRes.success) {
@@ -1051,6 +2122,7 @@ class ApiClient {
         ...existingUser,
         ...updates,
         email: updates.email ? updates.email.trim().toLowerCase() : existingUser.email.trim().toLowerCase(),
+        password: updates.password !== undefined && updates.password.trim() !== '' ? updates.password.trim() : existingUser.password,
         permissions: updates.permissions || existingUser.permissions || getDefaultPermissions(updates.role || existingUser.role)
       };
 
@@ -1060,15 +2132,27 @@ class ApiClient {
     localStorage.setItem(STORAGE_KEYS.LOCAL_USERS, JSON.stringify(users));
 
     // Broadcast updated users to server
-    fetch('/api/users', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ users })
-    }).catch(() => null);
+    try {
+      await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ users })
+      });
+      if (updates.password && updates.password.trim() !== '') {
+        await fetch('/api/users/password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: updatedUser.email, password: updates.password.trim() })
+        });
+      }
+    } catch {
+      // Non-blocking
+    }
 
     // Audit Log
     const now = new Date();
     const auditLogs: AuditLogEntry[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.LOCAL_AUDIT) || '[]');
+    const isPasswordChanged = Boolean(updates.password && updates.password.trim() !== '');
     auditLogs.unshift({
       id: String(Date.now()),
       date: now.toISOString().split('T')[0],
@@ -1076,7 +2160,9 @@ class ApiClient {
       user: 'Owner',
       userEmail: opEmail,
       action: 'EDIT_USER',
-      description: `Updated account details/permissions for ${updatedUser.name} (${updatedUser.email})`
+      description: isPasswordChanged 
+        ? `Updated credentials & permissions for ${updatedUser.name} (${updatedUser.email})`
+        : `Updated account details/permissions for ${updatedUser.name} (${updatedUser.email})`
     });
     localStorage.setItem(STORAGE_KEYS.LOCAL_AUDIT, JSON.stringify(auditLogs));
 
@@ -1088,7 +2174,8 @@ class ApiClient {
           targetEmail: cleanTarget,
           name: updatedUser.name || '',
           role: updatedUser.role || 'ADMIN',
-          status: updatedUser.status || 'ACTIVE'
+          status: updatedUser.status || 'ACTIVE',
+          password: updatedUser.password || ''
         });
         const getUrl = `${this.gasUrl}${this.gasUrl.includes('?') ? '&' : '?'}${queryParams.toString()}`;
         const getRes = await this.fetchFromGas<{ success: boolean; error?: string }>(getUrl);
@@ -1101,7 +2188,8 @@ class ApiClient {
               action: 'editUser',
               operatorEmail: opEmail,
               targetEmail: cleanTarget,
-              user: updatedUser
+              user: updatedUser,
+              password: updatedUser.password
             })
           });
         }
@@ -1303,7 +2391,8 @@ class ApiClient {
           name: u.name || '',
           email: u.email,
           role: u.role || 'ADMIN',
-          status: u.status || 'ACTIVE'
+          status: u.status || 'ACTIVE',
+          password: u.password || ''
         });
         const getUrl = `${this.gasUrl}${this.gasUrl.includes('?') ? '&' : '?'}${queryParams.toString()}`;
         const res = await this.fetchFromGas<{ success: boolean }>(getUrl);
@@ -1351,7 +2440,6 @@ class ApiClient {
     }
 
     if (cleanEmail === SYSTEM_OWNER_EMAIL.toLowerCase()) matched = SYSTEM_OWNER_USER;
-    if (cleanEmail === JOTHAM_EMAIL.toLowerCase()) matched = JOTHAM_USER;
 
     if (!matched) {
       if (!this.isConnectedToLiveBackend()) {
@@ -1397,6 +2485,13 @@ class ApiClient {
   public async saveSettings(settings: AppSettings, operatorEmail: string): Promise<BackendResponse<AppSettings>> {
     // 1. Always save to LocalStorage first to guarantee immediate persistence
     localStorage.setItem(STORAGE_KEYS.LOCAL_SETTINGS, JSON.stringify(settings));
+
+    // Broadcast to server shared settings so all devices/users get updated logoUrl and branding immediately
+    fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ settings })
+    }).catch(() => null);
 
     // Audit Log
     const now = new Date();

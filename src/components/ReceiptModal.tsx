@@ -1,9 +1,13 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { WhatsAppShareModal } from './WhatsAppShareModal';
+import { ExpenseVoucherModal } from './ExpenseVoucherModal';
+import { HARDCODED_LOGO_URL } from '../assets/brandLogo';
+import { printReceiptElement, downloadReceiptImage } from '../utils/printReceipt';
 import { 
   X, 
   Printer, 
+  Download,
   Mail, 
   ShieldCheck, 
   Clock, 
@@ -20,17 +24,65 @@ import {
 export const ReceiptModal: React.FC = () => {
   const { selectedReceipt, setSelectedReceipt, resendReceipt, deleteTransaction, currentUser, userPermissions, settings, addToast } = useApp();
   const [isResending, setIsResending] = useState(false);
+  const [isPrinting, setIsPrinting] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
 
   if (!selectedReceipt) return null;
 
+  // Open-Closed polymorphism: Outflows render through ExpenseVoucherModal
+  if (selectedReceipt.type === 'OUTFLOW') {
+    return (
+      <ExpenseVoucherModal
+        voucher={selectedReceipt}
+        onClose={() => setSelectedReceipt(null)}
+        settings={settings}
+      />
+    );
+  }
+
   const isOwner = currentUser?.role === 'OWNER';
   const canDelete = isOwner || userPermissions.canDeleteTransactions;
 
-  const handlePrint = () => {
-    window.print();
+  const handlePrint = async () => {
+    if (!selectedReceipt) return;
+    setIsPrinting(true);
+    addToast('Preparing official printable receipt...', 'info');
+    try {
+      const res = await printReceiptElement('printable-receipt', selectedReceipt.receiptNumber);
+      if (res.message) {
+        addToast(res.message, 'success');
+      } else if (res.success) {
+        addToast('Print dialog opened!', 'success');
+      } else {
+        addToast('Downloading printable receipt image...', 'info');
+        await downloadReceiptImage('printable-receipt', selectedReceipt.receiptNumber);
+      }
+    } catch (err) {
+      console.warn('Print error fallback:', err);
+      addToast('Generating printable receipt slip...', 'info');
+      await downloadReceiptImage('printable-receipt', selectedReceipt.receiptNumber);
+    } finally {
+      setIsPrinting(false);
+    }
+  };
+
+  const handleDownloadImage = async () => {
+    if (!selectedReceipt) return;
+    setIsDownloading(true);
+    addToast('Generating high-resolution receipt image...', 'info');
+    try {
+      const ok = await downloadReceiptImage('printable-receipt', selectedReceipt.receiptNumber);
+      if (ok) {
+        addToast('Receipt slip downloaded successfully!', 'success');
+      } else {
+        addToast('Failed to download image. Try printing instead.', 'error');
+      }
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const handleResend = async () => {
@@ -75,17 +127,31 @@ export const ReceiptModal: React.FC = () => {
               className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-semibold rounded-xl transition cursor-pointer shadow-xs"
             >
               <MessageSquare className="w-3.5 h-3.5" />
-              <span>Send to WhatsApp</span>
+              <span>Send via WhatsApp (Image + Text)</span>
             </button>
 
             <button
               id="btn-print-receipt-modal"
               onClick={handlePrint}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl transition cursor-pointer"
+              disabled={isPrinting}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl transition cursor-pointer disabled:opacity-50"
+              title="Print official receipt"
             >
-              <Printer className="w-3.5 h-3.5" />
-              <span>Print</span>
+              {isPrinting ? <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-400" /> : <Printer className="w-3.5 h-3.5" />}
+              <span>{isPrinting ? 'Printing...' : 'Print'}</span>
             </button>
+
+            <button
+              id="btn-download-receipt-modal"
+              onClick={handleDownloadImage}
+              disabled={isDownloading}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl transition cursor-pointer disabled:opacity-50"
+              title="Download official receipt slip image"
+            >
+              {isDownloading ? <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" /> : <Download className="w-3.5 h-3.5" />}
+              <span>{isDownloading ? 'Saving...' : 'Download'}</span>
+            </button>
+
             <button
               id="btn-resend-receipt-modal"
               onClick={handleResend}
@@ -147,17 +213,15 @@ export const ReceiptModal: React.FC = () => {
           <div className="border-b-2 border-slate-900 pb-6 mb-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="flex items-center gap-3.5">
-                {settings.logoUrl ? (
-                  <img
-                    src={settings.logoUrl}
-                    alt={settings.organizationName || 'SC Basimbuzi'}
-                    className="w-12 h-12 object-contain rounded-xl border border-slate-200 p-1 bg-white"
-                  />
-                ) : (
-                  <div className="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-lg shadow-xs">
-                    SB
-                  </div>
-                )}
+                <img
+                  src={(settings.logoUrl && !settings.logoUrl.endsWith('.svg')) ? settings.logoUrl : HARDCODED_LOGO_URL}
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src = HARDCODED_LOGO_URL;
+                  }}
+                  crossOrigin="anonymous"
+                  alt={settings.organizationName || 'SC Basimbuzi'}
+                  className="w-12 h-12 object-contain rounded-xl border border-slate-200 p-1 bg-white shadow-xs"
+                />
                 <div>
                   <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 uppercase">
                     {settings.organizationName || 'SC BASIMBUZI'}
@@ -169,7 +233,7 @@ export const ReceiptModal: React.FC = () => {
               </div>
 
               <div className="text-left sm:text-right bg-slate-50 sm:bg-transparent p-3 sm:p-0 rounded-xl sm:rounded-none w-full sm:w-auto border sm:border-0 border-slate-200">
-                <div className="text-xs font-mono font-bold text-blue-600 uppercase">
+                <div className="text-xs font-sans font-bold text-blue-600 uppercase">
                   {selectedReceipt.receiptNumber}
                 </div>
                 <div className="text-xs text-slate-500 flex sm:justify-end items-center gap-1.5 mt-0.5">
@@ -185,19 +249,13 @@ export const ReceiptModal: React.FC = () => {
             <div className="text-xs font-bold text-blue-800 tracking-wider uppercase mb-1">
               Amount Received
             </div>
-            <div className="text-3xl sm:text-4xl font-extrabold text-blue-700 tracking-tight font-mono">
+            <div className="text-3xl sm:text-4xl font-extrabold text-blue-700 tracking-tight font-sans">
               {formattedAmount}
             </div>
-            <div className="mt-2 flex items-center justify-center gap-2">
+            <div className="mt-2 flex items-center justify-center">
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800">
                 <ShieldCheck className="w-3.5 h-3.5" />
                 {selectedReceipt.paymentStatus}
-              </span>
-              <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                isSent ? 'bg-sky-100 text-sky-800' : 'bg-amber-100 text-amber-800'
-              }`}>
-                <Mail className="w-3.5 h-3.5" />
-                Email: {selectedReceipt.emailStatus}
               </span>
             </div>
           </div>
@@ -216,7 +274,11 @@ export const ReceiptModal: React.FC = () => {
                 </div>
                 <div>
                   <span className="text-xs text-slate-500 block">Email Address</span>
-                  <span className="font-mono text-slate-800 break-all">{selectedReceipt.email}</span>
+                  <span className="font-sans text-slate-800 break-all">
+                    {selectedReceipt.email && !selectedReceipt.email.toLowerCase().includes('no-reply') && !selectedReceipt.email.toLowerCase().includes('whatsapp.direct') 
+                      ? selectedReceipt.email 
+                      : <span className="text-slate-400 italic">None provided (WhatsApp dispatch)</span>}
+                  </span>
                 </div>
                 {selectedReceipt.phone && (
                   <div>
@@ -244,7 +306,7 @@ export const ReceiptModal: React.FC = () => {
                 {selectedReceipt.paymentReference && (
                   <div>
                     <span className="text-xs text-slate-500 block">Reference / Transaction ID</span>
-                    <span className="font-mono font-medium text-slate-800">{selectedReceipt.paymentReference}</span>
+                    <span className="font-sans font-medium text-slate-800">{selectedReceipt.paymentReference}</span>
                   </div>
                 )}
                 <div>
@@ -285,7 +347,7 @@ export const ReceiptModal: React.FC = () => {
                 </span>
               )}
             </div>
-            <p className="text-[10px] text-slate-400 font-mono pt-2">
+            <p className="text-[10px] text-slate-400 font-sans pt-2">
               Electronically generated by SC Basimbuzi System &bull; Receipt ID: {selectedReceipt.receiptNumber}
             </p>
           </div>
@@ -294,7 +356,9 @@ export const ReceiptModal: React.FC = () => {
         {/* Modal Bottom Actions (Hidden in Print) */}
         <div className="bg-slate-50 dark:bg-slate-800/80 border-t border-slate-200 dark:border-slate-800 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-3 print:hidden transition-colors">
           <span className="text-xs text-slate-500 dark:text-slate-400">
-            Payer notification: {isSent ? 'Delivered to ' + selectedReceipt.email : 'Email delivery status: ' + selectedReceipt.emailStatus}
+            {isSent && selectedReceipt.email && !selectedReceipt.email.toLowerCase().includes('no-reply')
+              ? `Payer notification: Delivered to ${selectedReceipt.email}`
+              : `Payer notification: Dispatched via WhatsApp (${selectedReceipt.phone || 'Phone'})`}
           </span>
           <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <button
@@ -311,11 +375,21 @@ export const ReceiptModal: React.FC = () => {
               <span>WhatsApp</span>
             </button>
             <button
-              onClick={handlePrint}
-              className="flex-1 sm:flex-initial px-4 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs font-semibold rounded-xl transition inline-flex items-center justify-center gap-1.5 shadow-sm shadow-blue-600/20 cursor-pointer"
+              onClick={handleDownloadImage}
+              disabled={isDownloading}
+              className="flex-1 sm:flex-initial px-4 py-2 bg-slate-800 hover:bg-slate-700 active:bg-slate-900 text-white text-xs font-semibold rounded-xl transition inline-flex items-center justify-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
+              title="Download high-resolution printable receipt slip image"
             >
-              <Printer className="w-4 h-4" />
-              <span>Print Receipt</span>
+              {isDownloading ? <Loader2 className="w-4 h-4 animate-spin text-emerald-400" /> : <Download className="w-4 h-4" />}
+              <span>{isDownloading ? 'Saving Image...' : 'Download Slip'}</span>
+            </button>
+            <button
+              onClick={handlePrint}
+              disabled={isPrinting}
+              className="flex-1 sm:flex-initial px-4 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs font-semibold rounded-xl transition inline-flex items-center justify-center gap-1.5 shadow-sm shadow-blue-600/20 cursor-pointer disabled:opacity-50"
+            >
+              {isPrinting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
+              <span>{isPrinting ? 'Opening Printer...' : 'Print Receipt'}</span>
             </button>
           </div>
         </div>

@@ -1,10 +1,15 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
+import { ExecutiveReportModal } from '../components/ExecutiveReportModal';
 import { 
   BarChart3, 
   Download, 
   ArrowUpRight, 
-  ArrowDownRight 
+  ArrowDownRight,
+  FileCheck2,
+  Printer,
+  FileSpreadsheet,
+  Sparkles
 } from 'lucide-react';
 import { 
   AreaChart, 
@@ -25,11 +30,30 @@ import {
 const BLUE_PALETTE = ['#2563eb', '#0284c7', '#4f46e5', '#0891b2', '#3b82f6', '#6366f1', '#64748b'];
 
 export const ReportsView: React.FC = () => {
-  const { transactions } = useApp();
+  const { transactions, settings, currentUser } = useApp();
   
   const [rangeType, setRangeType] = useState<'TODAY' | 'THIS_WEEK' | 'THIS_MONTH' | 'LAST_MONTH' | 'THIS_YEAR' | 'ALL' | 'CUSTOM'>('THIS_MONTH');
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
+  const [showPresentationModal, setShowPresentationModal] = useState(false);
+
+  // Compute human-readable range label
+  const rangeLabel = useMemo(() => {
+    const now = new Date();
+    switch (rangeType) {
+      case 'TODAY': return `Today (${now.toISOString().split('T')[0]})`;
+      case 'THIS_WEEK': return 'This Current Week';
+      case 'THIS_MONTH': return `This Month (${now.toLocaleString('default', { month: 'long', year: 'numeric' })})`;
+      case 'LAST_MONTH': {
+        const d = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        return `Last Month (${d.toLocaleString('default', { month: 'long', year: 'numeric' })})`;
+      }
+      case 'THIS_YEAR': return `Year ${now.getFullYear()}`;
+      case 'ALL': return 'All Time (Complete Historical Ledger)';
+      case 'CUSTOM': return `Custom: ${customStart || 'Earliest'} to ${customEnd || 'Latest'}`;
+      default: return 'Selected Period';
+    }
+  }, [rangeType, customStart, customEnd]);
 
   // Date Filtering Calculation
   const filteredData = useMemo(() => {
@@ -72,55 +96,82 @@ export const ReportsView: React.FC = () => {
   const metrics = useMemo(() => {
     if (filteredData.length === 0) {
       return {
-        totalRevenue: 0,
+        totalInflow: 0,
+        totalOutflow: 0,
+        netBalance: 0,
         count: 0,
+        inflowCount: 0,
+        outflowCount: 0,
         average: 0,
         largest: 0,
         smallest: 0
       };
     }
 
-    let total = 0;
+    let totalInflow = 0;
+    let totalOutflow = 0;
+    let inflowCount = 0;
+    let outflowCount = 0;
     let max = -Infinity;
     let min = Infinity;
 
     filteredData.forEach(tx => {
       const amt = Number(tx.amount) || 0;
-      total += amt;
-      if (amt > max) max = amt;
-      if (amt < min) min = amt;
+      const isOutflow = tx.type === 'OUTFLOW';
+      if (isOutflow) {
+        totalOutflow += amt;
+        outflowCount++;
+      } else {
+        totalInflow += amt;
+        inflowCount++;
+        if (amt > max) max = amt;
+        if (amt < min) min = amt;
+      }
     });
 
     return {
-      totalRevenue: total,
+      totalInflow,
+      totalOutflow,
+      netBalance: totalInflow - totalOutflow,
       count: filteredData.length,
-      average: Math.round(total / filteredData.length),
+      inflowCount,
+      outflowCount,
+      average: inflowCount > 0 ? Math.round(totalInflow / inflowCount) : 0,
       largest: max === -Infinity ? 0 : max,
       smallest: min === Infinity ? 0 : min
     };
   }, [filteredData]);
 
-  // 1. Chart: Revenue Over Time
+  // 1. Chart: Revenue / Cashflow Over Time
   const timeSeriesData = useMemo(() => {
-    const map = new Map<string, number>();
+    const map = new Map<string, { inflow: number; outflow: number }>();
     const sorted = [...filteredData].sort((a, b) => a.date.localeCompare(b.date));
 
     sorted.forEach(tx => {
-      const cur = map.get(tx.date) || 0;
-      map.set(tx.date, cur + (Number(tx.amount) || 0));
+      const dateKey = tx.date;
+      const cur = map.get(dateKey) || { inflow: 0, outflow: 0 };
+      const amt = Number(tx.amount) || 0;
+      if (tx.type === 'OUTFLOW') {
+        cur.outflow += amt;
+      } else {
+        cur.inflow += amt;
+      }
+      map.set(dateKey, cur);
     });
 
-    return Array.from(map.entries()).map(([date, revenue]) => ({
+    return Array.from(map.entries()).map(([date, data]) => ({
       date: date.substring(5), // MM-DD
       fullDate: date,
-      revenue
+      inflow: data.inflow,
+      outflow: data.outflow,
+      net: data.inflow - data.outflow
     }));
   }, [filteredData]);
 
-  // 2. Chart: Payments by Purpose
+  // 2. Chart: Payments by Purpose (Inflows Only)
   const purposeData = useMemo(() => {
     const map = new Map<string, { count: number; total: number }>();
-    filteredData.forEach(tx => {
+    filteredData.filter(tx => tx.type !== 'OUTFLOW').forEach(tx => {
       const cur = map.get(tx.paymentPurpose) || { count: 0, total: 0 };
       map.set(tx.paymentPurpose, {
         count: cur.count + 1,
@@ -171,24 +222,55 @@ export const ReportsView: React.FC = () => {
   const handleExportCSV = () => {
     if (filteredData.length === 0) return;
 
-    const headers = ['Receipt #', 'Date', 'Payer', 'Email', 'Amount (UGX)', 'Purpose', 'Method', 'Operator', 'Status'];
+    const orgName = settings.organizationName || 'SC Basimbuzi';
+    const nowStr = new Date().toISOString();
+    
+    const metaHeaders = [
+      `"ORGANIZATION:","${orgName}"`,
+      `"DOCUMENT:","Executive Financial Analytics & Audit Ledger"`,
+      `"PERIOD:","${rangeLabel}"`,
+      `"GENERATED AT:","${nowStr}"`,
+      `"TOTAL REVENUE:","${metrics.totalRevenue} UGX"`,
+      `"TOTAL RECEIPTS:","${metrics.count}"`,
+      `"AVERAGE TICKET:","${metrics.average} UGX"`,
+      `""` // blank line
+    ];
+
+    const dataHeaders = [
+      'Receipt #', 
+      'Date', 
+      'Time', 
+      'Payer Name', 
+      'Phone', 
+      'Email', 
+      'Amount (UGX)', 
+      'Purpose / Category', 
+      'Payment Method', 
+      'Reference', 
+      'Issued By', 
+      'Status'
+    ];
+
     const rows = filteredData.map(tx => [
       `"${tx.receiptNumber}"`,
       `"${tx.date}"`,
+      `"${tx.time || ''}"`,
       `"${tx.payerName}"`,
-      `"${tx.email}"`,
+      `"${tx.phone || ''}"`,
+      `"${tx.email || ''}"`,
       tx.amount,
       `"${tx.paymentPurpose}"`,
       `"${tx.paymentMethod}"`,
-      `"${tx.generatedBy}"`,
-      `"${tx.emailStatus}"`
+      `"${tx.paymentReference || ''}"`,
+      `"${tx.generatedBy || ''}"`,
+      `"${tx.paymentStatus}"`
     ]);
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const csvContent = 'data:text/csv;charset=utf-8,' + [...metaHeaders, dataHeaders.join(','), ...rows.map(r => r.join(','))].join('\n');
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `SC_Basimbuzi_Report_${rangeType}_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `SC_Basimbuzi_Financial_Report_${rangeType}_${nowStr.split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -197,29 +279,44 @@ export const ReportsView: React.FC = () => {
   return (
     <div className="space-y-6 max-w-7xl mx-auto py-6 px-4 sm:px-6">
       {/* Header & Date Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs transition-colors">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs transition-colors">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
-              <BarChart3 className="w-5 h-5" />
-            </div>
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
-              Reports & Financial Analytics
-            </h1>
-          </div>
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight mb-1">
+            Reports &amp; Financial Analytics
+          </h1>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-            Real-time calculations computed dynamically from your receipt ledger.
+            Real-time calculations computed dynamically from your receipt ledger &bull; {rangeLabel}
           </p>
         </div>
 
-        <button
-          onClick={handleExportCSV}
-          disabled={filteredData.length === 0}
-          className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 text-white text-xs font-semibold rounded-xl transition inline-flex items-center gap-2 shadow-xs shadow-blue-600/20 shrink-0 cursor-pointer"
-        >
-          <Download className="w-4 h-4" />
-          <span>Export Report Data</span>
-        </button>
+        {/* Enhanced Presentation & Export Actions */}
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <button
+            onClick={() => setShowPresentationModal(true)}
+            disabled={filteredData.length === 0}
+            className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 active:scale-95 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition flex items-center gap-2 shadow-sm shadow-blue-600/30 cursor-pointer"
+          >
+            <span>Presentation Report (PDF / Image)</span>
+          </button>
+
+          <button
+            onClick={handleExportCSV}
+            disabled={filteredData.length === 0}
+            className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 active:scale-95 disabled:opacity-50 text-slate-800 dark:text-slate-200 text-xs font-semibold rounded-xl transition flex items-center gap-1.5 border border-slate-200 dark:border-slate-700 cursor-pointer"
+            title="Download standard CSV/Excel spreadsheet"
+          >
+            <span>Export CSV</span>
+          </button>
+
+          <button
+            onClick={() => setShowPresentationModal(true)}
+            disabled={filteredData.length === 0}
+            className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 active:scale-95 disabled:opacity-50 text-slate-800 dark:text-slate-200 text-xs font-semibold rounded-xl transition flex items-center gap-1.5 border border-slate-200 dark:border-slate-700 cursor-pointer"
+            title="Open printable document and PDF generator"
+          >
+            <span>Print / PDF</span>
+          </button>
+        </div>
       </div>
 
       {/* Date Range Selector Bar with Fancy Transparent Tabs */}
@@ -269,24 +366,46 @@ export const ReportsView: React.FC = () => {
 
       {/* 5 KPI Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        {/* Total Revenue */}
-        <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs transition-colors">
-          <div className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
-            Total Revenue
+        {/* Net Financial Balance */}
+        <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-indigo-200 dark:border-indigo-900/50 shadow-xs transition-colors">
+          <div className="text-xs font-bold text-indigo-700 dark:text-indigo-400 uppercase tracking-wider mb-1">
+            Net Balance
           </div>
-          <div className="text-2xl font-black text-blue-600 dark:text-blue-400 tracking-tight font-mono">
-            {metrics.totalRevenue.toLocaleString()} <span className="text-xs text-slate-500 dark:text-slate-400 font-sans">UGX</span>
+          <div className="text-2xl font-black text-indigo-600 dark:text-indigo-400 tracking-tight font-sans">
+            {metrics.netBalance.toLocaleString()} <span className="text-xs text-slate-500 dark:text-slate-400 font-sans">UGX</span>
           </div>
-          <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">In selected timeframe</div>
+          <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Inflow minus Outflow</div>
         </div>
 
-        {/* Payments Count */}
+        {/* Total Inflow */}
+        <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-emerald-200 dark:border-emerald-900/50 shadow-xs transition-colors">
+          <div className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider mb-1">
+            Total Inflow
+          </div>
+          <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight font-sans">
+            + {metrics.totalInflow.toLocaleString()} <span className="text-xs text-slate-500 dark:text-slate-400 font-sans">UGX</span>
+          </div>
+          <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">{metrics.inflowCount} receipts collected</div>
+        </div>
+
+        {/* Total Outflow */}
+        <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-rose-200 dark:border-rose-900/50 shadow-xs transition-colors">
+          <div className="text-xs font-bold text-rose-700 dark:text-rose-400 uppercase tracking-wider mb-1">
+            Total Outflow
+          </div>
+          <div className="text-2xl font-black text-rose-600 dark:text-rose-400 tracking-tight font-sans">
+            - {metrics.totalOutflow.toLocaleString()} <span className="text-xs text-slate-500 dark:text-slate-400 font-sans">UGX</span>
+          </div>
+          <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">{metrics.outflowCount} expense vouchers</div>
+        </div>
+
+        {/* Receipts Count */}
         <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs transition-colors">
           <div className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
             Receipts Issued
           </div>
           <div className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-            {metrics.count}
+            {metrics.inflowCount}
           </div>
           <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Total recorded payments</div>
         </div>
@@ -296,34 +415,10 @@ export const ReportsView: React.FC = () => {
           <div className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
             Average Payment
           </div>
-          <div className="text-xl font-extrabold text-slate-800 dark:text-slate-200 tracking-tight font-mono">
+          <div className="text-xl font-extrabold text-slate-800 dark:text-slate-200 tracking-tight font-sans">
             {metrics.average.toLocaleString()} <span className="text-xs text-slate-500 dark:text-slate-400 font-sans">UGX</span>
           </div>
           <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Per transaction average</div>
-        </div>
-
-        {/* Largest Payment */}
-        <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs transition-colors">
-          <div className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
-            <span>Largest</span>
-            <ArrowUpRight className="w-3.5 h-3.5 text-blue-500" />
-          </div>
-          <div className="text-xl font-extrabold text-blue-600 dark:text-blue-400 tracking-tight font-mono">
-            {metrics.largest.toLocaleString()} <span className="text-xs text-slate-500 dark:text-slate-400 font-sans">UGX</span>
-          </div>
-          <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Single highest payment</div>
-        </div>
-
-        {/* Smallest Payment */}
-        <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs transition-colors">
-          <div className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
-            <span>Smallest</span>
-            <ArrowDownRight className="w-3.5 h-3.5 text-sky-500" />
-          </div>
-          <div className="text-xl font-extrabold text-slate-700 dark:text-slate-300 tracking-tight font-mono">
-            {metrics.smallest.toLocaleString()} <span className="text-xs text-slate-500 dark:text-slate-400 font-sans">UGX</span>
-          </div>
-          <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Single lowest payment</div>
         </div>
       </div>
 
@@ -332,7 +427,7 @@ export const ReportsView: React.FC = () => {
         {/* Chart 1: Revenue Timeline */}
         <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs transition-colors">
           <h2 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-1">
-            Revenue Trend Over Selected Period
+            Cash Inflow Trend Over Selected Period
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">Daily cash collection timeline</p>
           <div className="h-64 w-full">
@@ -343,8 +438,8 @@ export const ReportsView: React.FC = () => {
                 <AreaChart data={timeSeriesData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="reportGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#2563eb" stopOpacity={0.0} />
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" opacity={0.2} />
@@ -357,11 +452,11 @@ export const ReportsView: React.FC = () => {
                   <Tooltip 
                     formatter={(v: number | string | Array<number | string> | undefined) => [
                       `${Number(v || 0).toLocaleString()} UGX`, 
-                      'Revenue'
+                      'Inflow'
                     ]}
                     contentStyle={{ backgroundColor: '#0f172a', borderRadius: '12px', border: '1px solid #1e293b', color: '#fff', fontSize: '12px' }}
                   />
-                  <Area type="monotone" dataKey="revenue" stroke="#2563eb" strokeWidth={2} fill="url(#reportGrad)" />
+                  <Area type="monotone" dataKey="inflow" stroke="#10b981" strokeWidth={2} fill="url(#reportGrad)" />
                 </AreaChart>
               </ResponsiveContainer>
             )}
@@ -465,6 +560,22 @@ export const ReportsView: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Executive Presentation Report Modal */}
+      {showPresentationModal && (
+        <ExecutiveReportModal
+          filteredData={filteredData}
+          metrics={metrics}
+          purposeData={purposeData}
+          methodData={methodData}
+          operatorData={operatorData}
+          rangeLabel={rangeLabel}
+          settings={settings}
+          currentUser={currentUser}
+          onClose={() => setShowPresentationModal(false)}
+          onExportCSV={handleExportCSV}
+        />
+      )}
     </div>
   );
 };

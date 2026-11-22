@@ -1,18 +1,21 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
+import { HARDCODED_LOGO_URL } from '../assets/brandLogo';
 import { 
   Menu, 
   RotateCw, 
   PlusCircle, 
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  ExternalLink
 } from 'lucide-react';
 
 interface HeaderProps {
   onToggleSidebar: () => void;
+  onOpenPublicSite?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
+export const Header: React.FC<HeaderProps> = ({ onToggleSidebar, onOpenPublicSite }) => {
   const { 
     activeTab, 
     setActiveTab, 
@@ -20,8 +23,12 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
     isLoading, 
     isLiveBackend, 
     settings,
-    setLastGeneratedReceipt 
+    setLastGeneratedReceipt,
+    currentUser,
+    userPermissions
   } = useApp();
+
+  const canIssueReceipts = currentUser?.role !== 'MEDIA' || Boolean(userPermissions.canIssueReceipts);
 
   const getTabTitle = () => {
     switch (activeTab) {
@@ -30,6 +37,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
       case 'transactions': return 'Transaction Ledger';
       case 'search': return 'Search Receipts';
       case 'reports': return 'Financial Analytics & Reports';
+      case 'website': return 'Club News & Website CMS';
       case 'users': return 'Administrator Management';
       case 'audit': return 'Security & Audit Logs';
       case 'settings': return 'System Settings & Appearance';
@@ -62,18 +70,15 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
             </h2>
           </div>
         ) : (
-          <div className="flex items-center gap-2">
-            {settings.logoUrl ? (
-              <img 
-                src={settings.logoUrl} 
-                alt={settings.organizationName} 
-                className="w-6 h-6 object-contain rounded-md" 
-              />
-            ) : (
-              <span className="w-6 h-6 rounded-md bg-blue-600 text-white font-bold text-xs flex items-center justify-center">
-                SB
-              </span>
-            )}
+          <div className="flex items-center gap-2.5">
+            <img 
+              src={settings.logoUrl || HARDCODED_LOGO_URL} 
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = HARDCODED_LOGO_URL;
+              }}
+              alt={settings.organizationName || 'SC Basimbuzi'} 
+              className="w-7 h-7 object-contain rounded-lg border border-slate-200/80 dark:border-slate-800 p-0.5 bg-white dark:bg-slate-900 shadow-xs" 
+            />
             <span className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white uppercase tracking-wider">
               {settings.organizationName || 'SC Basimbuzi'}
             </span>
@@ -113,8 +118,19 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
           <RotateCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
         </button>
 
+        {onOpenPublicSite && (
+          <button
+            type="button"
+            onClick={onOpenPublicSite}
+            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition cursor-pointer"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            <span>Public Site</span>
+          </button>
+        )}
+
         {/* Quick Record Payment / New Receipt button */}
-        {activeTab !== 'generate' && (
+        {activeTab !== 'generate' && canIssueReceipts && (
           <button
             id="btn-header-quick-generate"
             onClick={() => {

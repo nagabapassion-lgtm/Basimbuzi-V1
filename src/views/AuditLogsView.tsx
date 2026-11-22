@@ -160,17 +160,17 @@ export const AuditLogsView: React.FC = () => {
                     <td className="px-5 py-3.5">
                       <div className="font-semibold text-slate-900 dark:text-white">{log.user}</div>
                       {log.userEmail && (
-                        <div className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">{log.userEmail}</div>
+                        <div className="text-[10px] text-slate-400 dark:text-slate-500 font-sans">{log.userEmail}</div>
                       )}
                     </td>
 
                     <td className="px-5 py-3.5">
-                      <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-mono font-bold border uppercase ${getActionBadgeColor(log.action)}`}>
+                      <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-sans font-bold border uppercase ${getActionBadgeColor(log.action)}`}>
                         {log.action}
                       </span>
                     </td>
 
-                    <td className="px-5 py-3.5 font-mono font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                    <td className="px-5 py-3.5 font-sans font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">
                       {log.receiptNumber || '—'}
                     </td>
 

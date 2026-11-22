@@ -1,5 +1,6 @@
-import html2canvas from 'html2canvas';
+import html2canvas from 'html2canvas-pro';
 import { Transaction, AppSettings } from '../types';
+import { HARDCODED_LOGO_URL } from '../assets/brandLogo';
 
 /**
  * Format phone number for international WhatsApp messaging
@@ -81,9 +82,8 @@ export async function renderReceiptToImage(
   const orgPhone = settings.organizationPhone || '+256 700 123456';
   const orgAddress = settings.organizationAddress || 'Lugogo Bypass, Kampala, Uganda';
   const formattedAmount = `${Number(receipt.amount).toLocaleString()} UGX`;
-  const logoHtml = settings.logoUrl
-    ? `<img src="${settings.logoUrl}" alt="${orgName}" style="height: 48px; max-width: 140px; object-fit: contain; margin-bottom: 8px;" crossOrigin="anonymous" />`
-    : `<div style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; background-color: #2563eb; color: #ffffff; font-weight: 900; font-size: 18px; border-radius: 12px; margin-bottom: 8px;">SB</div>`;
+  const activeLogo = settings.logoUrl && settings.logoUrl.trim() ? settings.logoUrl : HARDCODED_LOGO_URL;
+  const logoHtml = `<img src="${activeLogo}" alt="${orgName}" style="height: 48px; max-width: 140px; object-fit: contain; margin-bottom: 8px;" crossOrigin="anonymous" />`;
 
   container.innerHTML = `
     <div style="border: 2px solid #e2e8f0; border-radius: 20px; padding: 28px; background-color: #ffffff; box-shadow: 0 4px 20px rgba(0,0,0,0.04);">
@@ -152,27 +152,41 @@ export async function renderReceiptToImage(
   document.body.appendChild(container);
 
   try {
+    // 1. Wait for logo image and other images inside container to finish loading
+    const images = Array.from(container.getElementsByTagName('img'));
+    await Promise.all(
+      images.map(
+        (img) =>
+          new Promise<void>((resolve) => {
+            if (img.complete) {
+              resolve();
+            } else {
+              img.onload = () => resolve();
+              img.onerror = () => resolve();
+              setTimeout(resolve, 1000); // safety fallback limit
+            }
+          })
+      )
+    );
+
+    // 2. Extra delay to make sure styles/layout/fonts are settled
+    await new Promise((resolve) => setTimeout(resolve, 600));
+
+    // 3. Render with html2canvas using CORS options
     const canvas = await html2canvas(container, {
-      scale: 2,
       useCORS: true,
-      allowTaint: true,
+      allowTaint: false,
+      scale: 2,
       backgroundColor: '#ffffff',
       logging: false,
       width: 600
     });
 
     const dataUrl = canvas.toDataURL('image/png', 1.0);
-
-    return await new Promise((resolve, reject) => {
-      canvas.toBlob((blob) => {
-        if (!blob) {
-          reject(new Error('Failed to generate receipt image.'));
-          return;
-        }
-        const file = new File([blob], `Receipt-${receipt.receiptNumber}.png`, { type: 'image/png' });
-        resolve({ blob, dataUrl, file });
-      }, 'image/png', 1.0);
-    });
+    const res = await fetch(dataUrl);
+    const blob = await res.blob();
+    const file = new File([blob], `Receipt-${receipt.receiptNumber}.png`, { type: 'image/png' });
+    return { blob, dataUrl, file };
   } catch (err) {
     // Fallback: 2D Canvas Drawing
     console.warn('html2canvas render error, using Canvas 2D fallback:', err);
@@ -314,26 +328,39 @@ export async function captureReceiptAsImage(element: HTMLElement): Promise<{
   dataUrl: string;
   file: File;
 }> {
+  // Ensure styles/fonts are fully rendered and settled
+  await new Promise((resolve) => setTimeout(resolve, 600));
+
+  // Ensure images are fully loaded
+  const images = Array.from(element.getElementsByTagName('img'));
+  await Promise.all(
+    images.map(
+      (img) =>
+        new Promise<void>((resolve) => {
+          if (img.complete) {
+            resolve();
+          } else {
+            img.onload = () => resolve();
+            img.onerror = () => resolve();
+            setTimeout(resolve, 1000);
+          }
+        })
+    )
+  );
+
   const canvas = await html2canvas(element, {
-    scale: 2,
     useCORS: true,
-    allowTaint: true,
+    allowTaint: false,
+    scale: 2,
     backgroundColor: '#ffffff',
-    logging: false
+    logging: false,
   });
 
   const dataUrl = canvas.toDataURL('image/png', 1.0);
-
-  return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (!blob) {
-        reject(new Error('Failed to generate receipt image.'));
-        return;
-      }
-      const file = new File([blob], `Receipt-${Date.now()}.png`, { type: 'image/png' });
-      resolve({ blob, dataUrl, file });
-    }, 'image/png', 1.0);
-  });
+  const res = await fetch(dataUrl);
+  const blob = await res.blob();
+  const file = new File([blob], `Receipt-${Date.now()}.png`, { type: 'image/png' });
+  return { blob, dataUrl, file };
 }
 
 /**
@@ -368,28 +395,85 @@ export function downloadReceiptImage(blob: Blob, receiptNumber: string): void {
 }
 
 /**
- * Open WhatsApp chat with prefilled text message
+ * Get direct WhatsApp URL with phone number and encoded message text
  */
-export function openWhatsAppChat(phone: string, message: string): void {
+export function getWhatsAppUrl(phone: string, message: string): string {
   const cleanPhone = formatWhatsAppPhoneNumber(phone);
   const encodedText = encodeURIComponent(message);
-  
-  if (cleanPhone) {
-    window.open(`https://wa.me/${cleanPhone}?text=${encodedText}`, '_blank', 'noopener,noreferrer');
-  } else {
-    window.open(`https://api.whatsapp.com/send?text=${encodedText}`, '_blank', 'noopener,noreferrer');
+  return cleanPhone
+    ? `https://wa.me/${cleanPhone}?text=${encodedText}`
+    : `https://api.whatsapp.com/send?text=${encodedText}`;
+}
+
+/**
+ * Open WhatsApp chat with prefilled text message.
+ * Supports window.open and fallback anchor dispatch for mobile and iframe environments.
+ */
+export function openWhatsAppChat(phone: string, message: string): boolean {
+  const url = getWhatsAppUrl(phone, message);
+  let opened = false;
+
+  // Try window.open first
+  try {
+    const win = window.open(url, '_blank', 'noopener,noreferrer');
+    if (win && !win.closed) {
+      opened = true;
+    }
+  } catch {
+    opened = false;
   }
+
+  // Anchor dispatch fallback (reliably triggers even if window.open is restricted)
+  try {
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.target = '_blank';
+    anchor.rel = 'noopener noreferrer';
+    document.body.appendChild(anchor);
+    anchor.click();
+    setTimeout(() => {
+      if (document.body.contains(anchor)) {
+        document.body.removeChild(anchor);
+      }
+    }, 400);
+    opened = true;
+  } catch {
+    // Non-blocking
+  }
+
+  return opened;
+}
+
+/**
+ * Check if the client is a genuine mobile phone/tablet (iOS/Android)
+ * Excludes Windows desktop PCs, Macs, and Linux desktops where navigator.share
+ * invokes an OS flyout dialog that can hang or freeze the browser.
+ */
+export function isMobileDevice(): boolean {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
+  // Explicitly exclude desktop environments
+  if (/Windows NT|Macintosh|X11|Linux x86_64/i.test(navigator.userAgent)) {
+    return false;
+  }
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 }
 
 /**
  * Attempt Native Web Share with image file & message (iOS/Android WhatsApp integration)
+ * Excluded on desktop PCs to prevent OS dialog freezing.
  */
 export async function shareReceiptViaWebShare(
   file: File,
   message: string,
   receiptNumber: string
 ): Promise<boolean> {
-  if (navigator.share) {
+  // CRITICAL: Only attempt on actual mobile phones/tablets.
+  // On desktop PCs (especially Windows), navigator.share invokes a native Windows flyout that can freeze the machine.
+  if (!isMobileDevice()) {
+    return false;
+  }
+
+  if (typeof navigator !== 'undefined' && navigator.share) {
     try {
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({

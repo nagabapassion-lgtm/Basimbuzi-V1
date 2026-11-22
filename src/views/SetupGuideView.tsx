@@ -81,7 +81,7 @@ export const SetupGuideView: React.FC = () => {
         if (isLive) {
           setTestEmailResult({
             success: true,
-            message: `Email successfully dispatched from nagabapassion@gmail.com to ${testEmailAddress}. Please check your inbox (and spam/promotions folder)!`
+            message: `Email successfully dispatched to ${testEmailAddress}. Please check your inbox (and spam/promotions folder)!`
           });
           addToast('Test email dispatched via Google Apps Script!', 'success');
         } else {

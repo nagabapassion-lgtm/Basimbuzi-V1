@@ -10,7 +10,6 @@ import {
   X,
   Loader2,
   CheckCircle2,
-  Image as ImageIcon,
   UploadCloud,
   Trash2,
   Eye,
@@ -20,20 +19,42 @@ import {
   Globe,
   Sparkles,
   HelpCircle,
-  Check
+  Check,
+  RotateCw,
+  Database,
+  Layers,
+  ArrowUpRight,
+  FileSpreadsheet,
+  Scale,
+  Calendar,
+  DollarSign,
+  History
 } from 'lucide-react';
 
-export const SettingsView: React.FC = () => {
-  const { settings, saveSettings, currentUser, theme, setTheme } = useApp();
+const DEFAULT_EXPENSE_CATEGORIES = [
+  'Pitch Hire & Facilities',
+  'Match Day & Referees',
+  'Equipment & Kits',
+  'Transport & Logistics',
+  'Player Refreshments & Meals',
+  'Medical & First Aid',
+  'Administration & Utilities',
+  'Tournament Entry Fee',
+  'Other Expenses'
+];
 
-  const [form, setForm] = useState<AppSettings>({ ...settings });
+export const SettingsView: React.FC = () => {
+  const { settings, saveSettings, currentUser, theme, setTheme, addToast } = useApp();
+
+  const [form, setForm] = useState<AppSettings>({ 
+    ...settings,
+    expenseCategories: settings.expenseCategories || DEFAULT_EXPENSE_CATEGORIES
+  });
   const [newCategory, setNewCategory] = useState('');
+  const [newExpenseCategory, setNewExpenseCategory] = useState('');
   const [newMethod, setNewMethod] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const isOwner = currentUser?.role === 'OWNER';
 
   if (!isOwner) {
@@ -50,44 +71,6 @@ export const SettingsView: React.FC = () => {
     );
   }
 
-  const handleLogoFileUpload = (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      alert('Please upload a valid image file (PNG, JPG, SVG, WebP).');
-      return;
-    }
-
-    if (file.size > 2 * 1024 * 1024) {
-      alert('Image size should be under 2MB.');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target?.result as string;
-      if (result) {
-        setForm(prev => ({ ...prev, logoUrl: result }));
-      }
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = () => {
-    setIsDragging(false);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleLogoFileUpload(e.dataTransfer.files[0]);
-    }
-  };
-
   const handleAddCategory = () => {
     if (newCategory.trim() && !form.paymentCategories.includes(newCategory.trim())) {
       setForm(prev => ({
@@ -100,12 +83,35 @@ export const SettingsView: React.FC = () => {
 
   const handleRemoveCategory = (catToRemove: string) => {
     if (form.paymentCategories.length <= 1) {
-      alert('At least one payment category is required.');
+      addToast('At least one payment category is required.', 'error');
       return;
     }
     setForm(prev => ({
       ...prev,
       paymentCategories: prev.paymentCategories.filter(c => c !== catToRemove)
+    }));
+  };
+
+  const handleAddExpenseCategory = () => {
+    const list = form.expenseCategories || DEFAULT_EXPENSE_CATEGORIES;
+    if (newExpenseCategory.trim() && !list.includes(newExpenseCategory.trim())) {
+      setForm(prev => ({
+        ...prev,
+        expenseCategories: [...(prev.expenseCategories || DEFAULT_EXPENSE_CATEGORIES), newExpenseCategory.trim()]
+      }));
+      setNewExpenseCategory('');
+    }
+  };
+
+  const handleRemoveExpenseCategory = (catToRemove: string) => {
+    const list = form.expenseCategories || DEFAULT_EXPENSE_CATEGORIES;
+    if (list.length <= 1) {
+      addToast('At least one expense category is required.', 'error');
+      return;
+    }
+    setForm(prev => ({
+      ...prev,
+      expenseCategories: (prev.expenseCategories || DEFAULT_EXPENSE_CATEGORIES).filter(c => c !== catToRemove)
     }));
   };
 
@@ -121,7 +127,7 @@ export const SettingsView: React.FC = () => {
 
   const handleRemoveMethod = (methodToRemove: string) => {
     if (form.paymentMethods.length <= 1) {
-      alert('At least one payment method is required.');
+      addToast('At least one payment method is required.', 'error');
       return;
     }
     setForm(prev => ({
@@ -135,7 +141,15 @@ export const SettingsView: React.FC = () => {
     setIsSaving(true);
     setSavedSuccess(false);
 
-    const res = await saveSettings(form);
+    const payloadToSave: AppSettings = {
+      ...form,
+      openingBalance: typeof form.openingBalance === 'number' ? form.openingBalance : (parseFloat(String(form.openingBalance || 0)) || 0),
+      openingBalanceDate: form.openingBalanceDate || new Date().toISOString().split('T')[0],
+      openingBalanceSetBy: currentUser?.email || 'Owner',
+      openingBalanceNotes: form.openingBalanceNotes || 'Calibrated via Owner Settings'
+    };
+
+    const res = await saveSettings(payloadToSave);
     setIsSaving(false);
 
     if (res.success) {
@@ -251,167 +265,7 @@ export const SettingsView: React.FC = () => {
           </div>
         </div>
 
-        {/* Card 1: Official Logo Settings */}
-        <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-5 transition-colors">
-          <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
-            <ImageIcon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-            <h2 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-              Official Logo (App & Receipts)
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-            {/* Upload Area */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                Upload Logo Image
-              </label>
-
-              <div
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-                onClick={() => fileInputRef.current?.click()}
-                className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all ${
-                  isDragging 
-                    ? 'border-blue-600 bg-blue-50/50 dark:bg-blue-950/40' 
-                    : 'border-slate-200 dark:border-slate-700 hover:border-blue-400 hover:bg-slate-50 dark:hover:bg-slate-800/50'
-                }`}
-              >
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/png, image/jpeg, image/svg+xml, image/webp"
-                  className="hidden"
-                  onChange={(e) => {
-                    if (e.target.files && e.target.files[0]) {
-                      handleLogoFileUpload(e.target.files[0]);
-                    }
-                  }}
-                />
-                <UploadCloud className="w-8 h-8 text-blue-600 dark:text-blue-400 mx-auto mb-2" />
-                <p className="text-xs font-semibold text-slate-900 dark:text-white">
-                  Click to browse or drag & drop logo
-                </p>
-                <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
-                  PNG, SVG, JPG or WebP (max 2MB)
-                </p>
-              </div>
-
-              {/* Or Direct Image URL */}
-              <div className="mt-4">
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                  Or Image Web URL
-                </label>
-                <input
-                  type="url"
-                  placeholder="https://example.com/sc-basimbuzi-logo.png"
-                  value={form.logoUrl || ''}
-                  onChange={(e) => setForm({ ...form, logoUrl: e.target.value })}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl text-xs focus:ring-2 focus:ring-blue-600 outline-none"
-                />
-              </div>
-            </div>
-
-            {/* Live Logo Preview Box */}
-            <div className="bg-slate-50 dark:bg-slate-800/60 p-5 rounded-2xl border border-slate-200 dark:border-slate-700/80 space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  <Eye className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                  <span>Live Appearance Preview</span>
-                </div>
-                {form.logoUrl && (
-                  <button
-                    type="button"
-                    onClick={() => setForm({ ...form, logoUrl: '' })}
-                    className="text-xs text-red-600 dark:text-red-400 hover:underline inline-flex items-center gap-1 cursor-pointer"
-                  >
-                    <Trash2 className="w-3 h-3" /> Reset to Default Crest
-                  </button>
-                )}
-              </div>
-
-              {/* Receipt Header Preview */}
-              <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center gap-3">
-                {form.logoUrl ? (
-                  <img
-                    src={form.logoUrl}
-                    alt="Logo Preview"
-                    className="w-14 h-14 object-contain rounded-xl border border-slate-200 dark:border-slate-800 p-1 bg-white"
-                  />
-                ) : (
-                  <img
-                    src="/favicon.svg"
-                    alt="SC Basimbuzi Emblem"
-                    className="w-14 h-14 object-contain rounded-xl border border-blue-200 dark:border-blue-900/60 p-1 bg-white dark:bg-slate-800"
-                  />
-                )}
-                <div>
-                  <h4 className="font-bold text-sm text-slate-900 dark:text-white">
-                    {form.organizationName || 'SC Basimbuzi'}
-                  </h4>
-                  <p className="text-xs text-slate-400">
-                    Official Digital Receipt & Portal Header
-                  </p>
-                  <p className="text-[10px] text-blue-600 dark:text-blue-400 font-mono mt-0.5">
-                    {form.logoUrl ? 'Custom Image Active' : 'Default Crest Active'}
-                  </p>
-                </div>
-              </div>
-
-              {/* Google Chrome Browser Tab Preview (matching user's request) */}
-              <div className="pt-2 border-t border-slate-200/80 dark:border-slate-700/60">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                    <Globe className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                    Chrome Tab Appearance (Favicon)
-                  </span>
-                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
-                    <Check className="w-3 h-3" /> Live in Browser
-                  </span>
-                </div>
-
-                {/* Mock Chrome Tab Strip */}
-                <div className="bg-slate-200/80 dark:bg-slate-950 p-2 rounded-xl border border-slate-300 dark:border-slate-800">
-                  <div className="inline-flex items-center gap-2 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-300/80 dark:border-slate-700 shadow-xs max-w-full">
-                    {/* Active Favicon */}
-                    {form.logoUrl ? (
-                      <img
-                        src={form.logoUrl}
-                        alt="Tab Favicon"
-                        className="w-4 h-4 object-contain rounded-xs shrink-0"
-                      />
-                    ) : (
-                      <img
-                        src="/favicon.svg"
-                        alt="SC Basimbuzi Favicon"
-                        className="w-4 h-4 object-contain rounded-xs shrink-0"
-                      />
-                    )}
-                    <span className="text-xs font-medium text-slate-800 dark:text-slate-200 truncate max-w-[180px] sm:max-w-[220px]">
-                      {form.organizationName || 'SC Basimbuzi'} Receipt Management
-                    </span>
-                    <span className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs ml-1 cursor-default">×</span>
-                  </div>
-                </div>
-
-                <div className="mt-2.5 p-2.5 bg-blue-50 dark:bg-blue-950/40 rounded-xl border border-blue-200/60 dark:border-blue-900/50 text-[11px] text-blue-900 dark:text-blue-200 leading-relaxed space-y-1">
-                  <div className="font-semibold flex items-center gap-1 text-blue-800 dark:text-blue-300">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    How to change your Chrome tab icon & logo:
-                  </div>
-                  <ol className="list-decimal list-inside space-y-0.5 text-slate-600 dark:text-slate-400 pl-0.5">
-                    <li>Upload your image above or paste a direct image URL.</li>
-                    <li>Click <strong className="text-slate-800 dark:text-slate-200">"Save Settings"</strong> in the top right corner.</li>
-                    <li>The system immediately replaces the default Chrome globe icon with your logo on all devices!</li>
-                  </ol>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Card 2: Organization Profile */}
+        {/* Card 1: Organization Profile */}
         <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-5 transition-colors">
           <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
             <Building className="w-4 h-4 text-blue-600 dark:text-blue-400" />
@@ -468,6 +322,22 @@ export const SettingsView: React.FC = () => {
                 onChange={(e) => setForm({ ...form, organizationAddress: e.target.value })}
                 className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl text-sm focus:ring-2 focus:ring-blue-600 outline-none"
               />
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                System Public Web Domain / Website Address
+              </label>
+              <input
+                type="text"
+                placeholder="https://scbasimbuzi-v2.ai.studio"
+                value={form.customDomain || ''}
+                onChange={(e) => setForm({ ...form, customDomain: e.target.value })}
+                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl text-sm font-mono focus:ring-2 focus:ring-blue-600 outline-none"
+              />
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                Your official web domain shown when sharing system links via WhatsApp, Telegram, or email (e.g. <span className="font-mono text-blue-600 dark:text-blue-400">https://scbasimbuzi-v2.ai.studio</span>).
+              </p>
             </div>
           </div>
         </div>
@@ -601,6 +471,198 @@ export const SettingsView: React.FC = () => {
               >
                 Add
               </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 5: Expense Categories (Outflow Taxonomies) */}
+        <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-6 transition-colors">
+          <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
+            <ArrowUpRight className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+            <h2 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+              Expense Taxonomies (Outflow Categories)
+            </h2>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
+              Approved Expenditure Categories
+            </label>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-3">
+              These categories appear in the Outflow Expense Voucher form for match operations, pitch hire, kits, logistics, etc.
+            </p>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {(form.expenseCategories || DEFAULT_EXPENSE_CATEGORIES).map(cat => (
+                <span
+                  key={cat}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-200 text-xs font-semibold border border-rose-200 dark:border-rose-900/60"
+                >
+                  <span>{cat}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveExpenseCategory(cat)}
+                    className="p-0.5 text-rose-400 hover:text-red-500 rounded-full transition cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </span>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2 max-w-sm">
+              <input
+                type="text"
+                value={newExpenseCategory}
+                onChange={(e) => setNewExpenseCategory(e.target.value)}
+                placeholder="Add new expense category..."
+                className="flex-1 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl text-xs outline-none focus:ring-1 focus:ring-rose-600"
+              />
+              <button
+                type="button"
+                onClick={handleAddExpenseCategory}
+                className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold transition cursor-pointer"
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 6: Dual-Writing Database Sync Pipeline (Open-Closed Architecture) */}
+        <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-6 transition-colors">
+          <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
+            <Layers className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+            <h2 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+              Dual-Writing Database Sync Pipeline
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                Legacy Master Spreadsheet ID
+              </label>
+              <div className="relative">
+                <Database className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                <input
+                  type="text"
+                  value={form.legacySpreadsheetId || ''}
+                  onChange={(e) => setForm({ ...form, legacySpreadsheetId: e.target.value.trim() })}
+                  placeholder="e.g. 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms or leave blank"
+                  className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl text-xs font-mono outline-none focus:ring-2 focus:ring-indigo-600"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                Target Sheet Name
+              </label>
+              <div className="relative">
+                <FileSpreadsheet className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                <input
+                  type="text"
+                  value={form.legacySheetName || ''}
+                  onChange={(e) => setForm({ ...form, legacySheetName: e.target.value.trim() })}
+                  placeholder="Master Transactions"
+                  className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl text-xs font-mono outline-none focus:ring-2 focus:ring-indigo-600"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center">
+              <div className="p-3 bg-indigo-50 dark:bg-indigo-950/40 rounded-xl border border-indigo-200 dark:border-indigo-800/60 text-[11px] text-indigo-900 dark:text-indigo-200">
+                <span className="font-bold">Dual-Write Status: </span>
+                {form.legacySpreadsheetId ? (
+                  <span className="text-emerald-600 dark:text-emerald-400 font-bold">Enabled &amp; Active</span>
+                ) : (
+                  <span className="text-slate-500 dark:text-slate-400">Idle (Single internal sheet)</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+            When configured, the backend’s Open-Closed <span className="font-semibold text-slate-700 dark:text-slate-300 font-mono">SyncSinkPipeline</span> automatically saves every new transaction (both Inflows &amp; Outflows) to the primary sheet <em>AND</em> appends the exact row to the legacy master spreadsheet in real-time. If left blank, dual-writing is safely skipped without throwing errors.
+          </p>
+        </div>
+
+        {/* Card 7: Opening Balance Calibration (Financial Ledger) */}
+        <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-6 transition-colors">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-2">
+              <Scale className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              <h2 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                Financial Ledger Opening Balance Calibration
+              </h2>
+            </div>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+              Owner Only
+            </span>
+          </div>
+
+          <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700/80 text-xs text-slate-600 dark:text-slate-300 space-y-1">
+            <p className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+              <span>Financial Ledger Equation:</span>
+            </p>
+            <p className="font-mono text-[11px] text-blue-600 dark:text-blue-400">
+              Current recorded balance = Opening balance + Total inflows − Total outflows
+            </p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+              If no opening balance is configured, zero is used and the dashboard indicates that the displayed balance is based on recorded transactions.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                Opening Balance Amount (UGX)
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={form.openingBalance !== undefined ? form.openingBalance : ''}
+                  onChange={(e) => setForm({ ...form, openingBalance: e.target.value === '' ? 0 : Number(e.target.value) })}
+                  placeholder="0"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl text-sm font-sans font-bold outline-none focus:ring-2 focus:ring-emerald-600"
+                />
+                <div className="absolute right-3.5 top-2.5 text-xs font-bold text-slate-400 pointer-events-none">
+                  UGX
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                Effective Calibration Date
+              </label>
+              <input
+                type="date"
+                value={form.openingBalanceDate || ''}
+                onChange={(e) => setForm({ ...form, openingBalanceDate: e.target.value })}
+                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-600"
+              />
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                Calibration Notes &amp; Audit Trail
+              </label>
+              <input
+                type="text"
+                value={form.openingBalanceNotes || ''}
+                onChange={(e) => setForm({ ...form, openingBalanceNotes: e.target.value })}
+                placeholder="e.g. Opening balance verified from Stanbic Bank and MTN MoMo merchant statement as of Jan 1, 2026"
+                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl text-xs outline-none focus:ring-2 focus:ring-emerald-600"
+              />
+              {form.openingBalanceSetBy && (
+                <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1 font-mono">
+                  <History className="w-3 h-3" />
+                  <span>Last calibrated by: {form.openingBalanceSetBy}</span>
+                </p>
+              )}
             </div>
           </div>
         </div>
