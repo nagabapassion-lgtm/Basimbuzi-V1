@@ -42,11 +42,11 @@ export const DEFAULT_PUBLIC_SITE_CONTENT: PublicSiteContent = {
   aboutTitle: 'Rooted in Passion, Driven by Discipline',
   aboutText:
     'SC Basimbuzi brings together senior squad competition, structured youth development, and an active supporter membership network. Every contribution and matchday turnout helps sustain training operations, equipment, and community football outreach.',
-  clubFoundedYear: '2018',
+  clubFoundedYear: '2019',
   homeGround: 'Basimbuzi Community Ground',
   trainingSchedule: 'Tue, Thu & Sat · 4:00 PM EAT',
   membershipTargetLabel: '2026 Season Membership Contribution',
-  membershipTargetUgx: 100000,
+  membershipTargetUgx: 50000,
   news: [
     {
       id: 'news-1',
@@ -94,107 +94,183 @@ export const DEFAULT_PUBLIC_SITE_CONTENT: PublicSiteContent = {
   fixtures: [
     {
       id: 'fix-1',
-      opponent: 'Kireka United FC',
-      competition: 'Regional League',
+      opponent: 'Akachai FC',
+      competition: 'Ntare Lions League',
       date: '2026-11-28',
       time: '16:00',
-      venue: 'Basimbuzi Community Ground',
+      venue: 'KPA',
       isHome: true,
       status: 'UPCOMING'
     },
     {
       id: 'fix-2',
-      opponent: 'Ntinda Stars',
-      competition: 'District Cup',
+      opponent: 'TY Omujuma',
+      competition: 'NLL',
       date: '2026-12-05',
       time: '15:30',
-      venue: 'Ntinda Municipal Pitch',
+      venue: 'Home grounds',
       isHome: false,
       status: 'UPCOMING'
     },
     {
       id: 'fix-3',
-      opponent: 'Bweyogerere Rovers',
-      competition: 'Regional League',
+      opponent: 'Mpawa Lords',
+      competition: 'Friendlies',
       date: '2026-11-15',
       time: '16:00',
       venue: 'Basimbuzi Community Ground',
       isHome: true,
       status: 'COMPLETED',
       homeScore: 3,
-      awayScore: 1
+      awayScore: 4,
+      summary: 'Strong second-half display with goals in the 38th, 61st, and 77th minutes.'
+    },
+    {
+      id: 'fix-4',
+      opponent: 'Akachai FC',
+      competition: 'Friendlies',
+      date: '2026-11-08',
+      time: '16:00',
+      venue: 'KPA',
+      isHome: false,
+      status: 'COMPLETED',
+      homeScore: 0,
+      awayScore: 5,
+      summary: 'Crucial away victory secured with an 84th-minute winner.'
     }
   ],
   merch: [
     {
       id: 'merch-1',
-      name: '2026 Official Home Match Jersey',
-      priceUgx: 95000,
-      category: 'Apparel',
-      image: 'preset:jersey',
-      description: 'High-performance breathable fabric featuring club crest and official sponsor branding. Available in S, M, L, XL, XXL.',
-      inStock: true
-    },
-    {
-      id: 'merch-2',
-      name: 'SC Basimbuzi Supporters Scarf',
-      priceUgx: 35000,
-      category: 'Accessories',
-      image: 'preset:supporters',
-      description: 'Traditional knit club scarf with team colors and crest.',
-      inStock: true
-    },
-    {
-      id: 'merch-3',
-      name: 'Official Club Baseball Cap',
-      priceUgx: 30000,
-      category: 'Accessories',
-      image: 'preset:hero',
-      description: 'Embroidered crest cap with adjustable strap.',
+      name: 'Official 2026 Preseason Jersey',
+      priceUgx: 65000,
+      description: 'Breathable royal blue matchday jersey with gold trim and woven SC Basimbuzi crest.',
+      imageUrl: 'preset:jersey',
+      sizes: ['S', 'M', 'L', 'XL', 'XXL'],
       inStock: true
     }
   ]
 };
 
+const PUBLIC_SITE_CACHE_KEY = 'scb_public_site_public_v1';
+const ADMIN_SITE_CACHE_KEY = 'scb_public_site_admin_v1';
+
+const parseValidTimestampMs = (raw?: string): number => {
+  if (!raw || typeof raw !== 'string') return 0;
+  const trimmed = raw.trim();
+  if (!/^\d{4}-\d{2}-\d{2}/.test(trimmed)) return 0;
+  const yr = Number(trimmed.slice(0, 4));
+  if (yr < 2020 || yr > 2035) return 0;
+  const ms = Date.parse(trimmed);
+  return Number.isNaN(ms) ? 0 : ms;
+};
+
+const readCachedSiteFromStorage = (key: string): PublicSiteContent | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && Array.isArray(parsed.news) && Array.isArray(parsed.fixtures)) {
+      return parsed as PublicSiteContent;
+    }
+  } catch {}
+  return null;
+};
+
+const writeCachedSiteToStorage = (content: PublicSiteContent, isAdminPayload: boolean) => {
+  if (typeof window === 'undefined' || !content) return;
+  try {
+    const publishedOnly: PublicSiteContent = {
+      ...content,
+      news: (content.news || []).filter(n => n?.status === 'PUBLISHED')
+    };
+    window.localStorage.setItem(PUBLIC_SITE_CACHE_KEY, JSON.stringify(publishedOnly));
+    if (isAdminPayload) {
+      window.localStorage.setItem(ADMIN_SITE_CACHE_KEY, JSON.stringify(content));
+    }
+  } catch {}
+};
+
 export const publicSiteService = {
-  async fetchPublicSite(includeDrafts: boolean = false, operatorEmail?: string): Promise<PublicSitePayload> {
+  getCachedPublicSite(includeDrafts: boolean = false): PublicSiteContent | null {
+    if (includeDrafts) {
+      return readCachedSiteFromStorage(ADMIN_SITE_CACHE_KEY) || readCachedSiteFromStorage(PUBLIC_SITE_CACHE_KEY);
+    }
+    return readCachedSiteFromStorage(PUBLIC_SITE_CACHE_KEY);
+  },
+
+  hasNewerLocalCacheThan(serverContent: PublicSiteContent, includeDrafts: boolean = false): boolean {
+    const cached = this.getCachedPublicSite(includeDrafts);
+    if (!cached) return false;
+    const cachedTs = parseValidTimestampMs(cached.updatedAt);
+    const serverTs = parseValidTimestampMs(serverContent?.updatedAt);
+    return cachedTs > 0 && cachedTs > serverTs;
+  },
+
+  async fetchPublicSite(includeDrafts: boolean = false, operatorEmail?: string): Promise<PublicSitePayload & { restoredFromLocalCache?: boolean }> {
+    const cached = this.getCachedPublicSite(includeDrafts);
+    const defaultOrg: PublicOrgProfile = {
+      organizationName: 'SC Basimbuzi',
+      organizationEmail: 'info@scbasimbuzi.org',
+      organizationPhone: '+256703643759',
+      organizationAddress: 'Kampala, Uganda',
+      logoUrl: '/logo.png'
+    };
+
     try {
       const headers: Record<string, string> = {};
       if (includeDrafts && operatorEmail) {
         headers['X-Operator-Email'] = operatorEmail;
       }
       const url = includeDrafts ? '/api/public-site?mode=admin' : '/api/public-site';
-      const json = await safeFetchJson<any>(url, { headers });
-      if (json && json.success && json.data) {
-        return json.data as PublicSitePayload;
+      const json = await safeFetchJson<any>(url, { headers, cache: 'no-store' });
+      if (json && json.success && json.data && json.data.content) {
+        const serverPayload = json.data as PublicSitePayload;
+        const serverTs = parseValidTimestampMs(serverPayload.content?.updatedAt);
+        const cachedTs = parseValidTimestampMs(cached?.updatedAt);
+
+        if (cached && cachedTs > 0 && cachedTs > serverTs) {
+          return {
+            content: cached,
+            organization: serverPayload.organization || defaultOrg,
+            restoredFromLocalCache: true
+          };
+        }
+
+        writeCachedSiteToStorage(serverPayload.content, includeDrafts);
+        return serverPayload;
       }
     } catch {
-      // Fallback to default seed content if offline
+      // Fallback to local cache or default seed content if offline
     }
     return {
-      content: DEFAULT_PUBLIC_SITE_CONTENT,
-      organization: {
-        organizationName: 'SC Basimbuzi',
-        organizationEmail: 'info@scbasimbuzi.org',
-        organizationPhone: '+256 700 000000',
-        organizationAddress: 'Kampala, Uganda',
-        logoUrl: '/logo.png'
-      }
+      content: cached || DEFAULT_PUBLIC_SITE_CONTENT,
+      organization: defaultOrg
     };
   },
 
   async savePublicSite(
     content: PublicSiteContent,
     operatorEmail: string
-  ): Promise<{ success: boolean; data?: PublicSiteContent; error?: string }> {
-    return safeFetchMutation('/api/public-site', {
+  ): Promise<{ success: boolean; data?: PublicSiteContent; error?: string; sheetsSynced?: boolean }> {
+    const stampedContent: PublicSiteContent = {
+      ...content,
+      updatedAt: new Date().toISOString(),
+      updatedBy: operatorEmail
+    };
+    const res = await safeFetchMutation('/api/public-site', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-Operator-Email': operatorEmail
       },
-      body: JSON.stringify({ content })
+      body: JSON.stringify({ content: stampedContent })
     });
+    if (res && res.success && res.data) {
+      writeCachedSiteToStorage(res.data as PublicSiteContent, true);
+    }
+    return res;
   },
 
   async submitInquiry(payload: {
@@ -239,9 +315,6 @@ export const publicSiteService = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email })
     });
-    if (!res.success && res.error?.includes('unavailable')) {
-      return { success: false, error: 'Member login requires the backend server or email service to be configured.' };
-    }
     return res;
   },
 
@@ -356,7 +429,8 @@ export const publicSiteService = {
     operatorEmail: string
   ): Promise<{ success: boolean; url?: string; error?: string }> {
     const allowedTypes = new Set(['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif']);
-    if (!allowedTypes.has(file.type.toLowerCase())) {
+    const mime = file.type.toLowerCase();
+    if (!allowedTypes.has(mime)) {
       return { success: false, error: 'Please choose a PNG, JPG, WEBP, or GIF photo.' };
     }
     if (file.size > 5 * 1024 * 1024) {
@@ -364,12 +438,53 @@ export const publicSiteService = {
     }
 
     try {
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result || ''));
-        reader.onerror = () => reject(new Error('Could not read selected file.'));
-        reader.readAsDataURL(file);
-      });
+      const readFileAsDataUrl = (target: File): Promise<string> =>
+        new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result || ''));
+          reader.onerror = () => reject(new Error('Could not read selected file.'));
+          reader.readAsDataURL(target);
+        });
+
+      let dataUrl = await readFileAsDataUrl(file);
+
+      // Compress non-GIF photos cleanly via Canvas so uploaded images embed durably inside
+      // public_site.json & Google Sheets (~40-150 KB) without relying on ephemeral container disk
+      if (mime !== 'image/gif' && typeof document !== 'undefined') {
+        try {
+          const compressed = await new Promise<string>((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+              const maxDim = 1280;
+              const scale = Math.min(1, maxDim / Math.max(img.width || 1, img.height || 1));
+              const targetW = Math.max(1, Math.round((img.width || maxDim) * scale));
+              const targetH = Math.max(1, Math.round((img.height || maxDim) * scale));
+              const canvas = document.createElement('canvas');
+              canvas.width = targetW;
+              canvas.height = targetH;
+              const ctx = canvas.getContext('2d');
+              if (!ctx) {
+                resolve(dataUrl);
+                return;
+              }
+              ctx.drawImage(img, 0, 0, targetW, targetH);
+              let candidate = canvas.toDataURL('image/webp', 0.82);
+              if (!candidate.startsWith('data:image/webp')) {
+                candidate = canvas.toDataURL('image/jpeg', 0.82);
+              }
+              if (candidate.length > 600_000) {
+                candidate = canvas.toDataURL('image/jpeg', 0.68);
+              }
+              resolve(candidate.length < dataUrl.length ? candidate : dataUrl);
+            };
+            img.onerror = () => resolve(dataUrl);
+            img.src = dataUrl;
+          });
+          dataUrl = compressed;
+        } catch {
+          // Keep original dataUrl if Canvas compression isn't supported
+        }
+      }
 
       return safeFetchMutation('/api/public-site/upload-image', {
         method: 'POST',

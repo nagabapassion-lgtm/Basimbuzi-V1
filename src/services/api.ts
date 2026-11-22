@@ -691,7 +691,6 @@ class ApiClient {
       success: true,
       data: {
         email: cleanEmail,
-        code: otpCode,
         isLiveBackend: true
       },
       message: `A 6-digit access code was dispatched to ${cleanEmail}. Please check your email inbox.`
@@ -1949,33 +1948,6 @@ class ApiClient {
       headers: { 'X-Operator-Email': operatorEmail.trim().toLowerCase() }
     });
     return json || { success: true, message: 'Reconciled successfully' };
-  }
-
-  public async syncMembersAndHistoricalToGas(
-    members: Member[],
-    historicalTransactions: Transaction[],
-    operatorEmail: string
-  ): Promise<BackendResponse<{ syncedMembers: number; syncedTransactions: number }>> {
-    if (!this.isConnectedToLiveBackend()) {
-      return { success: false, error: 'Google Apps Script Web App URL is not connected yet.' };
-    }
-    const staffList = this.getStoredUsers().map(u => u.email);
-    const cleanedMembers = members.map(m => ({
-      ...m,
-      phone: cleanPhoneNumber(m.phone || ''),
-      email: isStaffOrPlaceholderEmail(m.email, m.name, staffList) ? '' : String(m.email || '').trim().toLowerCase()
-    }));
-    const cleanedTxs = historicalTransactions.map(tx => this.sanitizeTransaction(tx));
-    return this.fetchFromGas<{ syncedMembers: number; syncedTransactions: number }>(this.gasUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({
-        action: 'syncMembersAndHistorical',
-        operatorEmail: operatorEmail.trim().toLowerCase(),
-        members: cleanedMembers,
-        transactions: cleanedTxs
-      })
-    });
   }
 
   private updateLocalMemberCache(tx: Transaction): void {

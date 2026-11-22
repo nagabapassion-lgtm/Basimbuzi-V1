@@ -6,7 +6,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 5000,
     "paidAfter": 0,
@@ -22,7 +21,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0002",
@@ -31,10 +33,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 30000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 30000,
     "historicalPaid": 30000,
     "livePaid": 0,
     "totalContributed": 30000,
@@ -47,7 +48,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0003",
@@ -56,7 +60,6 @@
     "phone": "+256762269674",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 0,
     "paidAfter": 5000,
@@ -72,7 +75,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T18:17:22.785Z"
+    "updatedAt": "2026-11-21T18:17:22.785Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0004",
@@ -81,7 +87,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 10000,
     "paidAfter": 0,
@@ -97,7 +102,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0005",
@@ -106,7 +114,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 15000,
     "paidAfter": 0,
@@ -122,7 +129,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0006",
@@ -131,10 +141,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 100000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 100000,
     "historicalPaid": 100000,
     "livePaid": 0,
     "totalContributed": 100000,
@@ -147,7 +156,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0007",
@@ -156,10 +168,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 20000,
     "livePaid": 0,
     "totalContributed": 20000,
@@ -172,7 +183,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0008",
@@ -181,10 +195,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 50000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 50000,
     "historicalPaid": 50000,
     "livePaid": 0,
     "totalContributed": 50000,
@@ -197,7 +210,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0009",
@@ -206,7 +222,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 2000,
     "paidAfter": 0,
@@ -222,7 +237,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0010",
@@ -231,10 +249,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 50000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 50000,
     "historicalPaid": 50000,
     "livePaid": 0,
     "totalContributed": 50000,
@@ -247,7 +264,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0011",
@@ -256,7 +276,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 5000,
     "paidAfter": 0,
@@ -272,7 +291,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0012",
@@ -281,7 +303,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 0,
     "paidAfter": 30000,
@@ -297,7 +318,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0013",
@@ -306,7 +330,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 0,
     "paidAfter": 30000,
@@ -322,7 +345,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0014",
@@ -331,7 +357,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 10000,
     "paidAfter": 0,
@@ -347,7 +372,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0015",
@@ -356,7 +384,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 3000,
     "paidAfter": 20000,
@@ -372,7 +399,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0016",
@@ -381,7 +411,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 20000,
     "paidAfter": 20000,
@@ -397,7 +426,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0017",
@@ -406,10 +438,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 50000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 50000,
     "historicalPaid": 50000,
     "livePaid": 0,
     "totalContributed": 50000,
@@ -422,7 +453,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0018",
@@ -430,8 +464,7 @@
     "name": "Agaba Paula",
     "phone": "+256790913070",
     "email": "agabapaula9@gmail.com",
-    "address": "",
-    "tier": "Supporter",
+    "address": "Kikoni, Makerere",
     "preNllPaid": 0,
     "spotPaid": 7000,
     "paidAfter": 10000,
@@ -441,13 +474,16 @@
     "expectedTargetUgx": 100000,
     "remainingUgx": 83000,
     "duesStatus": "Partial",
-    "profileStatus": "INCOMPLETE",
+    "profileStatus": "COMPLETE",
     "paymentCount": 2,
     "lastPaymentDate": "2026-09-15",
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T18:17:22.785Z"
+    "updatedAt": "2026-11-22T11:34:06.910Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0019",
@@ -456,7 +492,6 @@
     "phone": "+256706168877",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 0,
     "paidAfter": 10000,
@@ -472,7 +507,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T18:17:22.785Z"
+    "updatedAt": "2026-11-21T18:17:22.785Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0020",
@@ -481,7 +519,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 20000,
     "paidAfter": 0,
@@ -497,7 +534,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0021",
@@ -506,7 +546,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 10000,
     "paidAfter": 0,
@@ -522,7 +561,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0022",
@@ -531,10 +573,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 50000,
     "spotPaid": 10000,
-    "paidAfter": 0,
+    "paidAfter": 50000,
     "historicalPaid": 60000,
     "livePaid": 0,
     "totalContributed": 60000,
@@ -547,7 +588,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0023",
@@ -556,7 +600,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 30000,
     "spotPaid": 5000,
     "paidAfter": 10000,
@@ -572,7 +615,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0024",
@@ -581,10 +627,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 50000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 50000,
     "historicalPaid": 50000,
     "livePaid": 0,
     "totalContributed": 50000,
@@ -597,7 +642,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0025",
@@ -606,7 +654,6 @@
     "phone": "+256705059374",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 0,
     "paidAfter": 5000,
@@ -622,7 +669,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T18:17:22.785Z"
+    "updatedAt": "2026-11-21T18:17:22.785Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0026",
@@ -631,7 +681,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 0,
     "paidAfter": 15000,
@@ -647,7 +696,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0027",
@@ -656,7 +708,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 2000,
     "paidAfter": 0,
@@ -672,7 +723,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0028",
@@ -681,10 +735,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 20000,
     "livePaid": 0,
     "totalContributed": 20000,
@@ -697,7 +750,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0029",
@@ -706,7 +762,6 @@
     "phone": "+256789661858",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 10000,
     "paidAfter": 20000,
@@ -722,7 +777,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T18:17:22.785Z"
+    "updatedAt": "2026-11-21T18:17:22.785Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0030",
@@ -731,10 +789,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 35000,
     "spotPaid": 10000,
-    "paidAfter": 0,
+    "paidAfter": 35000,
     "historicalPaid": 45000,
     "livePaid": 0,
     "totalContributed": 45000,
@@ -747,7 +804,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0031",
@@ -756,7 +816,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 5000,
     "paidAfter": 0,
@@ -772,7 +831,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0032",
@@ -781,10 +843,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 20000,
     "livePaid": 0,
     "totalContributed": 20000,
@@ -797,7 +858,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0033",
@@ -806,10 +870,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 20000,
     "livePaid": 0,
     "totalContributed": 20000,
@@ -822,7 +885,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0034",
@@ -831,10 +897,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 50000,
     "spotPaid": 2000,
-    "paidAfter": 0,
+    "paidAfter": 50000,
     "historicalPaid": 52000,
     "livePaid": 0,
     "totalContributed": 52000,
@@ -847,7 +912,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0035",
@@ -856,7 +924,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 40000,
     "paidAfter": 0,
@@ -872,7 +939,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0036",
@@ -881,7 +951,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 2000,
     "paidAfter": 0,
@@ -897,7 +966,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0037",
@@ -906,10 +978,9 @@
     "phone": "+256759324117",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 30000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 30000,
     "historicalPaid": 30000,
     "livePaid": 0,
     "totalContributed": 30000,
@@ -922,7 +993,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T18:17:22.785Z"
+    "updatedAt": "2026-11-21T18:17:22.785Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0038",
@@ -931,7 +1005,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 5000,
     "paidAfter": 0,
@@ -947,7 +1020,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0039",
@@ -956,7 +1032,6 @@
     "phone": "+254113952273",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 0,
     "paidAfter": 85000,
@@ -972,7 +1047,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T18:17:22.785Z"
+    "updatedAt": "2026-11-21T18:17:22.785Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0040",
@@ -981,10 +1059,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 20000,
     "livePaid": 0,
     "totalContributed": 20000,
@@ -997,7 +1074,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0041",
@@ -1006,10 +1086,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 30000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 30000,
     "historicalPaid": 30000,
     "livePaid": 0,
     "totalContributed": 30000,
@@ -1022,7 +1101,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0042",
@@ -1031,7 +1113,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 5000,
     "paidAfter": 0,
@@ -1047,7 +1128,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0043",
@@ -1056,7 +1140,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 8000,
     "paidAfter": 0,
@@ -1072,7 +1155,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0044",
@@ -1081,7 +1167,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 0,
     "paidAfter": 20000,
@@ -1097,7 +1182,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0045",
@@ -1106,10 +1194,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 7000,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 27000,
     "livePaid": 0,
     "totalContributed": 27000,
@@ -1122,7 +1209,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0046",
@@ -1131,10 +1221,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 20000,
     "livePaid": 0,
     "totalContributed": 20000,
@@ -1147,7 +1236,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0047",
@@ -1156,10 +1248,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 50000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 50000,
     "historicalPaid": 50000,
     "livePaid": 0,
     "totalContributed": 50000,
@@ -1172,7 +1263,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0048",
@@ -1181,10 +1275,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 40000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 40000,
     "historicalPaid": 40000,
     "livePaid": 0,
     "totalContributed": 40000,
@@ -1197,7 +1290,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0049",
@@ -1206,10 +1302,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 20000,
     "livePaid": 0,
     "totalContributed": 20000,
@@ -1222,7 +1317,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0050",
@@ -1231,7 +1329,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 0,
     "paidAfter": 30000,
@@ -1247,7 +1344,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0051",
@@ -1256,7 +1356,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 22000,
     "paidAfter": 0,
@@ -1272,7 +1371,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0052",
@@ -1281,10 +1383,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 50000,
     "spotPaid": 4500,
-    "paidAfter": 0,
+    "paidAfter": 50000,
     "historicalPaid": 54500,
     "livePaid": 0,
     "totalContributed": 54500,
@@ -1297,7 +1398,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0053",
@@ -1306,10 +1410,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 100000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 100000,
     "historicalPaid": 100000,
     "livePaid": 0,
     "totalContributed": 100000,
@@ -1322,7 +1425,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0054",
@@ -1331,10 +1437,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 20000,
     "livePaid": 0,
     "totalContributed": 20000,
@@ -1347,7 +1452,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0055",
@@ -1356,7 +1464,6 @@
     "phone": "+256758346455",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 0,
     "paidAfter": 10000,
@@ -1372,7 +1479,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T18:17:22.785Z"
+    "updatedAt": "2026-11-21T18:17:22.785Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0056",
@@ -1381,7 +1491,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 5000,
     "paidAfter": 10000,
@@ -1397,7 +1506,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0057",
@@ -1406,7 +1518,6 @@
     "phone": "+256782410956",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 5000,
     "paidAfter": 0,
@@ -1422,7 +1533,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T18:17:22.785Z"
+    "updatedAt": "2026-11-21T18:17:22.785Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0058",
@@ -1431,10 +1545,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 20000,
     "livePaid": 0,
     "totalContributed": 20000,
@@ -1447,7 +1560,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0059",
@@ -1456,10 +1572,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 20000,
     "livePaid": 0,
     "totalContributed": 20000,
@@ -1472,7 +1587,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0060",
@@ -1481,7 +1599,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 2000,
     "paidAfter": 0,
@@ -1497,7 +1614,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0061",
@@ -1506,7 +1626,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 5000,
     "paidAfter": 0,
@@ -1522,7 +1641,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0062",
@@ -1531,7 +1653,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 22000,
     "paidAfter": 0,
@@ -1547,7 +1668,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0063",
@@ -1556,7 +1680,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 2000,
     "paidAfter": 0,
@@ -1572,7 +1695,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0064",
@@ -1581,7 +1707,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 5000,
     "paidAfter": 0,
@@ -1597,7 +1722,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0065",
@@ -1606,7 +1734,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 24000,
     "paidAfter": 0,
@@ -1622,7 +1749,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0066",
@@ -1631,7 +1761,6 @@
     "phone": "+256762269674",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 10000,
     "spotPaid": 8000,
     "paidAfter": 10000,
@@ -1647,7 +1776,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T18:17:22.785Z"
+    "updatedAt": "2026-11-21T18:17:22.785Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0067",
@@ -1656,7 +1788,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 0,
     "paidAfter": 30000,
@@ -1672,7 +1803,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0068",
@@ -1681,7 +1815,6 @@
     "phone": "+256771254454",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 5000,
     "paidAfter": 10000,
@@ -1697,7 +1830,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T18:17:22.785Z"
+    "updatedAt": "2026-11-21T18:17:22.785Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0069",
@@ -1706,10 +1842,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 50000,
     "spotPaid": 3000,
-    "paidAfter": 0,
+    "paidAfter": 50000,
     "historicalPaid": 53000,
     "livePaid": 0,
     "totalContributed": 53000,
@@ -1722,7 +1857,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0070",
@@ -1731,7 +1869,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 5000,
     "paidAfter": 0,
@@ -1747,7 +1884,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0071",
@@ -1756,7 +1896,6 @@
     "phone": "+256700442386",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 29000,
     "paidAfter": 16000,
@@ -1772,7 +1911,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T18:17:22.785Z"
+    "updatedAt": "2026-11-21T18:17:22.785Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0072",
@@ -1781,10 +1923,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 50000,
     "spotPaid": 4000,
-    "paidAfter": 0,
+    "paidAfter": 50000,
     "historicalPaid": 54000,
     "livePaid": 0,
     "totalContributed": 54000,
@@ -1797,7 +1938,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0073",
@@ -1806,10 +1950,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 40000,
     "spotPaid": 5000,
-    "paidAfter": 0,
+    "paidAfter": 40000,
     "historicalPaid": 45000,
     "livePaid": 0,
     "totalContributed": 45000,
@@ -1822,7 +1965,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0074",
@@ -1831,10 +1977,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 5000,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 25000,
     "livePaid": 0,
     "totalContributed": 25000,
@@ -1847,7 +1992,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0075",
@@ -1856,7 +2004,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 5000,
     "paidAfter": 0,
@@ -1872,7 +2019,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0076",
@@ -1881,10 +2031,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 10000,
     "spotPaid": 5000,
-    "paidAfter": 0,
+    "paidAfter": 10000,
     "historicalPaid": 15000,
     "livePaid": 0,
     "totalContributed": 15000,
@@ -1897,7 +2046,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0077",
@@ -1906,10 +2058,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 50000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 50000,
     "historicalPaid": 50000,
     "livePaid": 0,
     "totalContributed": 50000,
@@ -1922,7 +2073,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0078",
@@ -1931,7 +2085,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 10000,
     "spotPaid": 12000,
     "paidAfter": 8000,
@@ -1947,7 +2100,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0079",
@@ -1956,7 +2112,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 4000,
     "paidAfter": 0,
@@ -1972,7 +2127,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0080",
@@ -1981,10 +2139,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 50000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 50000,
     "historicalPaid": 50000,
     "livePaid": 0,
     "totalContributed": 50000,
@@ -1997,7 +2154,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0081",
@@ -2006,7 +2166,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 3000,
     "paidAfter": 0,
@@ -2022,7 +2181,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0082",
@@ -2031,10 +2193,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 20000,
     "livePaid": 0,
     "totalContributed": 20000,
@@ -2047,7 +2208,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0083",
@@ -2056,7 +2220,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 4000,
     "paidAfter": 0,
@@ -2072,7 +2235,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0084",
@@ -2081,7 +2247,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 1000,
     "paidAfter": 0,
@@ -2097,7 +2262,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0085",
@@ -2106,7 +2274,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 3000,
     "paidAfter": 0,
@@ -2122,7 +2289,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0086",
@@ -2131,10 +2301,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 80000,
     "spotPaid": 30000,
-    "paidAfter": 0,
+    "paidAfter": 80000,
     "historicalPaid": 110000,
     "livePaid": 0,
     "totalContributed": 110000,
@@ -2147,7 +2316,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0087",
@@ -2156,7 +2328,6 @@
     "phone": "+256706439691",
     "email": "shedrigar@gmail.com",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 0,
     "paidAfter": 5000,
@@ -2172,7 +2343,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T18:17:22.785Z"
+    "updatedAt": "2026-11-21T18:17:22.785Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0088",
@@ -2181,10 +2355,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 30000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 30000,
     "historicalPaid": 30000,
     "livePaid": 0,
     "totalContributed": 30000,
@@ -2197,7 +2370,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0089",
@@ -2206,7 +2382,6 @@
     "phone": "+256774669976",
     "email": "asingwirewillisjunior@gmail.com",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 50000,
     "spotPaid": 0,
     "paidAfter": 5000,
@@ -2222,7 +2397,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T18:17:22.785Z"
+    "updatedAt": "2026-11-21T18:17:22.785Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0090",
@@ -2231,10 +2409,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 60000,
     "spotPaid": 15000,
-    "paidAfter": 0,
+    "paidAfter": 60000,
     "historicalPaid": 75000,
     "livePaid": 0,
     "totalContributed": 75000,
@@ -2247,7 +2424,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0091",
@@ -2256,10 +2436,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 8000,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 28000,
     "livePaid": 0,
     "totalContributed": 28000,
@@ -2272,7 +2451,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0092",
@@ -2281,10 +2463,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 20000,
     "livePaid": 0,
     "totalContributed": 20000,
@@ -2297,7 +2478,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0093",
@@ -2306,10 +2490,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 30000,
     "spotPaid": 30000,
-    "paidAfter": 0,
+    "paidAfter": 30000,
     "historicalPaid": 60000,
     "livePaid": 0,
     "totalContributed": 60000,
@@ -2322,7 +2505,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0094",
@@ -2331,10 +2517,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 9000,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 29000,
     "livePaid": 0,
     "totalContributed": 29000,
@@ -2347,7 +2532,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0095",
@@ -2356,7 +2544,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 65000,
     "paidAfter": 0,
@@ -2372,7 +2559,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0096",
@@ -2381,7 +2571,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 7000,
     "paidAfter": 0,
@@ -2397,7 +2586,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0097",
@@ -2406,10 +2598,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 30000,
     "spotPaid": 10000,
-    "paidAfter": 0,
+    "paidAfter": 30000,
     "historicalPaid": 40000,
     "livePaid": 0,
     "totalContributed": 40000,
@@ -2422,7 +2613,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0098",
@@ -2431,7 +2625,6 @@
     "phone": "+256707520699",
     "email": "benatweta45@gmail.com",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 0,
     "paidAfter": 50000,
@@ -2447,7 +2640,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T18:17:22.785Z"
+    "updatedAt": "2026-11-21T18:17:22.785Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0099",
@@ -2456,7 +2652,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 10000,
     "paidAfter": 0,
@@ -2472,7 +2667,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0100",
@@ -2481,10 +2679,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 12000,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 32000,
     "livePaid": 0,
     "totalContributed": 32000,
@@ -2497,7 +2694,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0101",
@@ -2506,7 +2706,6 @@
     "phone": "+256752818144",
     "email": "giftatwiine256@gmail.com",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 2000,
     "paidAfter": 10000,
@@ -2522,7 +2721,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T18:17:22.785Z"
+    "updatedAt": "2026-11-21T18:17:22.785Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0102",
@@ -2531,7 +2733,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 5000,
     "paidAfter": 0,
@@ -2547,7 +2748,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0103",
@@ -2556,7 +2760,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 10000,
     "paidAfter": 0,
@@ -2572,7 +2775,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0104",
@@ -2581,7 +2787,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 5000,
     "paidAfter": 0,
@@ -2597,7 +2802,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0105",
@@ -2606,10 +2814,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 2000,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 22000,
     "livePaid": 0,
     "totalContributed": 22000,
@@ -2622,7 +2829,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0106",
@@ -2631,7 +2841,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 23000,
     "paidAfter": 0,
@@ -2647,7 +2856,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0107",
@@ -2656,10 +2868,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 30000,
     "spotPaid": 2000,
-    "paidAfter": 0,
+    "paidAfter": 30000,
     "historicalPaid": 32000,
     "livePaid": 0,
     "totalContributed": 32000,
@@ -2672,7 +2883,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0108",
@@ -2681,10 +2895,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 4000,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 24000,
     "livePaid": 0,
     "totalContributed": 24000,
@@ -2697,7 +2910,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0109",
@@ -2706,10 +2922,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 7000,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 27000,
     "livePaid": 0,
     "totalContributed": 27000,
@@ -2722,7 +2937,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0110",
@@ -2731,10 +2949,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 20000,
     "livePaid": 0,
     "totalContributed": 20000,
@@ -2747,7 +2964,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0111",
@@ -2756,7 +2976,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 12000,
     "paidAfter": 0,
@@ -2772,7 +2991,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0112",
@@ -2781,7 +3003,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 5000,
     "paidAfter": 0,
@@ -2797,7 +3018,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0113",
@@ -2806,7 +3030,6 @@
     "phone": "+256754250839",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 10000,
     "paidAfter": 0,
@@ -2822,7 +3045,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T18:17:22.785Z"
+    "updatedAt": "2026-11-21T18:17:22.785Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0114",
@@ -2831,7 +3057,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 2000,
     "paidAfter": 0,
@@ -2847,7 +3072,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0115",
@@ -2856,10 +3084,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 50000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 50000,
     "historicalPaid": 50000,
     "livePaid": 0,
     "totalContributed": 50000,
@@ -2872,7 +3099,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0116",
@@ -2881,7 +3111,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 5000,
     "paidAfter": 0,
@@ -2897,7 +3126,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0117",
@@ -2906,7 +3138,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 0,
     "paidAfter": 30000,
@@ -2922,7 +3153,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0118",
@@ -2931,7 +3165,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 10000,
     "paidAfter": 71000,
@@ -2947,7 +3180,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0119",
@@ -2956,10 +3192,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 50000,
     "spotPaid": 18000,
-    "paidAfter": 0,
+    "paidAfter": 50000,
     "historicalPaid": 68000,
     "livePaid": 0,
     "totalContributed": 68000,
@@ -2972,7 +3207,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0120",
@@ -2981,7 +3219,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 3000,
     "paidAfter": 0,
@@ -2997,7 +3234,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0121",
@@ -3006,7 +3246,6 @@
     "phone": "+256704047900",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 0,
     "paidAfter": 25000,
@@ -3022,7 +3261,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T18:17:22.785Z"
+    "updatedAt": "2026-11-21T18:17:22.785Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0122",
@@ -3031,7 +3273,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 11000,
     "paidAfter": 0,
@@ -3047,7 +3288,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0123",
@@ -3056,7 +3300,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 2000,
     "paidAfter": 0,
@@ -3072,32 +3315,37 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0124",
     "memberId": "SB-M-0124",
-    "name": "Flavia Atuheire",
-    "phone": "",
-    "email": "",
-    "address": "",
-    "tier": "Supporter",
+    "name": "Flavia Atuhaire",
+    "phone": "+256758521466",
+    "email": "atuhaireflv@gmail.com",
+    "address": "Komamboga",
     "preNllPaid": 30000,
     "spotPaid": 2500,
-    "paidAfter": 0,
+    "paidAfter": 30000,
     "historicalPaid": 32500,
     "livePaid": 0,
     "totalContributed": 32500,
     "expectedTargetUgx": 100000,
     "remainingUgx": 67500,
     "duesStatus": "Partial",
-    "profileStatus": "INCOMPLETE",
+    "profileStatus": "COMPLETE",
     "paymentCount": 2,
     "lastPaymentDate": "2026-08-01",
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-22T12:40:55.147Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0125",
@@ -3106,7 +3354,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 7000,
     "paidAfter": 0,
@@ -3122,7 +3369,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0126",
@@ -3131,10 +3381,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 50000,
     "spotPaid": 40000,
-    "paidAfter": 0,
+    "paidAfter": 50000,
     "historicalPaid": 90000,
     "livePaid": 0,
     "totalContributed": 90000,
@@ -3147,7 +3396,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0127",
@@ -3156,10 +3408,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 30000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 30000,
     "historicalPaid": 30000,
     "livePaid": 0,
     "totalContributed": 30000,
@@ -3172,7 +3423,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0128",
@@ -3181,10 +3435,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 10000,
     "spotPaid": 5000,
-    "paidAfter": 0,
+    "paidAfter": 10000,
     "historicalPaid": 15000,
     "livePaid": 0,
     "totalContributed": 15000,
@@ -3197,7 +3450,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0129",
@@ -3206,10 +3462,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 30000,
     "spotPaid": 15000,
-    "paidAfter": 0,
+    "paidAfter": 30000,
     "historicalPaid": 45000,
     "livePaid": 0,
     "totalContributed": 45000,
@@ -3222,7 +3477,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0130",
@@ -3231,7 +3489,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 1000,
     "paidAfter": 15000,
@@ -3247,7 +3504,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0131",
@@ -3256,10 +3516,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 20000,
     "livePaid": 0,
     "totalContributed": 20000,
@@ -3272,7 +3531,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0132",
@@ -3281,7 +3543,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 100000,
     "spotPaid": 22000,
     "paidAfter": 3000,
@@ -3297,7 +3558,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0133",
@@ -3306,10 +3570,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 10000,
     "spotPaid": 10000,
-    "paidAfter": 0,
+    "paidAfter": 10000,
     "historicalPaid": 20000,
     "livePaid": 0,
     "totalContributed": 20000,
@@ -3322,7 +3585,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0134",
@@ -3331,7 +3597,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 13000,
     "paidAfter": 0,
@@ -3347,7 +3612,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0135",
@@ -3356,10 +3624,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 20000,
     "livePaid": 0,
     "totalContributed": 20000,
@@ -3372,7 +3639,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0136",
@@ -3381,7 +3651,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 3000,
     "paidAfter": 10000,
@@ -3397,7 +3666,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0137",
@@ -3406,7 +3678,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 20000,
     "paidAfter": 0,
@@ -3422,7 +3693,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0138",
@@ -3431,7 +3705,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 5000,
     "paidAfter": 0,
@@ -3447,7 +3720,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0139",
@@ -3456,7 +3732,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 0,
     "paidAfter": 10000,
@@ -3472,7 +3747,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0140",
@@ -3481,10 +3759,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 20000,
     "livePaid": 0,
     "totalContributed": 20000,
@@ -3497,7 +3774,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0141",
@@ -3506,7 +3786,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 3000,
     "paidAfter": 0,
@@ -3522,7 +3801,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0142",
@@ -3531,7 +3813,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 0,
     "paidAfter": 30000,
@@ -3547,7 +3828,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0143",
@@ -3556,7 +3840,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 6000,
     "paidAfter": 0,
@@ -3572,7 +3855,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0144",
@@ -3581,7 +3867,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 10000,
     "paidAfter": 0,
@@ -3597,7 +3882,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0145",
@@ -3606,10 +3894,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 10000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 10000,
     "historicalPaid": 10000,
     "livePaid": 0,
     "totalContributed": 10000,
@@ -3622,7 +3909,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0146",
@@ -3631,7 +3921,6 @@
     "phone": "+256730975101",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 50000,
     "spotPaid": 0,
     "paidAfter": 50000,
@@ -3647,7 +3936,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T18:17:22.785Z"
+    "updatedAt": "2026-11-21T18:17:22.785Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0147",
@@ -3656,7 +3948,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 1000,
     "paidAfter": 0,
@@ -3672,7 +3963,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0148",
@@ -3681,7 +3975,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 10000,
     "paidAfter": 0,
@@ -3697,7 +3990,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0149",
@@ -3706,10 +4002,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 50000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 50000,
     "historicalPaid": 50000,
     "livePaid": 0,
     "totalContributed": 50000,
@@ -3722,7 +4017,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0150",
@@ -3731,10 +4029,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 50000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 50000,
     "historicalPaid": 50000,
     "livePaid": 0,
     "totalContributed": 50000,
@@ -3747,7 +4044,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0151",
@@ -3756,7 +4056,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 7000,
     "paidAfter": 0,
@@ -3772,7 +4071,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0152",
@@ -3781,10 +4083,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 30000,
     "spotPaid": 10000,
-    "paidAfter": 0,
+    "paidAfter": 30000,
     "historicalPaid": 40000,
     "livePaid": 0,
     "totalContributed": 40000,
@@ -3797,7 +4098,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0153",
@@ -3806,7 +4110,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 10000,
     "paidAfter": 0,
@@ -3822,7 +4125,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0154",
@@ -3831,10 +4137,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 100000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 100000,
     "historicalPaid": 100000,
     "livePaid": 0,
     "totalContributed": 100000,
@@ -3847,7 +4152,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0155",
@@ -3856,7 +4164,6 @@
     "phone": "+256782430598",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 0,
     "paidAfter": 5000,
@@ -3872,7 +4179,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T18:17:22.785Z"
+    "updatedAt": "2026-11-21T18:17:22.785Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0156",
@@ -3881,10 +4191,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 50000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 50000,
     "historicalPaid": 50000,
     "livePaid": 0,
     "totalContributed": 50000,
@@ -3897,32 +4206,37 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0157",
     "memberId": "SB-M-0157",
     "name": "Manzi Gloire",
-    "phone": "",
+    "phone": "+256703643759",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 50000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 50000,
     "historicalPaid": 50000,
-    "livePaid": 0,
-    "totalContributed": 50000,
+    "livePaid": 400000,
+    "totalContributed": 450000,
     "expectedTargetUgx": 100000,
-    "remainingUgx": 50000,
-    "duesStatus": "Partial",
+    "remainingUgx": 0,
+    "duesStatus": "Paid",
     "profileStatus": "INCOMPLETE",
-    "paymentCount": 1,
-    "lastPaymentDate": "2026-06-01",
-    "lastPurpose": "Mission NLL XVII — Pre-NLL",
+    "paymentCount": 2,
+    "lastPaymentDate": "2026-11-21",
+    "lastPurpose": "Contribution",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-22T12:34:36.574Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0158",
@@ -3931,7 +4245,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 0,
     "paidAfter": 5000,
@@ -3947,7 +4260,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0159",
@@ -3956,7 +4272,6 @@
     "phone": "+256709203211",
     "email": "darrenug1111@gmail.com",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 0,
     "paidAfter": 5000,
@@ -3972,7 +4287,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T18:17:22.785Z"
+    "updatedAt": "2026-11-21T18:17:22.785Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0160",
@@ -3981,7 +4299,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 120000,
     "paidAfter": 0,
@@ -3997,7 +4314,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0161",
@@ -4006,10 +4326,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 150000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 150000,
     "historicalPaid": 150000,
     "livePaid": 0,
     "totalContributed": 150000,
@@ -4022,7 +4341,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0162",
@@ -4031,7 +4353,6 @@
     "phone": "+256768145339",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 3000,
     "paidAfter": 0,
@@ -4047,7 +4368,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T18:17:22.785Z"
+    "updatedAt": "2026-11-21T18:17:22.785Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0163",
@@ -4056,7 +4380,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 0,
     "paidAfter": 5000,
@@ -4072,7 +4395,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0164",
@@ -4081,10 +4407,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 50000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 50000,
     "historicalPaid": 50000,
     "livePaid": 0,
     "totalContributed": 50000,
@@ -4097,7 +4422,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0165",
@@ -4106,10 +4434,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 20000,
     "livePaid": 0,
     "totalContributed": 20000,
@@ -4122,7 +4449,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0166",
@@ -4131,10 +4461,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 550000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 550000,
     "historicalPaid": 550000,
     "livePaid": 0,
     "totalContributed": 550000,
@@ -4147,7 +4476,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0167",
@@ -4156,10 +4488,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 5000,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 25000,
     "livePaid": 0,
     "totalContributed": 25000,
@@ -4172,7 +4503,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0168",
@@ -4181,7 +4515,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 5000,
     "paidAfter": 0,
@@ -4197,7 +4530,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0169",
@@ -4206,7 +4542,6 @@
     "phone": "+256768860969",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 15000,
     "paidAfter": 5000,
@@ -4222,7 +4557,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T18:17:22.785Z"
+    "updatedAt": "2026-11-21T18:17:22.785Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0170",
@@ -4231,7 +4569,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 5000,
     "paidAfter": 0,
@@ -4247,7 +4584,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0171",
@@ -4256,7 +4596,6 @@
     "phone": "+256794037123",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 2000,
     "paidAfter": 0,
@@ -4272,7 +4611,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T18:17:22.785Z"
+    "updatedAt": "2026-11-21T18:17:22.785Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0172",
@@ -4281,7 +4623,6 @@
     "phone": "+256758346455",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 25000,
     "spotPaid": 0,
     "paidAfter": 10000,
@@ -4297,7 +4638,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T18:17:22.785Z"
+    "updatedAt": "2026-11-21T18:17:22.785Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0173",
@@ -4306,10 +4650,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 50000,
     "spotPaid": 10000,
-    "paidAfter": 0,
+    "paidAfter": 50000,
     "historicalPaid": 60000,
     "livePaid": 0,
     "totalContributed": 60000,
@@ -4322,7 +4665,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0174",
@@ -4331,7 +4677,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 110000,
     "paidAfter": 0,
@@ -4347,16 +4692,18 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0175",
     "memberId": "SB-M-0175",
     "name": "Muhwezi Brian",
     "phone": "+256791440828",
-    "email": "",
-    "address": "",
-    "tier": "Supporter",
+    "email": "muhwezibrian372@gmail.com",
+    "address": "Kira",
     "preNllPaid": 30000,
     "spotPaid": 5000,
     "paidAfter": 10000,
@@ -4366,13 +4713,16 @@
     "expectedTargetUgx": 100000,
     "remainingUgx": 55000,
     "duesStatus": "Partial",
-    "profileStatus": "INCOMPLETE",
+    "profileStatus": "COMPLETE",
     "paymentCount": 3,
     "lastPaymentDate": "2026-09-15",
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T18:17:22.785Z"
+    "updatedAt": "2026-11-22T13:07:20.485Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0176",
@@ -4381,7 +4731,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 4000,
     "paidAfter": 0,
@@ -4397,7 +4746,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0177",
@@ -4406,7 +4758,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 0,
     "paidAfter": 50000,
@@ -4422,7 +4773,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0178",
@@ -4431,7 +4785,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 2000,
     "paidAfter": 0,
@@ -4447,7 +4800,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0179",
@@ -4456,10 +4812,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 50000,
     "spotPaid": 6000,
-    "paidAfter": 0,
+    "paidAfter": 50000,
     "historicalPaid": 56000,
     "livePaid": 0,
     "totalContributed": 56000,
@@ -4472,7 +4827,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0180",
@@ -4481,7 +4839,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 50000,
     "spotPaid": 33000,
     "paidAfter": 9000,
@@ -4497,7 +4854,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0181",
@@ -4506,10 +4866,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 20000,
     "livePaid": 0,
     "totalContributed": 20000,
@@ -4522,7 +4881,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0182",
@@ -4531,10 +4893,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 20000,
     "livePaid": 0,
     "totalContributed": 20000,
@@ -4547,7 +4908,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0183",
@@ -4556,7 +4920,6 @@
     "phone": "+256780726421",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 25000,
     "paidAfter": 5000,
@@ -4572,7 +4935,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T18:17:22.785Z"
+    "updatedAt": "2026-11-21T18:17:22.785Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0184",
@@ -4581,10 +4947,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 50000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 50000,
     "historicalPaid": 50000,
     "livePaid": 0,
     "totalContributed": 50000,
@@ -4597,7 +4962,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0185",
@@ -4606,10 +4974,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 20000,
     "livePaid": 0,
     "totalContributed": 20000,
@@ -4622,7 +4989,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0186",
@@ -4631,10 +5001,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 30000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 30000,
     "historicalPaid": 30000,
     "livePaid": 0,
     "totalContributed": 30000,
@@ -4647,7 +5016,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0187",
@@ -4656,10 +5028,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 10000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 10000,
     "historicalPaid": 10000,
     "livePaid": 0,
     "totalContributed": 10000,
@@ -4672,7 +5043,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0188",
@@ -4681,10 +5055,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 20000,
     "livePaid": 0,
     "totalContributed": 20000,
@@ -4697,7 +5070,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0189",
@@ -4706,7 +5082,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 4000,
     "paidAfter": 0,
@@ -4722,7 +5097,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0190",
@@ -4731,7 +5109,6 @@
     "phone": "+256776944825",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 0,
     "paidAfter": 25000,
@@ -4747,7 +5124,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T18:17:22.785Z"
+    "updatedAt": "2026-11-21T18:17:22.785Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0191",
@@ -4756,7 +5136,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 4000,
     "paidAfter": 0,
@@ -4772,7 +5151,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0192",
@@ -4781,7 +5163,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 0,
     "paidAfter": 50000,
@@ -4797,7 +5178,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0193",
@@ -4806,10 +5190,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 40000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 40000,
     "historicalPaid": 40000,
     "livePaid": 0,
     "totalContributed": 40000,
@@ -4822,7 +5205,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0194",
@@ -4831,10 +5217,9 @@
     "phone": "+256709116835",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 20000,
     "livePaid": 0,
     "totalContributed": 20000,
@@ -4847,7 +5232,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T18:17:22.785Z"
+    "updatedAt": "2026-11-21T18:17:22.785Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0195",
@@ -4856,10 +5244,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 50000,
     "spotPaid": 1000,
-    "paidAfter": 0,
+    "paidAfter": 50000,
     "historicalPaid": 51000,
     "livePaid": 0,
     "totalContributed": 51000,
@@ -4872,7 +5259,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0196",
@@ -4881,7 +5271,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 5000,
     "paidAfter": 0,
@@ -4897,7 +5286,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0197",
@@ -4906,7 +5298,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 20000,
     "paidAfter": 0,
@@ -4922,7 +5313,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0198",
@@ -4931,7 +5325,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 2000,
     "paidAfter": 0,
@@ -4947,7 +5340,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0199",
@@ -4956,10 +5352,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 10000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 10000,
     "historicalPaid": 10000,
     "livePaid": 0,
     "totalContributed": 10000,
@@ -4972,16 +5367,18 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0200",
     "memberId": "SB-M-0200",
     "name": "Nagaba Passion",
-    "phone": "",
-    "email": "",
-    "address": "",
-    "tier": "Supporter",
+    "phone": "+256703643759",
+    "email": "nagabapassion@gmail.com",
+    "address": "Kampala road",
     "preNllPaid": 100000,
     "spotPaid": 41000,
     "paidAfter": 9000,
@@ -4991,13 +5388,16 @@
     "expectedTargetUgx": 100000,
     "remainingUgx": 0,
     "duesStatus": "Paid",
-    "profileStatus": "INCOMPLETE",
+    "profileStatus": "COMPLETE",
     "paymentCount": 3,
     "lastPaymentDate": "2026-09-15",
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0201",
@@ -5006,10 +5406,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 20000,
     "livePaid": 0,
     "totalContributed": 20000,
@@ -5022,7 +5421,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0202",
@@ -5031,10 +5433,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 50000,
     "spotPaid": 14000,
-    "paidAfter": 0,
+    "paidAfter": 50000,
     "historicalPaid": 64000,
     "livePaid": 0,
     "totalContributed": 64000,
@@ -5047,7 +5448,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0203",
@@ -5056,7 +5460,6 @@
     "phone": "+256704208050",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 21000,
     "paidAfter": 30000,
@@ -5072,7 +5475,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T18:17:22.785Z"
+    "updatedAt": "2026-11-21T18:17:22.785Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0204",
@@ -5081,7 +5487,6 @@
     "phone": "+256785011163",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 5000,
     "paidAfter": 5000,
@@ -5097,16 +5502,18 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T18:17:22.785Z"
+    "updatedAt": "2026-11-21T18:17:22.785Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0205",
     "memberId": "SB-M-0205",
     "name": "Namara Benjamin",
-    "phone": "",
-    "email": "",
-    "address": "",
-    "tier": "Supporter",
+    "phone": "+25631025799",
+    "email": "namarabenjaminkamugisha@gmail.com",
+    "address": "Mbarara",
     "preNllPaid": 0,
     "spotPaid": 10000,
     "paidAfter": 0,
@@ -5116,13 +5523,16 @@
     "expectedTargetUgx": 100000,
     "remainingUgx": 90000,
     "duesStatus": "Partial",
-    "profileStatus": "INCOMPLETE",
+    "profileStatus": "COMPLETE",
     "paymentCount": 1,
     "lastPaymentDate": "2026-08-01",
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-22T12:11:00.349Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0206",
@@ -5131,7 +5541,6 @@
     "phone": "+256780229482",
     "email": "namitalagoldie@gmail.com",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 50000,
     "spotPaid": 0,
     "paidAfter": 50000,
@@ -5147,7 +5556,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T18:17:22.785Z"
+    "updatedAt": "2026-11-21T18:17:22.785Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0207",
@@ -5156,7 +5568,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 30000,
     "paidAfter": 0,
@@ -5172,7 +5583,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0208",
@@ -5181,7 +5595,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 12000,
     "paidAfter": 0,
@@ -5197,7 +5610,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0209",
@@ -5206,7 +5622,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 8000,
     "paidAfter": 0,
@@ -5222,7 +5637,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0210",
@@ -5231,7 +5649,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 10000,
     "paidAfter": 0,
@@ -5247,7 +5664,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0211",
@@ -5256,7 +5676,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 0,
     "paidAfter": 30000,
@@ -5272,7 +5691,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0212",
@@ -5281,7 +5703,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 3000,
     "paidAfter": 0,
@@ -5297,7 +5718,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0213",
@@ -5306,7 +5730,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 9000,
     "paidAfter": 0,
@@ -5322,7 +5745,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0214",
@@ -5331,7 +5757,6 @@
     "phone": "+256760185879",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 4000,
     "paidAfter": 50000,
@@ -5347,7 +5772,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T18:17:22.785Z"
+    "updatedAt": "2026-11-21T18:17:22.785Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0215",
@@ -5356,10 +5784,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 70000,
     "spotPaid": 14000,
-    "paidAfter": 0,
+    "paidAfter": 70000,
     "historicalPaid": 84000,
     "livePaid": 0,
     "totalContributed": 84000,
@@ -5372,7 +5799,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0216",
@@ -5381,10 +5811,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 20000,
     "livePaid": 0,
     "totalContributed": 20000,
@@ -5397,7 +5826,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0217",
@@ -5406,7 +5838,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 10000,
     "paidAfter": 0,
@@ -5422,7 +5853,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0218",
@@ -5431,7 +5865,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 4000,
     "paidAfter": 0,
@@ -5447,7 +5880,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0219",
@@ -5456,7 +5892,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 3000,
     "paidAfter": 0,
@@ -5472,7 +5907,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0220",
@@ -5481,7 +5919,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 9000,
     "paidAfter": 50000,
@@ -5497,7 +5934,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0221",
@@ -5506,10 +5946,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 10000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 10000,
     "historicalPaid": 10000,
     "livePaid": 0,
     "totalContributed": 10000,
@@ -5522,7 +5961,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0222",
@@ -5531,7 +5973,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 2000,
     "paidAfter": 0,
@@ -5547,7 +5988,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0223",
@@ -5556,10 +6000,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 30000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 30000,
     "historicalPaid": 30000,
     "livePaid": 0,
     "totalContributed": 30000,
@@ -5572,7 +6015,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0224",
@@ -5581,7 +6027,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 10000,
     "paidAfter": 0,
@@ -5597,7 +6042,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0225",
@@ -5606,7 +6054,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 5000,
     "paidAfter": 0,
@@ -5622,7 +6069,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0226",
@@ -5631,10 +6081,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 20000,
     "livePaid": 0,
     "totalContributed": 20000,
@@ -5647,7 +6096,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0227",
@@ -5656,10 +6108,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 50000,
     "spotPaid": 5000,
-    "paidAfter": 0,
+    "paidAfter": 50000,
     "historicalPaid": 55000,
     "livePaid": 0,
     "totalContributed": 55000,
@@ -5672,7 +6123,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0228",
@@ -5681,10 +6135,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 10000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 10000,
     "historicalPaid": 10000,
     "livePaid": 0,
     "totalContributed": 10000,
@@ -5697,7 +6150,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0229",
@@ -5706,10 +6162,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 20000,
     "livePaid": 0,
     "totalContributed": 20000,
@@ -5722,7 +6177,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0230",
@@ -5731,7 +6189,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 0,
     "paidAfter": 25000,
@@ -5747,7 +6204,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0231",
@@ -5756,7 +6216,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 12000,
     "paidAfter": 0,
@@ -5772,7 +6231,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0232",
@@ -5781,10 +6243,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 6000,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 26000,
     "livePaid": 0,
     "totalContributed": 26000,
@@ -5797,7 +6258,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0233",
@@ -5806,10 +6270,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 310000,
     "spotPaid": 15000,
-    "paidAfter": 0,
+    "paidAfter": 310000,
     "historicalPaid": 325000,
     "livePaid": 0,
     "totalContributed": 325000,
@@ -5822,7 +6285,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0234",
@@ -5831,7 +6297,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 3000,
     "paidAfter": 0,
@@ -5847,7 +6312,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0235",
@@ -5856,10 +6324,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 20000,
     "livePaid": 0,
     "totalContributed": 20000,
@@ -5872,7 +6339,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0236",
@@ -5881,10 +6351,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 20000,
     "livePaid": 0,
     "totalContributed": 20000,
@@ -5897,7 +6366,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0237",
@@ -5906,7 +6378,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 5000,
     "paidAfter": 0,
@@ -5922,7 +6393,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0238",
@@ -5931,10 +6405,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 30000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 30000,
     "historicalPaid": 30000,
     "livePaid": 0,
     "totalContributed": 30000,
@@ -5947,7 +6420,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0239",
@@ -5956,10 +6432,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 10000,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 30000,
     "livePaid": 0,
     "totalContributed": 30000,
@@ -5972,7 +6447,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0240",
@@ -5981,7 +6459,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 8000,
     "paidAfter": 0,
@@ -5997,7 +6474,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0241",
@@ -6006,10 +6486,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 50000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 50000,
     "historicalPaid": 50000,
     "livePaid": 0,
     "totalContributed": 50000,
@@ -6022,7 +6501,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0242",
@@ -6031,7 +6513,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 7000,
     "paidAfter": 0,
@@ -6047,7 +6528,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0243",
@@ -6056,10 +6540,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 20000,
     "livePaid": 0,
     "totalContributed": 20000,
@@ -6072,7 +6555,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0244",
@@ -6081,10 +6567,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 100000,
     "spotPaid": 15000,
-    "paidAfter": 0,
+    "paidAfter": 100000,
     "historicalPaid": 115000,
     "livePaid": 0,
     "totalContributed": 115000,
@@ -6097,7 +6582,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0245",
@@ -6106,7 +6594,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 3000,
     "paidAfter": 0,
@@ -6122,7 +6609,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0246",
@@ -6131,7 +6621,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 15000,
     "paidAfter": 0,
@@ -6147,7 +6636,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0247",
@@ -6156,7 +6648,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 20000,
     "paidAfter": 0,
@@ -6172,7 +6663,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0248",
@@ -6181,7 +6675,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 0,
     "paidAfter": 3000,
@@ -6197,7 +6690,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0249",
@@ -6206,7 +6702,6 @@
     "phone": "+256771601701",
     "email": "bizimanashukulu@gmail.com",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 0,
     "paidAfter": 20000,
@@ -6222,7 +6717,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T18:17:22.785Z"
+    "updatedAt": "2026-11-21T18:17:22.785Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0250",
@@ -6231,10 +6729,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 10000,
     "spotPaid": 5000,
-    "paidAfter": 0,
+    "paidAfter": 10000,
     "historicalPaid": 15000,
     "livePaid": 0,
     "totalContributed": 15000,
@@ -6247,7 +6744,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0251",
@@ -6256,10 +6756,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 3000,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 23000,
     "livePaid": 0,
     "totalContributed": 23000,
@@ -6272,7 +6771,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0252",
@@ -6281,7 +6783,6 @@
     "phone": "+256765005836",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 4000,
     "paidAfter": 20000,
@@ -6297,7 +6798,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T18:17:22.785Z"
+    "updatedAt": "2026-11-21T18:17:22.785Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0253",
@@ -6306,7 +6810,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 0,
     "paidAfter": 20000,
@@ -6322,7 +6825,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0254",
@@ -6331,7 +6837,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 5000,
     "paidAfter": 0,
@@ -6347,7 +6852,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0255",
@@ -6356,7 +6864,6 @@
     "phone": "+256781860280",
     "email": "geofreytandeka66@gmail.com",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 5000,
     "paidAfter": 5000,
@@ -6372,7 +6879,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T18:17:22.785Z"
+    "updatedAt": "2026-11-21T18:17:22.785Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0256",
@@ -6381,7 +6891,6 @@
     "phone": "+256765888558",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 10000,
     "spotPaid": 9000,
     "paidAfter": 31000,
@@ -6397,7 +6906,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T18:17:22.785Z"
+    "updatedAt": "2026-11-21T18:17:22.785Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0257",
@@ -6406,10 +6918,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 20000,
     "livePaid": 0,
     "totalContributed": 20000,
@@ -6422,7 +6933,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0258",
@@ -6431,7 +6945,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 2000,
     "paidAfter": 0,
@@ -6447,7 +6960,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0259",
@@ -6456,7 +6972,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 2000,
     "paidAfter": 0,
@@ -6472,7 +6987,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0260",
@@ -6481,10 +6999,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 6000,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 26000,
     "livePaid": 0,
     "totalContributed": 26000,
@@ -6497,7 +7014,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0261",
@@ -6506,7 +7026,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 3000,
     "paidAfter": 0,
@@ -6522,7 +7041,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0262",
@@ -6531,10 +7053,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 20000,
     "livePaid": 0,
     "totalContributed": 20000,
@@ -6547,7 +7068,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0263",
@@ -6556,7 +7080,6 @@
     "phone": "+256704317247",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 0,
     "paidAfter": 5000,
@@ -6572,7 +7095,10 @@
     "lastPurpose": "Mission NLL XVII — Paid After",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T18:17:22.785Z"
+    "updatedAt": "2026-11-21T18:17:22.785Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0264",
@@ -6581,10 +7107,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 20000,
     "livePaid": 0,
     "totalContributed": 20000,
@@ -6597,7 +7122,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0265",
@@ -6606,10 +7134,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 50000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 50000,
     "historicalPaid": 50000,
     "livePaid": 0,
     "totalContributed": 50000,
@@ -6622,7 +7149,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0266",
@@ -6631,10 +7161,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 50000,
     "spotPaid": 4000,
-    "paidAfter": 0,
+    "paidAfter": 50000,
     "historicalPaid": 54000,
     "livePaid": 0,
     "totalContributed": 54000,
@@ -6647,7 +7176,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0267",
@@ -6656,7 +7188,6 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 8000,
     "paidAfter": 0,
@@ -6672,7 +7203,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0268",
@@ -6681,10 +7215,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 10000,
     "spotPaid": 10000,
-    "paidAfter": 0,
+    "paidAfter": 10000,
     "historicalPaid": 20000,
     "livePaid": 0,
     "totalContributed": 20000,
@@ -6697,7 +7230,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0269",
@@ -6706,10 +7242,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 20000,
     "livePaid": 0,
     "totalContributed": 20000,
@@ -6722,7 +7257,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0270",
@@ -6731,10 +7269,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 20000,
     "spotPaid": 0,
-    "paidAfter": 0,
+    "paidAfter": 20000,
     "historicalPaid": 20000,
     "livePaid": 0,
     "totalContributed": 20000,
@@ -6747,7 +7284,10 @@
     "lastPurpose": "Mission NLL XVII — Pre-NLL",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0271",
@@ -6756,10 +7296,9 @@
     "phone": "",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 50000,
     "spotPaid": 10000,
-    "paidAfter": 0,
+    "paidAfter": 50000,
     "historicalPaid": 60000,
     "livePaid": 0,
     "totalContributed": 60000,
@@ -6772,7 +7311,10 @@
     "lastPurpose": "Mission NLL XVII — Spot Paid",
     "source": "CSV_IMPORT",
     "createdAt": "2026-11-21T17:35:21.895Z",
-    "updatedAt": "2026-11-21T17:35:21.895Z"
+    "updatedAt": "2026-11-21T17:35:21.895Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0272",
@@ -6781,15 +7323,14 @@
     "phone": "+256708257078",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 0,
     "paidAfter": 0,
-    "historicalPaid": 0,
+    "historicalPaid": 10000,
     "livePaid": 10000,
-    "totalContributed": 10000,
+    "totalContributed": 20000,
     "expectedTargetUgx": 100000,
-    "remainingUgx": 90000,
+    "remainingUgx": 80000,
     "duesStatus": "Partial",
     "profileStatus": "INCOMPLETE",
     "paymentCount": 1,
@@ -6797,7 +7338,10 @@
     "lastPurpose": "Membership",
     "source": "LIVE_RECEIPT",
     "createdAt": "2026-11-21T18:16:07.383Z",
-    "updatedAt": "2026-11-21T18:17:22.785Z"
+    "updatedAt": "2026-11-21T18:17:22.785Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0273",
@@ -6806,15 +7350,14 @@
     "phone": "924895842",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 0,
     "paidAfter": 0,
-    "historicalPaid": 0,
+    "historicalPaid": 11000,
     "livePaid": 11000,
-    "totalContributed": 11000,
+    "totalContributed": 22000,
     "expectedTargetUgx": 100000,
-    "remainingUgx": 89000,
+    "remainingUgx": 78000,
     "duesStatus": "Partial",
     "profileStatus": "INCOMPLETE",
     "paymentCount": 1,
@@ -6822,7 +7365,10 @@
     "lastPurpose": "Membership",
     "source": "LIVE_RECEIPT",
     "createdAt": "2026-11-21T18:16:07.383Z",
-    "updatedAt": "2026-11-21T18:17:22.785Z"
+    "updatedAt": "2026-11-21T18:17:22.785Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0274",
@@ -6831,15 +7377,14 @@
     "phone": "+256780184070",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 0,
     "paidAfter": 0,
-    "historicalPaid": 0,
+    "historicalPaid": 30000,
     "livePaid": 30000,
-    "totalContributed": 30000,
+    "totalContributed": 60000,
     "expectedTargetUgx": 100000,
-    "remainingUgx": 70000,
+    "remainingUgx": 40000,
     "duesStatus": "Partial",
     "profileStatus": "INCOMPLETE",
     "paymentCount": 1,
@@ -6847,7 +7392,10 @@
     "lastPurpose": "Membership",
     "source": "LIVE_RECEIPT",
     "createdAt": "2026-11-21T18:16:07.383Z",
-    "updatedAt": "2026-11-21T18:17:22.785Z"
+    "updatedAt": "2026-11-21T18:17:22.785Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   },
   {
     "id": "SB-M-0275",
@@ -6856,15 +7404,14 @@
     "phone": "+256791342030",
     "email": "",
     "address": "",
-    "tier": "Supporter",
     "preNllPaid": 0,
     "spotPaid": 0,
     "paidAfter": 0,
-    "historicalPaid": 0,
+    "historicalPaid": 30000,
     "livePaid": 30000,
-    "totalContributed": 30000,
+    "totalContributed": 60000,
     "expectedTargetUgx": 100000,
-    "remainingUgx": 70000,
+    "remainingUgx": 40000,
     "duesStatus": "Partial",
     "profileStatus": "INCOMPLETE",
     "paymentCount": 1,
@@ -6872,6 +7419,9 @@
     "lastPurpose": "Membership",
     "source": "LIVE_RECEIPT",
     "createdAt": "2026-11-21T18:16:07.383Z",
-    "updatedAt": "2026-11-21T18:17:22.785Z"
+    "updatedAt": "2026-11-21T18:17:22.785Z",
+    "gender": "",
+    "school": "",
+    "house": ""
   }
 ]

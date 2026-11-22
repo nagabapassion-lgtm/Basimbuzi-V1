@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ClubFixture } from '../../types';
 import { ArrowLeft, Calendar, MapPin, Trophy } from 'lucide-react';
 
@@ -9,14 +9,32 @@ interface FixturesPageProps {
   onGoJoinClub: () => void;
 }
 
+const FIXTURE_TAB_STORAGE_KEY = 'scb_public_fixture_tab_v1';
+const FIXTURE_COMP_STORAGE_KEY = 'scb_public_fixture_comp_v1';
+
 export const FixturesPage: React.FC<FixturesPageProps> = ({
   clubName,
   fixtures,
   onBackHome,
   onGoJoinClub
 }) => {
-  const [fixtureTab, setFixtureTab] = useState<'UPCOMING' | 'COMPLETED'>('UPCOMING');
-  const [competitionFilter, setCompetitionFilter] = useState<string>('All');
+  const [fixtureTab, setFixtureTab] = useState<'UPCOMING' | 'COMPLETED'>(() => {
+    if (typeof window === 'undefined') return 'UPCOMING';
+    try {
+      const saved = window.localStorage.getItem(FIXTURE_TAB_STORAGE_KEY);
+      return saved === 'COMPLETED' ? 'COMPLETED' : 'UPCOMING';
+    } catch {
+      return 'UPCOMING';
+    }
+  });
+  const [competitionFilter, setCompetitionFilter] = useState<string>(() => {
+    if (typeof window === 'undefined') return 'All';
+    try {
+      return window.localStorage.getItem(FIXTURE_COMP_STORAGE_KEY) || 'All';
+    } catch {
+      return 'All';
+    }
+  });
 
   const competitions = useMemo(() => {
     const unique = new Set<string>();
@@ -25,6 +43,26 @@ export const FixturesPage: React.FC<FixturesPageProps> = ({
     });
     return ['All', ...Array.from(unique)];
   }, [fixtures]);
+
+  useEffect(() => {
+    if (fixtures.length > 0 && competitionFilter !== 'All' && !competitions.includes(competitionFilter)) {
+      setCompetitionFilter('All');
+    }
+  }, [fixtures.length, competitions, competitionFilter]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(FIXTURE_TAB_STORAGE_KEY, fixtureTab);
+    } catch {}
+  }, [fixtureTab]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(FIXTURE_COMP_STORAGE_KEY, competitionFilter);
+    } catch {}
+  }, [competitionFilter]);
 
   const upcomingFixtures = useMemo(() => {
     return (fixtures || [])

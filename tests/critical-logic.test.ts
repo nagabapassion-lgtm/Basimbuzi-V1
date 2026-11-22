@@ -6,7 +6,8 @@ import {
   isValidPhone, 
   isValidAmount, 
   isValidReceiptNumber, 
-  isValidGasUrl 
+  isValidGasUrl,
+  resolveSafeMediaUrl
 } from '../src/utils/security';
 import { resolveUserPermissions, getDefaultPermissions, User } from '../src/types';
 
@@ -379,6 +380,57 @@ describe('Expanded Membership Profile Helpers (Gender, School & Conditional Hous
     assert.strictEqual(john.email, 'john.new@gmail.com');
     assert.strictEqual(john.address, 'Ntare');
     assert.strictEqual(john.house, 'Aggrey House');
+  });
+
+  test('isStaffOrPlaceholderEmail & mergeMemberDirectories preserve registered staff users own member emails', () => {
+    const owners = { 'treasurer.member@club.org': 'Kato Emmanuel' };
+    assert.strictEqual(
+      isStaffOrPlaceholderEmail('treasurer.member@club.org', 'Kato Emmanuel', ['treasurer.member@club.org'], owners),
+      false
+    );
+    assert.strictEqual(
+      isStaffOrPlaceholderEmail('treasurer.member@club.org', 'Other Member', ['treasurer.member@club.org'], owners),
+      true
+    );
+
+    const local = [
+      {
+        id: 'SB-M-0280',
+        name: 'Kato Emmanuel',
+        email: 'treasurer.member@club.org',
+        phone: '+256772000111',
+        address: 'Kampala',
+        updatedAt: '2026-11-22T12:00:00.000Z'
+      }
+    ];
+    const remote = [
+      {
+        id: 'SB-M-0280',
+        name: 'Kato Emmanuel',
+        email: 'treasurer.member@club.org',
+        phone: '+256772000111',
+        updatedAt: '5000'
+      }
+    ];
+    const res = mergeMemberDirectories(local, remote, 100000, ['treasurer.member@club.org'], owners);
+    assert.strictEqual(res.members[0].email, 'treasurer.member@club.org');
+  });
+});
+
+describe('CMS Media URL Persistence & XSS Guard Tests', () => {
+  test('resolveSafeMediaUrl allows compact raster base64 data URIs while blocking SVG and script schemes', () => {
+    const validWebp = 'data:image/webp;base64,UklGRh4AAABXRUJQVlA4TBEAAAAvAAAAAAfQ//73v/+BiOh/AAA=';
+    const validPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    const unsafeSvg = 'data:image/svg+xml;base64,PHN2ZyBvbmxvYWQ9YWxlcnQoMSk+PC9zdmc+';
+    const unsafeJs = 'javascript:alert(1)';
+    const fallback = '/fallback.jpg';
+
+    assert.strictEqual(resolveSafeMediaUrl(validWebp, fallback), validWebp);
+    assert.strictEqual(resolveSafeMediaUrl(validPng, fallback), validPng);
+    assert.strictEqual(resolveSafeMediaUrl('https://cdn.example.org/hero.jpg', fallback), 'https://cdn.example.org/hero.jpg');
+    assert.strictEqual(resolveSafeMediaUrl('/uploads/club-123.jpg', fallback), '/uploads/club-123.jpg');
+    assert.strictEqual(resolveSafeMediaUrl(unsafeSvg, fallback), fallback);
+    assert.strictEqual(resolveSafeMediaUrl(unsafeJs, fallback), fallback);
   });
 });
 

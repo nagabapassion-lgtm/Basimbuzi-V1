@@ -2,6 +2,7 @@ import heroClubPitch from './images/hero_club_pitch_1795277918886.jpg';
 import newsMatchdayAction from './images/news_matchday_action_1795277903178.jpg';
 import newsCommunitySupporters from './images/news_community_supporters_1795277904224.jpg';
 import merchHomeJersey from './images/merch_home_jersey_1795277903802.jpg';
+import { resolveSafeMediaUrl } from '../utils/security';
 
 export interface ClubPresetImage {
   key: string;
@@ -29,14 +30,12 @@ const PRESET_MAP: Record<string, string> = {
 
 export const resolveClubImageUrl = (rawUrl?: string, fallbackKey: string = 'preset:hero'): string => {
   const clean = (rawUrl || '').trim();
+  const fallback = PRESET_MAP[fallbackKey] || heroClubPitch;
   if (!clean) {
-    return PRESET_MAP[fallbackKey] || heroClubPitch;
+    return fallback;
   }
   if (PRESET_MAP[clean]) {
     return PRESET_MAP[clean];
   }
-  if (/^https?:\/\//i.test(clean) || clean.startsWith('/')) {
-    return clean;
-  }
-  return PRESET_MAP[fallbackKey] || heroClubPitch;
+  return resolveSafeMediaUrl(clean, fallback);
 };

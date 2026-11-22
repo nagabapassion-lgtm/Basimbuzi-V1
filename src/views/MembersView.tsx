@@ -27,7 +27,6 @@ import {
   AlertCircle,
   Check,
   CheckCircle2,
-  CloudUpload,
   Copy,
   Download,
   Edit3,
@@ -97,9 +96,8 @@ export const MembersView: React.FC = () => {
   const [generatingLinkFor, setGeneratingLinkFor] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
 
-  // Review Queue busy state & GAS sync
+  // Review Queue busy state & reconciliation
   const [reviewingId, setReviewingId] = useState<string | null>(null);
-  const [syncingGas, setSyncingGas] = useState(false);
   const [reconciling, setReconciling] = useState(false);
 
   const loadDirectory = useCallback(async () => {
@@ -425,33 +423,6 @@ export const MembersView: React.FC = () => {
     addToast(`Exported ${filteredMembers.length} member records to CSV.`, 'success');
   };
 
-  const handleSyncToGoogleSheets = async () => {
-    if (!operatorEmail) return;
-    if (!isLiveBackend) {
-      addToast('Connect your Google Apps Script URL in Apps Script Backend first.', 'info');
-      return;
-    }
-    setSyncingGas(true);
-    const histTxs = await api.fetchHistoricalTransactions(operatorEmail);
-    const res = await api.syncMembersAndHistoricalToGas(members, histTxs, operatorEmail);
-    setSyncingGas(false);
-
-    if (res.success) {
-      addToast(
-        res.message ||
-          `Synced ${res.data?.syncedMembers ?? members.length} members and ${res.data?.syncedTransactions ?? histTxs.length} historical entries to Google Sheets!`,
-        'success'
-      );
-    } else {
-      addToast(
-        res.error?.toLowerCase().includes('unknown')
-          ? 'Please redeploy the updated Apps Script code from Backend Setup before syncing Members.'
-          : res.error || 'Google Sheets sync failed',
-        'error'
-      );
-    }
-  };
-
   const handleReconcileLedger = async () => {
     if (!operatorEmail) return;
     setReconciling(true);
@@ -530,16 +501,6 @@ export const MembersView: React.FC = () => {
           >
             <Download className="w-4 h-4 text-emerald-600" />
             <span>Export CSV</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleSyncToGoogleSheets}
-            disabled={syncingGas}
-            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition cursor-pointer disabled:opacity-60"
-          >
-            {syncingGas ? <Loader2 className="w-4 h-4 animate-spin" /> : <CloudUpload className="w-4 h-4" />}
-            <span>{syncingGas ? 'Syncing Sheets...' : 'Sync to Sheets'}</span>
           </button>
 
           <button

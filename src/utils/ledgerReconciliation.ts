@@ -65,7 +65,8 @@ export function cleanPhoneNumber(raw: unknown): string {
 export function isStaffOrPlaceholderEmail(
   email: unknown,
   payerName?: unknown,
-  extraStaffEmails?: Iterable<string>
+  extraStaffEmails?: Iterable<string>,
+  extraStaffOwners?: Record<string, string>
 ): boolean {
   const clean = String(email || '').trim().toLowerCase();
   if (!clean) return true;
@@ -96,7 +97,14 @@ export function isStaffOrPlaceholderEmail(
   }
 
   const normPayer = normalizePersonName(payerName);
-  const allowedOwners = STAFF_OWNER_NAME_KEYWORDS[clean] || [];
+  const allowedOwners = [...(STAFF_OWNER_NAME_KEYWORDS[clean] || [])];
+  if (extraStaffOwners && clean !== 'passionwork94@gmail.com') {
+    const ownerName = normalizePersonName(extraStaffOwners[clean]);
+    if (ownerName && ownerName.length >= 3 && !allowedOwners.includes(ownerName)) {
+      allowedOwners.push(ownerName);
+    }
+  }
+
   if (
     normPayer &&
     allowedOwners.some(
@@ -176,11 +184,13 @@ export interface UnrecordedGasMemberEnrichment {
 
 export const UNRECORDED_LIVE_GAS_RECEIPTS: readonly UnrecordedGasMemberEnrichment[] = [
   { receiptNumber: 'SB-2026-00011', gasName: 'Anglin Ankunda', targetCanonicalName: 'Anglin Ankunda', amount: 10000, phone: '+256708257078', stripStaffEmail: 'passionwork94@gmail.com' },
+  { receiptNumber: 'SB-2026-00034', gasName: 'Malual Dut', targetCanonicalName: 'Malual Dut', amount: 11000, phone: '+256700000000' },
   { receiptNumber: 'SB-2026-00058', gasName: 'Armstrong Butaahobweishe', targetCanonicalName: 'Armstrong Butaahobweishe', amount: 30000, phone: '+256780184070', stripStaffEmail: 'nagabapassion@gmail.com' },
   { receiptNumber: 'SB-2026-00059', gasName: 'Grace Mpora', targetCsvMemberId: 'SB-M-0171', targetCanonicalName: 'Mpora Grace', amount: 20000, phone: '+256794037123', stripStaffEmail: 'nagabapassion@gmail.com' },
   { receiptNumber: 'SB-2026-00061', gasName: 'Ahumuza Martha Joy', targetCsvMemberId: 'SB-M-0162', targetCanonicalName: 'Martha Joy', amount: 30000, phone: '+256768145339' },
   { receiptNumber: 'SB-2026-00062', gasName: 'Mwesigwa Alvin', targetCsvMemberId: 'SB-M-0057', targetCanonicalName: 'Alvin Mwesigwa', amount: 25000, phone: '+256782410956' },
-  { receiptNumber: 'SB-2026-00064', gasName: 'Atukunda Blessed Pearl', targetCanonicalName: 'Atukunda Blessed Pearl', amount: 30000, phone: '+256791342030' }
+  { receiptNumber: 'SB-2026-00064', gasName: 'Atukunda Blessed Pearl', targetCanonicalName: 'Atukunda Blessed Pearl', amount: 30000, phone: '+256791342030' },
+  { receiptNumber: 'SB-2026-00065', gasName: 'Manzi Gloire', targetCsvMemberId: 'SB-M-0157', targetCanonicalName: 'Manzi Gloire', amount: 400000, phone: '+256703643759' }
 ];
 
 /**

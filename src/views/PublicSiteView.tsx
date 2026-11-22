@@ -72,23 +72,42 @@ const getPublicRouteFromPath = (): PublicPageRoute => {
   return { page: 'home' };
 };
 
+const PUBLIC_NEWS_CAT_KEY = 'scb_public_news_category_v1';
+
 export const PublicSiteView: React.FC<PublicSiteViewProps> = ({ onNavigateAdmin }) => {
   const { theme, toggleTheme, settings } = useApp();
 
-  const [siteContent, setSiteContent] = useState<PublicSiteContent>(DEFAULT_PUBLIC_SITE_CONTENT);
+  const [siteContent, setSiteContent] = useState<PublicSiteContent>(
+    () => publicSiteService.getCachedPublicSite(false) || DEFAULT_PUBLIC_SITE_CONTENT
+  );
   const [orgProfile, setOrgProfile] = useState<PublicOrgProfile>({
     organizationName: settings.organizationName || 'SC Basimbuzi',
     organizationEmail: settings.organizationEmail || 'info@scbasimbuzi.org',
-    organizationPhone: settings.organizationPhone || '+256 700 000000',
+    organizationPhone: settings.organizationPhone || '+256703643759',
     organizationAddress: settings.organizationAddress || 'Kampala, Uganda',
     logoUrl: settings.logoUrl || HARDCODED_LOGO_URL
   });
   const [isLoadingSite, setIsLoadingSite] = useState(true);
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [newsCategory, setNewsCategory] = useState<'All' | NewsCategory>('All');
+  const [newsCategory, setNewsCategory] = useState<'All' | NewsCategory>(() => {
+    if (typeof window === 'undefined') return 'All';
+    try {
+      const saved = window.localStorage.getItem(PUBLIC_NEWS_CAT_KEY) as ('All' | NewsCategory) | null;
+      return saved && NEWS_FILTERS.includes(saved) ? saved : 'All';
+    } catch {
+      return 'All';
+    }
+  });
   const [route, setRoute] = useState<PublicPageRoute>(() => getPublicRouteFromPath());
   const [copiedArticleId, setCopiedArticleId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(PUBLIC_NEWS_CAT_KEY, newsCategory);
+    } catch {}
+  }, [newsCategory]);
 
   // Join Club Inquiry Form
   const [inquiryName, setInquiryName] = useState('');
@@ -350,28 +369,30 @@ export const PublicSiteView: React.FC<PublicSiteViewProps> = ({ onNavigateAdmin 
               Merchandise
             </a>
             <a
-              href="/me"
-              onClick={e => {
-                e.preventDefault();
-                navigateToPublicPath('/me');
-              }}
-              className={`hover:text-slate-950 dark:hover:text-white hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0 ${
-                route.page === 'me' ? 'text-blue-700 dark:text-blue-400 font-semibold' : ''
-              }`}
+              href="/#join-club"
+              onClick={e => handleNavSectionClick(e, 'join-club')}
+              className="hover:text-slate-950 dark:hover:text-white hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0"
             >
-              Me
+              Join Club
             </a>
           </nav>
 
           {/* Zone 3: Single Public Primary CTA (+ mobile menu trigger on <md) */}
           <div className="flex items-center gap-3 shrink-0">
             <a
-              href="/#join-club"
-              onClick={e => handleNavSectionClick(e, 'join-club')}
-              className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-blue-700 hover:bg-blue-800 dark:bg-blue-600 dark:hover:bg-blue-500 rounded-lg transition-colors whitespace-nowrap shrink-0"
+              href="/me"
+              onClick={e => {
+                e.preventDefault();
+                navigateToPublicPath('/me');
+              }}
+              className={`inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white rounded-lg transition-colors whitespace-nowrap shrink-0 ${
+                route.page === 'me'
+                  ? 'bg-blue-800 dark:bg-blue-500 ring-2 ring-blue-300 dark:ring-blue-700'
+                  : 'bg-blue-700 hover:bg-blue-800 dark:bg-blue-600 dark:hover:bg-blue-500'
+              }`}
             >
-              <span>Join Club</span>
-              <ArrowRight className="w-3.5 h-3.5" />
+              <Lock className="w-3.5 h-3.5" />
+              <span>Member Login</span>
             </a>
 
             <button
@@ -423,21 +444,21 @@ export const PublicSiteView: React.FC<PublicSiteViewProps> = ({ onNavigateAdmin 
               Merchandise
             </a>
             <a
-              href="/me"
-              onClick={e => {
-                e.preventDefault();
-                navigateToPublicPath('/me');
-              }}
-              className="block py-2.5 px-2 text-sm font-medium text-blue-700 dark:text-blue-400 font-semibold"
-            >
-              Me (Member Login)
-            </a>
-            <a
               href="/#join-club"
               onClick={e => handleNavSectionClick(e, 'join-club')}
               className="block py-2.5 px-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:text-blue-700 dark:hover:text-blue-400"
             >
               Join Club
+            </a>
+            <a
+              href="/me"
+              onClick={e => {
+                e.preventDefault();
+                navigateToPublicPath('/me');
+              }}
+              className="block py-2.5 px-2 text-sm font-semibold text-blue-700 dark:text-blue-400"
+            >
+              Member Login (Me)
             </a>
           </div>
         )}
@@ -639,22 +660,24 @@ export const PublicSiteView: React.FC<PublicSiteViewProps> = ({ onNavigateAdmin 
                   </div>
 
                   <div className="mt-8 flex flex-wrap items-center gap-5">
-                    <a
-                      href="#join-club"
-                      className="inline-flex items-center gap-2 px-6 py-3 bg-blue-700 hover:bg-blue-800 dark:bg-blue-600 dark:hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition-colors whitespace-nowrap shrink-0"
-                    >
-                      <span>Join {clubName}</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </a>
-
                     <button
                       type="button"
                       onClick={() => navigateToPublicPath('/me')}
-                      className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-800 dark:text-slate-200 hover:text-blue-700 dark:hover:text-blue-400 hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                      className="inline-flex items-center gap-2 px-6 py-3 bg-blue-700 hover:bg-blue-800 dark:bg-blue-600 dark:hover:bg-blue-500 text-white text-sm font-semibold rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
                     >
-                      <Lock className="w-3.5 h-3.5" />
-                      <span>Member Login (Me)</span>
+                      <Lock className="w-4 h-4" />
+                      <span>Member Login</span>
+                      <ArrowRight className="w-4 h-4" />
                     </button>
+
+                    <a
+                      href="/#join-club"
+                      onClick={e => handleNavSectionClick(e, 'join-club')}
+                      className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-800 dark:text-slate-200 hover:text-blue-700 dark:hover:text-blue-400 hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0"
+                    >
+                      <span>Join {clubName}</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </a>
                   </div>
                 </div>
 

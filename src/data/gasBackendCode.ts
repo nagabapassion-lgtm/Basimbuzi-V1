@@ -34,10 +34,12 @@ var SHEET_MEMBERS = "Members";
 var SHEET_SETTINGS = "Settings";
 var SHEET_AUDIT_LOG = "Audit Log";
 var SHEET_COUNTERS = "Receipt Counters";
+var SHEET_PUBLIC_SITE = "Public Site";
 
 // Cache Keys
 var CACHE_KEY_USERS = "cached_sc_basimbuzi_users_v3";
 var CACHE_KEY_PAYERS = "cached_sc_basimbuzi_payers_v3";
+var CACHE_KEY_PUBLIC_SITE = "cached_sc_basimbuzi_public_site_v1";
 
 /**
  * Get active or bound spreadsheet instance safely
@@ -263,6 +265,7 @@ function clearBackendCache() {
       cache.removeAll([
         CACHE_KEY_USERS,
         CACHE_KEY_PAYERS,
+        CACHE_KEY_PUBLIC_SITE,
         "sc_members_directory_v2"
       ]);
     }
@@ -2982,8 +2985,45 @@ function handleSyncMembersAndHistorical(data, operatorEmail) {
     membersSheet = ss.getSheetByName(SHEET_MEMBERS);
   }
 
-  // Batch replace Members sheet rows (preserving header row 1) with 18 columns
+  // Batch replace Members sheet rows safely after preserving newer/non-empty sheet contact fields
   if (incomingMembers.length > 0) {
+    var existingSheetRows = ensureMembersSchemaMigratedGas(membersSheet);
+    var existingByKeyGas = {};
+    for (var er = 1; er < existingSheetRows.length; er++) {
+      var eRow = existingSheetRows[er];
+      var eId = String(eRow[0] || "").trim().toLowerCase();
+      var eName = normalizeMemberNameSimpleGas(eRow[1] || "");
+      var eObj = {
+        phone: normalizePhoneGas(eRow[2] || ""),
+        email: isStaffOrPlaceholderEmailGas(eRow[3], eRow[1]) ? "" : String(eRow[3] || "").trim().toLowerCase(),
+        address: String(eRow[4] || "").trim(),
+        gender: String(eRow[5] || "").trim(),
+        school: String(eRow[6] || "").trim(),
+        house: String(eRow[7] || "").trim(),
+        updatedAt: String(eRow[13] || "").trim()
+      };
+      if (eId) existingByKeyGas["id:" + eId] = eObj;
+      if (eName) existingByKeyGas["name:" + eName] = eObj;
+    }
+
+    var mergedIncoming = incomingMembers.map(function(im) {
+      var imId = String(im.id || im.memberId || "").trim().toLowerCase();
+      var imName = normalizeMemberNameSimpleGas(im.name || "");
+      var prev = (imId && existingByKeyGas["id:" + imId]) || (imName && existingByKeyGas["name:" + imName]) || null;
+      if (!prev) return im;
+      var nextObj = {};
+      for (var k in im) {
+        if (Object.prototype.hasOwnProperty.call(im, k)) nextObj[k] = im[k];
+      }
+      if (!nextObj.phone && prev.phone) nextObj.phone = prev.phone;
+      if (!nextObj.email && prev.email) nextObj.email = prev.email;
+      if (!nextObj.address && prev.address) nextObj.address = prev.address;
+      if (!nextObj.gender && prev.gender) nextObj.gender = prev.gender;
+      if (!nextObj.school && prev.school) nextObj.school = prev.school;
+      if (!nextObj.house && prev.house && isHouseEligibleSchoolGas(nextObj.school || prev.school)) nextObj.house = prev.house;
+      return nextObj;
+    });
+
     var lastRow = membersSheet.getLastRow();
     var lastCol = Math.max(membersSheet.getLastColumn(), 18);
     membersSheet.getRange(1, 1, 1, 18).setValues([[
@@ -2995,7 +3035,7 @@ function handleSyncMembersAndHistorical(data, operatorEmail) {
     if (lastRow > 1) {
       membersSheet.getRange(2, 1, lastRow - 1, lastCol).clearContent();
     }
-    var memberRows = incomingMembers.map(formatMemberRowGas);
+    var memberRows = mergedIncoming.map(formatMemberRowGas);
     membersSheet.getRange(2, 1, memberRows.length, 18).setValues(memberRows);
   }
 
@@ -3114,9 +3154,94 @@ QueryActionRegistry.register("getSettings", function(e, email) {
   return getAppSettings();
 });
 
+function getPublicSiteData(optionalSs) {
+  var cacheKey = CACHE_KEY_PUBLIC_SITE + "_" + getCacheVersion();
+  var cached = getChunkedCache(cacheKey);
+  if (cached) {
+    try {
+      return { success: true, cached: true, data: JSON.parse(cached) };
+    } catch (e) {}
+  }
+
+  var ss = optionalSs || getSpreadsheet();
+  var siteSheet = ss.getSheetByName(SHEET_PUBLIC_SITE);
+  if (!siteSheet || siteSheet.getLastRow() < 2) {
+    return { success: true, data: null };
+  }
+
+  var data = siteSheet.getDataRange().getValues();
+  var jsonStr = "";
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][0] || "") === "PUBLIC_SITE_JSON") {
+      jsonStr += String(data[i][2] || "");
+    }
+  }
+  if (!jsonStr) {
+    return { success: true, data: null };
+  }
+
+  try {
+    var parsed = JSON.parse(jsonStr);
+    putChunkedCache(cacheKey, jsonStr, 300);
+    return { success: true, data: parsed };
+  } catch (e) {
+    return { success: false, error: "Corrupted Public Site data in sheet." };
+  }
+}
+
+function handleSavePublicSite(contentPayload, operatorEmail) {
+  var operator = verifyOperator(operatorEmail, "", "canManageWebsite");
+  if (!contentPayload || typeof contentPayload !== "object") {
+    return { success: false, error: "Invalid public site content payload." };
+  }
+
+  var ss = getSpreadsheet();
+  var siteSheet = ss.getSheetByName(SHEET_PUBLIC_SITE);
+  if (!siteSheet) {
+    siteSheet = ss.insertSheet(SHEET_PUBLIC_SITE);
+  }
+
+  var nowIso = new Date().toISOString();
+  var toSave = contentPayload;
+  if (!toSave.updatedAt) toSave.updatedAt = nowIso;
+  if (!toSave.updatedBy) toSave.updatedBy = operator.email || operatorEmail;
+
+  var jsonStr = JSON.stringify(toSave);
+  var chunkSize = 40000;
+  var rows = [["Key", "ChunkIndex", "Value", "UpdatedAt", "UpdatedBy"]];
+  var chunks = Math.max(1, Math.ceil(jsonStr.length / chunkSize));
+  for (var c = 0; c < chunks; c++) {
+    rows.push([
+      "PUBLIC_SITE_JSON",
+      c,
+      jsonStr.slice(c * chunkSize, (c + 1) * chunkSize),
+      toSave.updatedAt,
+      toSave.updatedBy
+    ]);
+  }
+
+  siteSheet.clearContents();
+  siteSheet.getRange(1, 1, rows.length, 5).setValues(rows);
+  siteSheet.setFrozenRows(1);
+
+  writeAuditLog({
+    user: operator.name || "Operator",
+    userEmail: operator.email || operatorEmail,
+    action: "UPDATE_PUBLIC_SITE",
+    description: "Updated public website news, fixtures, and club settings in Google Sheets."
+  });
+
+  clearBackendCache();
+  return { success: true, data: toSave, message: "Public website content saved to Google Sheets." };
+}
+
 QueryActionRegistry.register("getAuditLogs", function(e, email) {
   var limit = (e && e.parameter && e.parameter.limit) ? Number(e.parameter.limit) : 100;
   return getAuditLogs(email, limit);
+});
+
+QueryActionRegistry.register("getPublicSite", function() {
+  return getPublicSiteData();
 });
 
 /**
@@ -3205,6 +3330,14 @@ ActionRegistry.register("saveSettings", function(data, email) {
 
 ActionRegistry.register("logAction", function(data, email) {
   return handleLogAction(data, email);
+});
+
+ActionRegistry.register("savePublicSite", function(data, email) {
+  return handleSavePublicSite(data.content || data, email);
+});
+
+ActionRegistry.register("getPublicSite", function() {
+  return getPublicSiteData();
 });
 
 ActionRegistry.register("setupSpreadsheet", function() {

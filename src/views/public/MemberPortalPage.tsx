@@ -298,8 +298,9 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
 
     if (res.success) {
       setEmailInput(clean);
+      setCodeInput('');
       setLoginStep('code');
-      setAuthNotice(res.message || `We sent a 6-digit sign-in code to ${clean}.`);
+      setAuthNotice(res.message || `A 6-digit sign-in code has been sent to ${clean}. Please check your email inbox.`);
     } else {
       setAuthError(res.error || 'Unable to send sign-in code.');
     }

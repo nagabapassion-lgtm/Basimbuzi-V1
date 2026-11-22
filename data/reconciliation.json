@@ -83,12 +83,18 @@
       "gasName": "Atukunda Blessed Pearl",
       "canonicalName": "Atukunda Blessed Pearl",
       "amount": 30000
+    },
+    {
+      "receiptNumber": "SB-2026-00065",
+      "gasName": "Manzi Gloire",
+      "canonicalName": "Manzi Gloire",
+      "amount": 400000
     }
   ],
-  "unrecordedLiveCount": 7,
-  "unrecordedAmountUgx": 156000,
+  "unrecordedLiveCount": 8,
+  "unrecordedAmountUgx": 556000,
   "staffEmailsStripped": 0,
   "realEmailsRecovered": 9,
   "phonesRecovered": 42,
-  "reconciledAt": "2026-11-21T18:17:22.785Z"
+  "reconciledAt": "2026-11-22T12:34:36.570Z"
 }

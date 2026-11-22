@@ -71,3 +71,24 @@ export function isValidGasUrl(url: unknown): boolean {
   if (!trimmed) return true; // Empty is valid (disconnected)
   return /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec(\?.*)?$/.test(trimmed);
 }
+
+const SAFE_RASTER_DATA_IMAGE_REGEX = /^data:image\/(png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=]+$/i;
+
+/**
+ * Validates and resolves a CMS media URL. Allows compact raster data URIs (webp/png/jpeg/gif)
+ * as well as safe http(s) and same-origin relative URLs while blocking SVG/script schemes.
+ */
+export function resolveSafeMediaUrl(rawUrl: string | undefined, fallbackUrl: string): string {
+  const clean = (rawUrl || '').trim();
+  if (!clean) {
+    return fallbackUrl;
+  }
+  if (SAFE_RASTER_DATA_IMAGE_REGEX.test(clean) && clean.length <= 1_200_000) {
+    return clean;
+  }
+  if (/^https?:\/\//i.test(clean) || (clean.startsWith('/') && !clean.startsWith('//'))) {
+    return clean;
+  }
+  return fallbackUrl;
+}
+

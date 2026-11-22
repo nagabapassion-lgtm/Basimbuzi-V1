@@ -35,6 +35,9 @@ type CmsSection = 'news' | 'fixtures' | 'merch' | 'profile' | 'inquiries';
 
 const NEWS_CATEGORIES: NewsCategory[] = ['Match Report', 'Club Notice', 'Community', 'Academy', 'Transfer'];
 
+const CMS_SECTION_STORAGE_KEY = 'scb_cms_active_section_v1';
+const VALID_CMS_SECTIONS: CmsSection[] = ['news', 'fixtures', 'merch', 'profile', 'inquiries'];
+
 export const WebsiteCmsView: React.FC<WebsiteCmsViewProps> = ({ onPreviewPublicSite }) => {
   const { currentUser, userPermissions, users, addToast } = useApp();
 
@@ -44,12 +47,29 @@ export const WebsiteCmsView: React.FC<WebsiteCmsViewProps> = ({ onPreviewPublicS
     currentUser?.role === 'MEDIA' ||
     Boolean(userPermissions.canManageWebsite);
 
-  const [section, setSection] = useState<CmsSection>('news');
-  const [content, setContent] = useState<PublicSiteContent>(DEFAULT_PUBLIC_SITE_CONTENT);
+  const [section, setSection] = useState<CmsSection>(() => {
+    if (typeof window === 'undefined') return 'news';
+    try {
+      const saved = window.localStorage.getItem(CMS_SECTION_STORAGE_KEY) as CmsSection | null;
+      return saved && VALID_CMS_SECTIONS.includes(saved) ? saved : 'news';
+    } catch {
+      return 'news';
+    }
+  });
+  const [content, setContent] = useState<PublicSiteContent>(
+    () => publicSiteService.getCachedPublicSite(true) || DEFAULT_PUBLIC_SITE_CONTENT
+  );
   const [inquiries, setInquiries] = useState<SupporterInquiry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [uploadingTarget, setUploadingTarget] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(CMS_SECTION_STORAGE_KEY, section);
+    } catch {}
+  }, [section]);
 
   // News Editor Modal State
   const [editingPost, setEditingPost] = useState<ClubNewsPost | null>(null);
@@ -92,12 +112,18 @@ export const WebsiteCmsView: React.FC<WebsiteCmsViewProps> = ({ onPreviewPublicS
           setInquiries(inqRes.data);
         }
         setIsLoading(false);
+        if (siteRes.restoredFromLocalCache && operatorEmail && canManageWebsite) {
+          const syncRes = await publicSiteService.savePublicSite(siteRes.content, operatorEmail);
+          if (mounted && syncRes.success && syncRes.data) {
+            setContent(syncRes.data);
+          }
+        }
       }
     })();
     return () => {
       mounted = false;
     };
-  }, [operatorEmail]);
+  }, [operatorEmail, canManageWebsite]);
 
   const persistContent = async (nextContent: PublicSiteContent, successMsg = 'Public club website updated') => {
     if (!operatorEmail) return;

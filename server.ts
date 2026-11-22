@@ -37,11 +37,17 @@ async function startServer() {
   if (!fs.existsSync(UPLOADS_DIR)) {
     fs.mkdirSync(UPLOADS_DIR, { recursive: true });
   }
+  const PUBLIC_DATA_DIR = path.join(process.cwd(), 'public', 'data');
+  const DIST_DATA_DIR = path.join(process.cwd(), 'dist', 'data');
+  const PUBLIC_UPLOADS_DIR = path.join(process.cwd(), 'public', 'uploads');
+  const DIST_UPLOADS_DIR = path.join(process.cwd(), 'dist', 'uploads');
 
   const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
   const USERS_FILE = path.join(DATA_DIR, 'users.json');
   const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
   const PUBLIC_SITE_FILE = path.join(DATA_DIR, 'public_site.json');
+  const PUBLIC_DATA_SITE_FILE = path.join(PUBLIC_DATA_DIR, 'public_site.json');
+  const DIST_DATA_SITE_FILE = path.join(DIST_DATA_DIR, 'public_site.json');
   const INQUIRIES_FILE = path.join(DATA_DIR, 'inquiries.json');
   const MEMBERS_FILE = path.join(DATA_DIR, 'members.json');
   const HISTORICAL_TXS_FILE = path.join(DATA_DIR, 'historical_transactions.json');
@@ -55,6 +61,29 @@ async function startServer() {
     'SC_Basimbuzi_Treasury_-_Financial_Report_dded1170.csv'
   );
 
+  // Seed missing data/*.json files from public/data or dist/data on cold container boot
+  for (const seedName of [
+    'config.json',
+    'settings.json',
+    'users.json',
+    'members.json',
+    'member_submissions.json',
+    'historical_transactions.json',
+    'reconciliation.json'
+  ]) {
+    const targetFile = path.join(DATA_DIR, seedName);
+    if (!fs.existsSync(targetFile)) {
+      const publicSeed = path.join(PUBLIC_DATA_DIR, seedName);
+      const distSeed = path.join(DIST_DATA_DIR, seedName);
+      const sourceFile = fs.existsSync(publicSeed) ? publicSeed : fs.existsSync(distSeed) ? distSeed : '';
+      if (sourceFile) {
+        try {
+          fs.copyFileSync(sourceFile, targetFile);
+        } catch {}
+      }
+    }
+  }
+
   // Helpers for validation
   const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const GAS_URL_REGEX = /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec(\?.*)?$/;
@@ -62,17 +91,21 @@ async function startServer() {
   const ALLOWED_STATUSES = new Set(['ACTIVE', 'INACTIVE']);
   const SYSTEM_OWNER_EMAIL = 'nagabapassion@gmail.com';
 
-  // Server-side 30s singleflight caches for live Google Apps Script transactions & member directory
+  // Server-side 30s singleflight caches for live Google Apps Script transactions, members & public site
   const GAS_TX_CACHE_TTL_MS = 30_000;
   let gasTxCache: { ts: number; gasUrl: string; data: any[] } | null = null;
   let gasTxInFlight: Promise<any[] | null> | null = null;
   let gasMembersCache: { ts: number; gasUrl: string; data: any[] } | null = null;
   let gasMembersInFlight: Promise<any[] | null> | null = null;
+  let gasPublicSiteCache: { ts: number; gasUrl: string; data: any | null } | null = null;
+  let gasPublicSiteInFlight: Promise<any | null> | null = null;
   let gasSupportsUpsertMember: boolean | null = null;
+  let gasSupportsPublicSite: boolean | null = null;
 
   const invalidateGasTxCache = () => {
     gasTxCache = null;
     gasMembersCache = null;
+    gasPublicSiteCache = null;
   };
 
   app.post('/api/gas/invalidate-cache', (_req, res) => {
@@ -738,11 +771,11 @@ async function startServer() {
     aboutTitle: 'Rooted in Passion, Driven by Discipline',
     aboutText:
       'SC Basimbuzi brings together senior squad competition, structured youth development, and an active supporter membership network. Every contribution and matchday turnout helps sustain training operations, equipment, and community football outreach.',
-    clubFoundedYear: '2018',
+    clubFoundedYear: '2019',
     homeGround: 'Basimbuzi Community Ground',
     trainingSchedule: 'Tue, Thu & Sat · 4:00 PM EAT',
     membershipTargetLabel: '2026 Season Membership Contribution',
-    membershipTargetUgx: 100000,
+    membershipTargetUgx: 50000,
     news: [
       {
         id: 'news-1',
@@ -790,55 +823,55 @@ async function startServer() {
     fixtures: [
       {
         id: 'fix-1',
-        opponent: 'Kireka United FC',
-        competition: 'Regional League',
+        opponent: 'Akachai FC',
+        competition: 'Ntare Lions League',
         date: '2026-11-28',
         time: '16:00',
-        venue: 'Basimbuzi Community Ground',
+        venue: 'KPA',
         isHome: true,
         status: 'UPCOMING'
       },
       {
         id: 'fix-2',
-        opponent: 'Ntinda Stars',
-        competition: 'District Cup',
+        opponent: 'TY Omujuma',
+        competition: 'NLL',
         date: '2026-12-05',
         time: '15:30',
-        venue: 'Ntinda Municipal Pitch',
+        venue: 'Home grounds',
         isHome: false,
         status: 'UPCOMING'
       },
       {
         id: 'fix-3',
-        opponent: 'Bweyogerere Rovers',
-        competition: 'Regional League',
+        opponent: 'Mpawa Lords',
+        competition: 'Friendlies',
         date: '2026-11-15',
         time: '16:00',
         venue: 'Basimbuzi Community Ground',
         isHome: true,
         status: 'COMPLETED',
         homeScore: 3,
-        awayScore: 1,
+        awayScore: 4,
         summary: 'Strong second-half display with goals in the 38th, 61st, and 77th minutes.'
       },
       {
         id: 'fix-4',
-        opponent: 'Bugolobi Athletic',
-        competition: 'Regional League',
+        opponent: 'Akachai FC',
+        competition: 'Friendlies',
         date: '2026-11-08',
         time: '16:00',
-        venue: 'Bugolobi Ground',
+        venue: 'KPA',
         isHome: false,
         status: 'COMPLETED',
-        homeScore: 1,
-        awayScore: 2,
+        homeScore: 0,
+        awayScore: 5,
         summary: 'Crucial away victory secured with an 84th-minute winner.'
       }
     ],
     merch: [
       {
         id: 'merch-1',
-        name: 'Official 2026 Home Jersey',
+        name: 'Official 2026 Preseason Jersey',
         priceUgx: 65000,
         description: 'Breathable royal blue matchday jersey with gold trim and woven SC Basimbuzi crest.',
         imageUrl: 'preset:jersey',
@@ -848,10 +881,15 @@ async function startServer() {
     ]
   };
 
+  const SAFE_RASTER_DATA_IMAGE_REGEX = /^data:image\/(png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=]+$/i;
+
   const sanitizeMediaUrl = (raw: unknown, fallback: string): string => {
     const val = String(raw || '').trim();
     if (!val) return fallback;
     if (val.startsWith('preset:')) return val.slice(0, 40);
+    if (SAFE_RASTER_DATA_IMAGE_REGEX.test(val) && val.length <= 1_200_000) {
+      return val;
+    }
     if (val.startsWith('/') && !val.startsWith('//')) return val.slice(0, 300);
     try {
       const parsed = new URL(val);
@@ -862,6 +900,146 @@ async function startServer() {
       return fallback;
     }
     return fallback;
+  };
+
+  const parseValidSiteTs = (raw: unknown): number => {
+    if (!raw || typeof raw !== 'string') return 0;
+    const trimmed = raw.trim();
+    if (!/^\d{4}-\d{2}-\d{2}/.test(trimmed)) return 0;
+    const yr = Number(trimmed.slice(0, 4));
+    if (yr < 2020 || yr > 2035) return 0;
+    const ms = Date.parse(trimmed);
+    return Number.isNaN(ms) ? 0 : ms;
+  };
+
+  const normalizeSiteShape = (parsed: any) => ({
+    ...DEFAULT_PUBLIC_SITE,
+    ...parsed,
+    news: Array.isArray(parsed?.news) ? parsed.news : DEFAULT_PUBLIC_SITE.news,
+    fixtures: Array.isArray(parsed?.fixtures) ? parsed.fixtures : DEFAULT_PUBLIC_SITE.fixtures,
+    merch: Array.isArray(parsed?.merch) ? parsed.merch : DEFAULT_PUBLIC_SITE.merch
+  });
+
+  const writePublicSiteToAllTargets = (content: any) => {
+    const serialized = JSON.stringify(content, null, 2);
+    try {
+      fs.writeFileSync(PUBLIC_SITE_FILE, serialized, 'utf-8');
+    } catch {}
+    if (fs.existsSync(PUBLIC_DATA_DIR)) {
+      try {
+        fs.writeFileSync(PUBLIC_DATA_SITE_FILE, serialized, 'utf-8');
+      } catch {}
+    }
+    if (fs.existsSync(DIST_DATA_DIR)) {
+      try {
+        fs.writeFileSync(DIST_DATA_SITE_FILE, serialized, 'utf-8');
+      } catch {}
+    }
+  };
+
+  const readPublicSiteContent = () => {
+    const candidates: Array<{ data: any; ts: number }> = [];
+    for (const filePath of [PUBLIC_SITE_FILE, PUBLIC_DATA_SITE_FILE, DIST_DATA_SITE_FILE]) {
+      if (fs.existsSync(filePath)) {
+        try {
+          const parsed = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+          if (parsed && typeof parsed === 'object') {
+            candidates.push({
+              data: normalizeSiteShape(parsed),
+              ts: parseValidSiteTs(parsed.updatedAt)
+            });
+          }
+        } catch {}
+      }
+    }
+    if (candidates.length === 0) {
+      return { ...DEFAULT_PUBLIC_SITE };
+    }
+    candidates.sort((a, b) => b.ts - a.ts);
+    const winner = candidates[0].data;
+    // Keep data/public_site.json synced with the newest on-disk file automatically
+    try {
+      const localTs = fs.existsSync(PUBLIC_SITE_FILE)
+        ? parseValidSiteTs(JSON.parse(fs.readFileSync(PUBLIC_SITE_FILE, 'utf-8'))?.updatedAt)
+        : -1;
+      if (localTs < candidates[0].ts || !fs.existsSync(PUBLIC_SITE_FILE)) {
+        fs.writeFileSync(PUBLIC_SITE_FILE, JSON.stringify(winner, null, 2), 'utf-8');
+      }
+    } catch {}
+    return winner;
+  };
+
+  const fetchPublicSiteFromGasCached = async (force: boolean = false): Promise<any | null> => {
+    const gasUrl = getGasUrl();
+    if (!gasUrl || gasSupportsPublicSite === false) return null;
+
+    if (
+      !force &&
+      gasPublicSiteCache &&
+      gasPublicSiteCache.gasUrl === gasUrl &&
+      Date.now() - gasPublicSiteCache.ts < GAS_TX_CACHE_TTL_MS
+    ) {
+      return gasPublicSiteCache.data;
+    }
+
+    if (!force && gasPublicSiteInFlight) {
+      return gasPublicSiteInFlight;
+    }
+
+    gasPublicSiteInFlight = (async () => {
+      try {
+        const url = `${gasUrl}${gasUrl.includes('?') ? '&' : '?'}action=getPublicSite`;
+        const gasRes = await fetch(url, { redirect: 'follow' }).then(r => r.json()).catch(() => null);
+        if (gasRes && gasRes.error && String(gasRes.error).includes('Unknown GET action')) {
+          gasSupportsPublicSite = false;
+          return null;
+        }
+        if (gasRes && gasRes.success) {
+          gasSupportsPublicSite = true;
+          const siteData = gasRes.data && typeof gasRes.data === 'object' ? normalizeSiteShape(gasRes.data) : null;
+          gasPublicSiteCache = { ts: Date.now(), gasUrl, data: siteData };
+          return siteData;
+        }
+        return null;
+      } catch {
+        return null;
+      } finally {
+        gasPublicSiteInFlight = null;
+      }
+    })();
+
+    return gasPublicSiteInFlight;
+  };
+
+  const pushPublicSiteToGas = async (content: any, operatorEmail: string): Promise<{ synced: boolean; error?: string }> => {
+    const gasUrl = getGasUrl();
+    if (!gasUrl) return { synced: false, error: 'Google Apps Script URL not configured' };
+    if (gasSupportsPublicSite === false) {
+      return { synced: false, error: 'Apps Script deployment needs re-deploy to store public site in Sheets' };
+    }
+    try {
+      const gasRes: any = await fetch(gasUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        redirect: 'follow',
+        body: JSON.stringify({
+          action: 'savePublicSite',
+          operatorEmail,
+          content
+        })
+      }).then(r => r.json()).catch(() => null);
+      if (gasRes && gasRes.error && String(gasRes.error).includes('Unknown POST action')) {
+        gasSupportsPublicSite = false;
+        return { synced: false, error: gasRes.error };
+      }
+      if (gasRes && gasRes.success) {
+        gasSupportsPublicSite = true;
+        return { synced: true };
+      }
+      return { synced: false, error: gasRes?.error || 'Could not sync public site to Google Sheets' };
+    } catch (err: any) {
+      return { synced: false, error: err?.message || 'Google Sheets sync failed' };
+    }
   };
 
   const getAuthorizedWebsiteOperator = (req: express.Request): { email: string; name: string; role: string } | null => {
@@ -894,22 +1072,55 @@ async function startServer() {
     return null;
   };
 
-  const readPublicSiteContent = () => {
-    if (fs.existsSync(PUBLIC_SITE_FILE)) {
-      try {
-        const parsed = JSON.parse(fs.readFileSync(PUBLIC_SITE_FILE, 'utf-8'));
-        if (parsed && typeof parsed === 'object') {
-          return {
-            ...DEFAULT_PUBLIC_SITE,
-            ...parsed,
-            news: Array.isArray(parsed.news) ? parsed.news : DEFAULT_PUBLIC_SITE.news,
-            fixtures: Array.isArray(parsed.fixtures) ? parsed.fixtures : DEFAULT_PUBLIC_SITE.fixtures,
-            merch: Array.isArray(parsed.merch) ? parsed.merch : DEFAULT_PUBLIC_SITE.merch
-          };
+  const getAuthorizedWebsiteOperatorAsync = async (
+    req: express.Request
+  ): Promise<{ email: string; name: string; role: string } | null> => {
+    const localOp = getAuthorizedWebsiteOperator(req);
+    if (localOp) return localOp;
+
+    const headerEmail = String(req.headers['x-operator-email'] || '').trim().toLowerCase();
+    if (!headerEmail || !EMAIL_REGEX.test(headerEmail)) return null;
+
+    const gasUrl = getGasUrl();
+    if (!gasUrl) return null;
+
+    try {
+      const checkUrl = `${gasUrl}${gasUrl.includes('?') ? '&' : '?'}action=checkAuth&email=${encodeURIComponent(headerEmail)}`;
+      const gasRes = await fetch(checkUrl, { redirect: 'follow' }).then(r => r.json()).catch(() => null);
+      if (gasRes && gasRes.authorized && gasRes.user && gasRes.user.status === 'ACTIVE') {
+        const u = gasRes.user;
+        const role = String(u.role || '').toUpperCase();
+        const canManage =
+          role === 'OWNER' ||
+          role === 'ADMIN' ||
+          role === 'MEDIA' ||
+          u?.permissions?.canManageWebsite === true;
+        if (canManage) {
+          // Cache authorized staff record into local USERS_FILE
+          try {
+            let users: any[] = [];
+            if (fs.existsSync(USERS_FILE)) {
+              const parsed = JSON.parse(fs.readFileSync(USERS_FILE, 'utf-8'));
+              if (Array.isArray(parsed)) users = parsed;
+            }
+            const idx = users.findIndex((item: any) => String(item?.email || '').trim().toLowerCase() === headerEmail);
+            const record = {
+              name: String(u.name || headerEmail.split('@')[0]),
+              email: headerEmail,
+              role,
+              status: 'ACTIVE',
+              permissions: u.permissions,
+              createdAt: u.createdAt || new Date().toISOString()
+            };
+            if (idx !== -1) users[idx] = { ...users[idx], ...record };
+            else users.push(record);
+            fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), 'utf-8');
+          } catch {}
+          return { email: headerEmail, name: String(u.name || headerEmail), role };
         }
-      } catch {}
-    }
-    return { ...DEFAULT_PUBLIC_SITE };
+      }
+    } catch {}
+    return null;
   };
 
   const readPublicOrgProfile = () => {
@@ -924,17 +1135,27 @@ async function startServer() {
     return {
       organizationName: String(settings.organizationName || 'SC Basimbuzi').trim(),
       organizationEmail: String(settings.organizationEmail || 'info@scbasimbuzi.org').trim(),
-      organizationPhone: String(settings.organizationPhone || '+256 700 000000').trim(),
+      organizationPhone: String(settings.organizationPhone || '+256703643759').trim(),
       organizationAddress: String(settings.organizationAddress || 'Kampala, Uganda').trim(),
       logoUrl: sanitizeMediaUrl(settings.logoUrl, '/logo.png')
     };
   };
 
   // API: Public Website Content (read-only for visitors; includes drafts only for verified website admins)
-  app.get('/api/public-site', (req, res) => {
+  app.get('/api/public-site', async (req, res) => {
     try {
-      const content = readPublicSiteContent();
-      const isAdminRequest = req.query.mode === 'admin' && Boolean(getAuthorizedWebsiteOperator(req));
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      let content = readPublicSiteContent();
+      const gasSite = await fetchPublicSiteFromGasCached(req.query.refresh === '1');
+      if (gasSite) {
+        const localTs = parseValidSiteTs(content?.updatedAt);
+        const gasTs = parseValidSiteTs(gasSite?.updatedAt);
+        if (gasTs > localTs) {
+          content = gasSite;
+          writePublicSiteToAllTargets(content);
+        }
+      }
+      const isAdminRequest = req.query.mode === 'admin' && Boolean(await getAuthorizedWebsiteOperatorAsync(req));
       const filteredNews = isAdminRequest
         ? content.news
         : content.news.filter((n: any) => n?.status === 'PUBLISHED');
@@ -955,9 +1176,10 @@ async function startServer() {
   });
 
   // API: Update Public Website Content (OWNER, ADMIN, MEDIA only)
-  app.post('/api/public-site', (req, res) => {
+  app.post('/api/public-site', async (req, res) => {
     try {
-      const operator = getAuthorizedWebsiteOperator(req);
+      res.setHeader('Cache-Control', 'no-store');
+      const operator = await getAuthorizedWebsiteOperatorAsync(req);
       if (!operator) {
         res.status(403).json({
           success: false,
@@ -1026,7 +1248,7 @@ async function startServer() {
         heroImageUrl: sanitizeMediaUrl(incoming.heroImageUrl, 'preset:hero'),
         aboutTitle: String(incoming.aboutTitle || DEFAULT_PUBLIC_SITE.aboutTitle).trim().slice(0, 160),
         aboutText: String(incoming.aboutText || DEFAULT_PUBLIC_SITE.aboutText).trim().slice(0, 2000),
-        clubFoundedYear: String(incoming.clubFoundedYear || '2018').trim().slice(0, 10),
+        clubFoundedYear: String(incoming.clubFoundedYear || '2019').trim().slice(0, 10),
         homeGround: String(incoming.homeGround || 'Basimbuzi Community Ground').trim().slice(0, 120),
         trainingSchedule: String(incoming.trainingSchedule || 'Tue, Thu & Sat · 4:00 PM EAT').trim().slice(0, 120),
         membershipTargetLabel: String(incoming.membershipTargetLabel || '2026 Season Membership Contribution').trim().slice(0, 120),
@@ -1038,8 +1260,18 @@ async function startServer() {
         updatedBy: operator.email
       };
 
-      fs.writeFileSync(PUBLIC_SITE_FILE, JSON.stringify(sanitizedContent, null, 2), 'utf-8');
-      res.json({ success: true, data: sanitizedContent });
+      writePublicSiteToAllTargets(sanitizedContent);
+      const gasUrl = getGasUrl();
+      if (gasUrl) {
+        gasPublicSiteCache = { ts: Date.now(), gasUrl, data: sanitizedContent };
+      }
+      const sheetsResult = await pushPublicSiteToGas(sanitizedContent, operator.email);
+      res.json({
+        success: true,
+        data: sanitizedContent,
+        sheetsSynced: sheetsResult.synced,
+        sheetsError: sheetsResult.error
+      });
     } catch {
       res.status(500).json({ success: false, error: 'Failed to save public website content' });
     }
@@ -1098,9 +1330,9 @@ async function startServer() {
   });
 
   // API: List Supporter Inquiries (Authenticated Website/Admin Staff Only)
-  app.get('/api/public-inquiries', (req, res) => {
+  app.get('/api/public-inquiries', async (req, res) => {
     try {
-      const operator = getAuthorizedWebsiteOperator(req);
+      const operator = await getAuthorizedWebsiteOperatorAsync(req);
       if (!operator) {
         res.status(403).json({ success: false, error: 'Unauthorized' });
         return;
@@ -1121,9 +1353,9 @@ async function startServer() {
   });
 
   // API: Update Supporter Inquiry Status (Authenticated Website/Admin Staff Only)
-  app.patch('/api/public-inquiries/:id', (req, res) => {
+  app.patch('/api/public-inquiries/:id', async (req, res) => {
     try {
-      const operator = getAuthorizedWebsiteOperator(req);
+      const operator = await getAuthorizedWebsiteOperatorAsync(req);
       if (!operator) {
         res.status(403).json({ success: false, error: 'Unauthorized' });
         return;
@@ -1155,7 +1387,7 @@ async function startServer() {
     }
   });
 
-  // API: Serve safely uploaded CMS images
+  // API: Serve safely uploaded CMS images across data/public/dist upload directories
   app.get('/uploads/:filename', (req, res) => {
     try {
       const rawName = String(req.params.filename || '').trim();
@@ -1163,22 +1395,24 @@ async function startServer() {
         res.status(404).end();
         return;
       }
-      const resolvedPath = path.resolve(UPLOADS_DIR, rawName);
-      if (!resolvedPath.startsWith(UPLOADS_DIR + path.sep) || !fs.existsSync(resolvedPath)) {
-        res.status(404).end();
-        return;
+      for (const dir of [UPLOADS_DIR, PUBLIC_UPLOADS_DIR, DIST_UPLOADS_DIR]) {
+        const resolvedPath = path.resolve(dir, rawName);
+        if (resolvedPath.startsWith(dir + path.sep) && fs.existsSync(resolvedPath)) {
+          res.setHeader('Cache-Control', 'public, max-age=604800');
+          res.sendFile(resolvedPath);
+          return;
+        }
       }
-      res.setHeader('Cache-Control', 'public, max-age=604800');
-      res.sendFile(resolvedPath);
+      res.status(404).end();
     } catch {
       res.status(404).end();
     }
   });
 
   // API: Upload Custom Image for CMS (OWNER, ADMIN, MEDIA only)
-  app.post('/api/public-site/upload-image', (req, res) => {
+  app.post('/api/public-site/upload-image', async (req, res) => {
     try {
-      const operator = getAuthorizedWebsiteOperator(req);
+      const operator = await getAuthorizedWebsiteOperatorAsync(req);
       if (!operator) {
         res.status(403).json({
           success: false,
@@ -1216,9 +1450,22 @@ async function startServer() {
       }
 
       fs.writeFileSync(targetPath, buffer);
+      for (const extraDir of [PUBLIC_UPLOADS_DIR, DIST_UPLOADS_DIR]) {
+        const parent = path.dirname(extraDir);
+        if (fs.existsSync(parent)) {
+          try {
+            if (!fs.existsSync(extraDir)) fs.mkdirSync(extraDir, { recursive: true });
+            fs.writeFileSync(path.resolve(extraDir, safeFilename), buffer);
+          } catch {}
+        }
+      }
+
+      // Return self-contained raster data URL when <= 750 KB so uploaded CMS photos
+      // travel inside public_site.json & Google Sheets across container restarts/redeploys.
+      const persistentUrl = buffer.length <= 750 * 1024 ? dataUrl : `/uploads/${safeFilename}`;
       res.json({
         success: true,
-        url: `/uploads/${safeFilename}`
+        url: persistentUrl
       });
     } catch {
       res.status(500).json({ success: false, error: 'Failed to save uploaded image' });
@@ -1243,6 +1490,17 @@ async function startServer() {
       .filter(Boolean);
   };
 
+  const getStaffOwnersMap = (): Record<string, string> => {
+    const users = readJsonArray(USERS_FILE);
+    const map: Record<string, string> = {};
+    for (const u of users) {
+      const em = String(u?.email || '').trim().toLowerCase();
+      const nm = String(u?.name || '').trim();
+      if (em && nm) map[em] = nm;
+    }
+    return map;
+  };
+
   const isPlaceholderMemberEmail = (email: string, payerName?: string): boolean => {
     const clean = String(email || '').trim().toLowerCase();
     if (!clean) return true;
@@ -1250,7 +1508,7 @@ async function startServer() {
     if (members.some((m: any) => String(m?.email || '').trim().toLowerCase() === clean)) {
       return false;
     }
-    return isStaffOrPlaceholderEmail(clean, payerName, getStaffEmailsList());
+    return isStaffOrPlaceholderEmail(clean, payerName, getStaffEmailsList(), getStaffOwnersMap());
   };
 
   const hashClaimToken = (token: string): string => {
@@ -1267,8 +1525,26 @@ async function startServer() {
     }
   };
 
+  const MIRRORED_DATA_FILES = new Set([
+    'members.json',
+    'member_submissions.json',
+    'historical_transactions.json',
+    'reconciliation.json'
+  ]);
+
   const writeJsonArray = (filePath: string, data: any[]) => {
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+    const serialized = JSON.stringify(data, null, 2);
+    fs.writeFileSync(filePath, serialized, 'utf-8');
+    const baseName = path.basename(filePath);
+    if (MIRRORED_DATA_FILES.has(baseName)) {
+      for (const extraDir of [PUBLIC_DATA_DIR, DIST_DATA_DIR]) {
+        if (fs.existsSync(extraDir)) {
+          try {
+            fs.writeFileSync(path.join(extraDir, baseName), serialized, 'utf-8');
+          } catch {}
+        }
+      }
+    }
   };
 
   const readReconciliation = (): any => {
@@ -1661,7 +1937,8 @@ async function startServer() {
       const defaultTargetUgx = Math.max(0, Number(site.membershipTargetUgx) || 100000);
       const localMembers = readJsonArray(MEMBERS_FILE);
       const staffEmails = getStaffEmailsList();
-      const result = mergeMemberDirectories(localMembers, remoteMembers, defaultTargetUgx, staffEmails);
+      const staffOwners = getStaffOwnersMap();
+      const result = mergeMemberDirectories(localMembers, remoteMembers, defaultTargetUgx, staffEmails, staffOwners);
 
       if (!result.changed) return false;
 
@@ -1708,7 +1985,28 @@ async function startServer() {
 
     try {
       if (!skipRemotePreMerge) {
-        await syncMembersFromGasDirectory(true);
+        const remoteMembers = await fetchGasMembersCached(true);
+        if (remoteMembers === null) {
+          return {
+            synced: false,
+            error: 'Could not verify existing Google Sheets records before syncing. Sync skipped safely so no sheet data is overwritten.'
+          };
+        }
+        if (remoteMembers.length > 0) {
+          const siteForMerge = readPublicSiteContent();
+          const targetUgxForMerge = Math.max(0, Number(siteForMerge.membershipTargetUgx) || 100000);
+          const localMembers = readJsonArray(MEMBERS_FILE);
+          const mergeRes = mergeMemberDirectories(
+            localMembers,
+            remoteMembers,
+            targetUgxForMerge,
+            getStaffEmailsList(),
+            getStaffOwnersMap()
+          );
+          if (mergeRes.changed) {
+            writeJsonArray(MEMBERS_FILE, mergeRes.members);
+          }
+        }
       }
       const site = readPublicSiteContent();
       const defaultTargetUgx = Math.max(0, Number(site.membershipTargetUgx) || 100000);
@@ -1781,8 +2079,9 @@ async function startServer() {
         gasSupportsUpsertMember = false;
       }
 
-      // Backward-compatible fallback for older GAS deployments: preserve newest remote edits first, then push
-      return await pushMembersAndHistoricalToGas(cleanOp, cleanTxs);
+      // Backward-compatible fallback for older GAS deployments: preserve newest remote edits first,
+      // and pass full historical ledger (undefined) instead of an empty subset so nothing is cleared.
+      return await pushMembersAndHistoricalToGas(cleanOp);
     } catch (err: any) {
       return { synced: false, error: err?.message || 'Google Sheets sync failed.' };
     }
@@ -2136,9 +2435,6 @@ async function startServer() {
             (cleanCanonKey && resolveCanonicalMemberNameKey(m.name) === cleanCanonKey) ||
             normalizePersonName(m.name) === cleanIncomingName
         );
-      }
-      if (existingIdx === -1 && cleanEmail) {
-        existingIdx = members.findIndex((m: any) => String(m.email || '').trim().toLowerCase() === cleanEmail);
       }
 
       if (cleanEmail) {
@@ -2876,16 +3172,28 @@ async function startServer() {
     }
   });
 
-  const fetchRegisteredMemberData = async (cleanEmail: string) => {
+  const fetchRegisteredMemberData = async (cleanEmail: string, forceRefreshIfMissing: boolean = false) => {
     ensureTreasurySeeded();
-    const [, gasRows] = await Promise.all([
+    const [, initialGasRows] = await Promise.all([
       syncMembersFromGasDirectory(false),
       fetchGasTransactionsCached(false)
     ]);
-    const members = readJsonArray(MEMBERS_FILE);
-    const memberRecord = members.find(
+    let gasRows = initialGasRows;
+    let members = readJsonArray(MEMBERS_FILE);
+    let memberRecord = members.find(
       (m: any) => !isPlaceholderMemberEmail(m?.email, m?.name) && String(m?.email || '').trim().toLowerCase() === cleanEmail
     );
+
+    if (!memberRecord && forceRefreshIfMissing && getGasUrl()) {
+      await syncMembersFromGasDirectory(true);
+      if (!gasRows) {
+        gasRows = await fetchGasTransactionsCached(true);
+      }
+      members = readJsonArray(MEMBERS_FILE);
+      memberRecord = members.find(
+        (m: any) => !isPlaceholderMemberEmail(m?.email, m?.name) && String(m?.email || '').trim().toLowerCase() === cleanEmail
+      );
+    }
 
     const historicalTxs = readJsonArray(HISTORICAL_TXS_FILE).filter((tx: any) => {
       const txEmail = isPlaceholderMemberEmail(tx?.email, tx?.payerName)
@@ -3017,8 +3325,21 @@ async function startServer() {
         return;
       }
 
-      const lookup = await fetchRegisteredMemberData(cleanEmail);
+      const lookup = await fetchRegisteredMemberData(cleanEmail, true);
       if (!lookup.registered) {
+        const submissions = readJsonArray(SUBMISSIONS_FILE);
+        const pendingSub = submissions.find(
+          (s: any) =>
+            s?.status === 'PENDING' &&
+            String(s?.submittedEmail || '').trim().toLowerCase() === cleanEmail
+        );
+        if (pendingSub) {
+          res.status(403).json({
+            success: false,
+            error: 'Your profile update for this email is awaiting administrator approval in the Members Directory. Please contact the club secretariat to approve it so your sign-in code can be sent.'
+          });
+          return;
+        }
         if (!lookup.gasConnected) {
           res.status(403).json({
             success: false,
@@ -3037,7 +3358,7 @@ async function startServer() {
       if (!gasUrl) {
         res.status(503).json({
           success: false,
-          error: 'Email service is not configured yet.'
+          error: 'Email service is not configured. Please contact the administrator.'
         });
         return;
       }
@@ -3075,7 +3396,7 @@ async function startServer() {
           success: false,
           error: needsRedeploy
             ? 'Member email sign-in requires updating the Google Apps Script deployment. Please ask an administrator to redeploy from Backend Setup.'
-            : rawErr || 'Could not deliver sign-in code to your email right now. Please try again.'
+            : rawErr || 'Could not deliver sign-in code to your email right now. Please check that your email address is correct and try again.'
         });
         return;
       }
@@ -3090,7 +3411,7 @@ async function startServer() {
 
       res.json({
         success: true,
-        message: `A 6-digit sign-in code has been sent to ${cleanEmail}.`
+        message: `A 6-digit sign-in code has been sent to ${cleanEmail}. Please check your email inbox.`
       });
     } catch {
       res.status(500).json({

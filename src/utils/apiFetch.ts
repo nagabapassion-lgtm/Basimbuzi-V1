@@ -1,6 +1,9 @@
 export async function safeFetchJson<T>(url: string, options?: RequestInit): Promise<T | null> {
   try {
-    const res = await fetch(url, options);
+    const fetchOpts: RequestInit = url.startsWith('/api/')
+      ? { cache: 'no-store', ...options }
+      : (options || {});
+    const res = await fetch(url, fetchOpts);
     const text = await res.text();
     const trimmed = text.trim();
     if (!res.ok || trimmed.startsWith('<!DOCTYPE') || trimmed.startsWith('<html') || trimmed.startsWith('<div')) {
@@ -21,13 +24,53 @@ export async function safeFetchJson<T>(url: string, options?: RequestInit): Prom
 
       if (fallbackPath) {
         try {
-          const fallbackRes = await fetch(fallbackPath);
+          const fallbackRes = await fetch(fallbackPath, { cache: 'no-store' });
           if (fallbackRes.ok) {
             const fallbackText = await fallbackRes.text();
             if (!fallbackText.startsWith('<!DOCTYPE') && !fallbackText.startsWith('<html')) {
               const parsed = JSON.parse(fallbackText);
               if (url.includes('/api/historical-transactions')) {
                 return { success: true, data: parsed, coveredGasReceipts: [] } as unknown as T;
+              }
+              if (url.includes('/api/public-site')) {
+                const isAdminMode = url.includes('mode=admin');
+                const contentObj = parsed && typeof parsed === 'object' ? parsed : {};
+                const rawNews = Array.isArray(contentObj.news) ? contentObj.news : [];
+                let orgProfile = {
+                  organizationName: 'SC Basimbuzi',
+                  organizationEmail: 'info@scbasimbuzi.org',
+                  organizationPhone: '+256703643759',
+                  organizationAddress: 'Kampala, Uganda',
+                  logoUrl: '/logo.png'
+                };
+                try {
+                  const settingsFallback = await fetch('/data/settings.json', { cache: 'no-store' });
+                  if (settingsFallback.ok) {
+                    const sText = await settingsFallback.text();
+                    if (!sText.startsWith('<!DOCTYPE') && !sText.startsWith('<html')) {
+                      const s = JSON.parse(sText);
+                      if (s && typeof s === 'object') {
+                        orgProfile = {
+                          organizationName: String(s.organizationName || orgProfile.organizationName),
+                          organizationEmail: String(s.organizationEmail || orgProfile.organizationEmail),
+                          organizationPhone: String(s.organizationPhone || orgProfile.organizationPhone),
+                          organizationAddress: String(s.organizationAddress || orgProfile.organizationAddress),
+                          logoUrl: String(s.logoUrl || orgProfile.logoUrl)
+                        };
+                      }
+                    }
+                  }
+                } catch {}
+                return {
+                  success: true,
+                  data: {
+                    content: {
+                      ...contentObj,
+                      news: isAdminMode ? rawNews : rawNews.filter((n: any) => n?.status === 'PUBLISHED')
+                    },
+                    organization: orgProfile
+                  }
+                } as unknown as T;
               }
               if (url.includes('/api/admin/members')) {
                 const membersList = Array.isArray(parsed) ? parsed : (parsed.members || []);
@@ -92,11 +135,17 @@ export async function safeFetchMutation(url: string, options?: RequestInit): Pro
     const res = await fetch(url, options);
     const text = await res.text();
     const trimmed = text.trim();
-    if (!res.ok || trimmed.startsWith('<!DOCTYPE') || trimmed.startsWith('<html') || trimmed.startsWith('<div')) {
-      return { success: true, message: 'Processed successfully.' };
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try {
+        return JSON.parse(trimmed);
+      } catch {}
     }
-    return JSON.parse(trimmed);
-  } catch (err: unknown) {
+    if (!res.ok || trimmed.startsWith('<!DOCTYPE') || trimmed.startsWith('<html') || trimmed.startsWith('<div')) {
+      return { success: false, error: `Server error (${res.status}): ${res.statusText || 'Request failed'}` };
+    }
     return { success: true, message: 'Processed successfully.' };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { success: false, error: msg || 'Network communication error.' };
   }
 }

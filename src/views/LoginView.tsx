@@ -193,16 +193,8 @@ export const LoginView: React.FC<LoginViewProps> = ({ onBackToPublicSite }) => {
         setOtpStep('otp');
         setResendCooldown(60);
 
-        if (res.data?.code && !isLiveBackend) {
-          // In local test/sandbox mode, prefill code and notify user clearly
-          const codeDigits = res.data.code.split('');
-          setOtpDigits(codeDigits);
-          setSuccessInfo(`Local Sandbox Mode: Verification code generated: ${res.data.code} (auto-filled).`);
-          addToast(`Local verification code: ${res.data.code}`, 'info');
-        } else {
-          setOtpDigits(['', '', '', '', '', '']);
-          setSuccessInfo(`Verification code dispatched to ${cleanEmail}. Please check your email.`);
-        }
+        setOtpDigits(['', '', '', '', '', '']);
+        setSuccessInfo(`Verification code dispatched to ${cleanEmail}. Please check your email.`);
 
         setTimeout(() => {
           digitInputRefs.current[0]?.focus();
@@ -291,13 +283,8 @@ export const LoginView: React.FC<LoginViewProps> = ({ onBackToPublicSite }) => {
       const res = await sendLoginOtp(email.trim().toLowerCase());
       if (res.success) {
         setResendCooldown(60);
-        if (res.data?.code && !isLiveBackend) {
-          setOtpDigits(res.data.code.split(''));
-          setSuccessInfo(`Fresh sandbox code generated: ${res.data.code}`);
-        } else {
-          setSuccessInfo(`Fresh verification code sent to ${email}. Check your email.`);
-          setOtpDigits(['', '', '', '', '', '']);
-        }
+        setSuccessInfo(`Fresh verification code sent to ${email}. Check your email.`);
+        setOtpDigits(['', '', '', '', '', '']);
         digitInputRefs.current[0]?.focus();
       } else {
         setErrorMessage(res.error || 'Failed to resend access code.');

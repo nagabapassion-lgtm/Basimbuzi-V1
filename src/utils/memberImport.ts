@@ -475,8 +475,13 @@ export interface MergedDirectoryResult {
 }
 
 function parseIsoTimeMs(raw: unknown): number {
-  const ms = Date.parse(String(raw || ''));
-  return Number.isFinite(ms) ? ms : 0;
+  const str = String(raw || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}/.test(str)) return 0;
+  const ms = Date.parse(str);
+  if (!Number.isFinite(ms)) return 0;
+  const year = new Date(ms).getUTCFullYear();
+  if (year < 2020 || year > 2035) return 0;
+  return ms;
 }
 
 function stripLegacyTierField<T extends Record<string, any>>(record: T): Omit<T, 'tier'> {
@@ -488,7 +493,8 @@ export function mergeMemberDirectories(
   localMembers: any[],
   remoteMembers: any[],
   defaultTargetUgx: number = 100000,
-  staffEmails: string[] = []
+  staffEmails: string[] = [],
+  staffOwners?: Record<string, string>
 ): MergedDirectoryResult {
   if (!Array.isArray(remoteMembers) || remoteMembers.length === 0) {
     return { members: Array.isArray(localMembers) ? localMembers : [], changed: false, contactUpdatedMemberIds: [] };
@@ -506,7 +512,7 @@ export function mergeMemberDirectories(
       idIndex.set(id, idx);
     }
     const name = String(m?.name || '').trim();
-    const email = isStaffOrPlaceholderEmail(m?.email, name, staffEmails)
+    const email = isStaffOrPlaceholderEmail(m?.email, name, staffEmails, staffOwners)
       ? ''
       : String(m?.email || '').trim().toLowerCase();
     if (email && !emailIndex.has(email)) {
@@ -534,7 +540,7 @@ export function mergeMemberDirectories(
 
     const remoteIdRaw = String(rawRemote.id || rawRemote.memberId || '').trim();
     const remoteIdKey = remoteIdRaw.toLowerCase();
-    const remoteEmail = isStaffOrPlaceholderEmail(rawRemote.email, remoteName, staffEmails)
+    const remoteEmail = isStaffOrPlaceholderEmail(rawRemote.email, remoteName, staffEmails, staffOwners)
       ? ''
       : String(rawRemote.email || '').trim().toLowerCase();
     const remotePhone = cleanPhoneNumber(rawRemote.phone || '');
@@ -562,7 +568,7 @@ export function mergeMemberDirectories(
     if (matchIdx !== undefined) {
       const local = merged[matchIdx];
       const localName = String(local.name || '').trim();
-      const localEmail = isStaffOrPlaceholderEmail(local.email, localName, staffEmails)
+      const localEmail = isStaffOrPlaceholderEmail(local.email, localName, staffEmails, staffOwners)
         ? ''
         : String(local.email || '').trim().toLowerCase();
       const localPhone = cleanPhoneNumber(local.phone || '');
@@ -575,11 +581,12 @@ export function mergeMemberDirectories(
       const remoteTs = parseIsoTimeMs(rawRemote.updatedAt);
       const localHasContact = Boolean(localEmail || localPhone);
       const remoteHasContact = Boolean(remoteEmail || remotePhone);
-      // Local wins if local has contact info and remote doesn't, or if local was updated more recently or at same time
-      const remoteNewer = remoteTs > localTs && (!localHasContact || remoteHasContact);
+      // Local wins if local has contact info and remote doesn't, or if local was updated more recently
+      const remoteNewer = remoteTs > 0 && remoteTs > localTs && (!localHasContact || remoteHasContact);
 
       const pickStr = (localVal: string, remoteVal: string): string => {
-        if (remoteNewer && remoteVal && !localVal) return remoteVal;
+        if (localVal && !remoteVal) return localVal;
+        if (remoteNewer && remoteVal) return remoteVal;
         return localVal || remoteVal;
       };
 
