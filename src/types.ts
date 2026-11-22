@@ -28,7 +28,7 @@ export type TransactionType = 'INFLOW' | 'OUTFLOW';
 
 export type MemberGender = 'Male' | 'Female';
 export type MemberSchoolPreset = 'Ntare School' | "Bweranyagyi Girls' Secondary School" | 'Other';
-export type DuesStatus = 'Paid' | 'Partial' | 'Overdue';
+export type DuesStatus = 'Paid' | 'Partial' | 'Overdue' | 'Pending Target';
 export type MemberProfileStatus = 'COMPLETE' | 'INCOMPLETE';
 
 export interface Member {

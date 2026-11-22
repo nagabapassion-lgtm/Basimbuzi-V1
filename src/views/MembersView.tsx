@@ -12,14 +12,18 @@ import {
 import {
   BWERANYAGYI_SCHOOL,
   csvEscapeSafe,
+  FEMALE_STANDARD_TARGET_UGX,
   GENDER_OPTIONS,
+  getStandardTargetForGender,
   HOUSE_OPTIONS,
   isHouseEligibleSchool,
+  MALE_STANDARD_TARGET_UGX,
   normalizeMemberGender,
   normalizeMemberHouse,
   normalizeMemberSchool,
   NTARE_SCHOOL,
   parseTreasuryMembersCsv,
+  resolveMemberExpectedTarget,
   resolveSchoolFormState,
   SCHOOL_PRESET_OPTIONS
 } from '../utils/memberImport';
@@ -164,13 +168,15 @@ export const MembersView: React.FC = () => {
     setMemberFormError(null);
     if (m) {
       const resolvedSchool = resolveSchoolFormState(m.school);
+      const cleanGender = normalizeMemberGender(m.gender);
       setSchoolChoice(resolvedSchool.schoolChoice);
       setOtherSchool(resolvedSchool.otherSchool);
       setEditingMember({
         ...m,
-        gender: normalizeMemberGender(m.gender),
+        gender: cleanGender,
         school: normalizeMemberSchool(m.school),
-        house: normalizeMemberHouse(m.house, m.school)
+        house: normalizeMemberHouse(m.house, m.school),
+        expectedTargetUgx: resolveMemberExpectedTarget(m.expectedTargetUgx, cleanGender)
       });
     } else {
       setSchoolChoice('');
@@ -183,7 +189,7 @@ export const MembersView: React.FC = () => {
         gender: '',
         school: '',
         house: '',
-        expectedTargetUgx: 100000
+        expectedTargetUgx: 0
       });
     }
   };
@@ -386,6 +392,7 @@ export const MembersView: React.FC = () => {
       'Paid After (UGX)',
       'Live Receipts (UGX)',
       'Total Paid (UGX)',
+      'Expected Target (UGX)',
       'Dues Status',
       'Profile Status'
     ];
@@ -406,7 +413,8 @@ export const MembersView: React.FC = () => {
           m.paidAfter || 0,
           m.livePaid || 0,
           m.totalContributed || 0,
-          m.duesStatus || 'Partial',
+          m.expectedTargetUgx || 0,
+          m.duesStatus || 'Pending Target',
           m.profileStatus || 'INCOMPLETE'
         ]
           .map(csvEscapeSafe)
@@ -640,6 +648,7 @@ export const MembersView: React.FC = () => {
                 <option value="Paid">Paid (Target Met)</option>
                 <option value="Partial">Partial Payment</option>
                 <option value="Overdue">No Payment Recorded</option>
+                <option value="Pending Target">Pending Target (No Gender)</option>
               </select>
             </div>
           </div>
@@ -849,6 +858,11 @@ export const MembersView: React.FC = () => {
                           <div className="font-sans text-sm font-extrabold text-slate-900 dark:text-white tabular-nums">
                             {total.toLocaleString()} UGX
                           </div>
+                          <div className="text-[11px] font-sans text-slate-500 dark:text-slate-400 tabular-nums mt-0.5">
+                            {(member.expectedTargetUgx || 0) > 0
+                              ? `Target: ${(member.expectedTargetUgx || 0).toLocaleString()} UGX`
+                              : 'Target: Pending gender'}
+                          </div>
                           <div className="mt-1 flex items-center justify-end gap-1.5">
                             <span
                               className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
@@ -856,10 +870,12 @@ export const MembersView: React.FC = () => {
                                   ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
                                   : member.duesStatus === 'Partial'
                                   ? 'bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300'
+                                  : member.duesStatus === 'Pending Target'
+                                  ? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
                                   : 'bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-300'
                               }`}
                             >
-                              {member.duesStatus || 'Partial'}
+                              {member.duesStatus || 'Pending Target'}
                             </span>
                           </div>
                         </td>
@@ -1006,7 +1022,17 @@ export const MembersView: React.FC = () => {
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Gender</label>
                   <select
                     value={editingMember.gender || ''}
-                    onChange={e => setEditingMember({ ...editingMember, gender: e.target.value as MemberGender | '' })}
+                    onChange={e => {
+                      const nextGender = normalizeMemberGender(e.target.value);
+                      setEditingMember(prev => {
+                        if (!prev) return prev;
+                        return {
+                          ...prev,
+                          gender: nextGender,
+                          expectedTargetUgx: nextGender ? getStandardTargetForGender(nextGender) : 0
+                        };
+                      });
+                    }}
                     className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
                   >
                     <option value="">Select gender...</option>
@@ -1080,15 +1106,22 @@ export const MembersView: React.FC = () => {
               )}
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Season Target (UGX)</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Season Target (UGX)
+                </label>
                 <input
                   type="number"
                   min={0}
                   step={1000}
-                  value={editingMember.expectedTargetUgx ?? 100000}
+                  disabled={!editingMember.gender}
+                  value={editingMember.gender ? (editingMember.expectedTargetUgx ?? getStandardTargetForGender(editingMember.gender)) : ''}
+                  placeholder="Set automatically after gender is filled"
                   onChange={e => setEditingMember({ ...editingMember, expectedTargetUgx: Number(e.target.value) || 0 })}
-                  className="w-full px-3.5 py-2.5 text-sm font-mono rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
+                  className="w-full px-3.5 py-2.5 text-sm font-mono rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white disabled:opacity-60"
                 />
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                  Standard targets: Male = {MALE_STANDARD_TARGET_UGX.toLocaleString()} UGX · Female = {FEMALE_STANDARD_TARGET_UGX.toLocaleString()} UGX. Target is inserted once gender is filled.
+                </p>
               </div>
 
               <div className="pt-2 flex items-center justify-end gap-3">

@@ -1,7 +1,7 @@
 {
   "organizationName": "SC Basimbuzi",
   "organizationEmail": "sc.basimbuzi1925@gmail.com",
-  "organizationPhone": "+256703643759",
+  "organizationPhone": "703643759",
   "organizationAddress": "Kampala, Uganda",
   "receiptPrefix": "SB",
   "receiptFooter": "Thank you for your payment to SC Basimbuzi.",
@@ -23,5 +23,23 @@
     "Other"
   ],
   "currency": "UGX",
-  "updatedAt": "2026-10-11T07:07:22.799Z"
+  "updatedAt": "2026-11-22T17:35:55.495Z",
+  "expenseCategories": [
+    "Pitch Hire & Facilities",
+    "Match Day & Referees",
+    "Equipment & Kits",
+    "Transport & Logistics",
+    "Player Refreshments & Meals",
+    "Medical & First Aid",
+    "Administration & Utilities",
+    "Tournament Entry Fee",
+    "Other Expenses"
+  ],
+  "customDomain": "https://scbasimbuzi-v2.ai.studio",
+  "legacySpreadsheetId": "",
+  "legacySheetName": "Master Transactions",
+  "openingBalance": 0,
+  "openingBalanceDate": "",
+  "openingBalanceSetBy": "",
+  "openingBalanceNotes": ""
 }

@@ -835,7 +835,7 @@ export const WebsiteCmsView: React.FC<WebsiteCmsViewProps> = ({ onPreviewPublicS
                     <span>Member Contribution Target (/me Member Portal)</span>
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    Used on the authenticated Member Login portal (/me) to calculate how much a member has paid and how much remains toward the season fee.
+                    Standard member targets are assigned automatically once gender is filled (Male: 50,000 UGX · Female: 30,000 UGX).
                   </p>
                 </div>
 
@@ -854,12 +854,12 @@ export const WebsiteCmsView: React.FC<WebsiteCmsViewProps> = ({ onPreviewPublicS
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      Expected Target Amount (UGX)
+                      Standard Male / Base Target (UGX)
                     </label>
                     <input
                       type="number"
                       min={0}
-                      value={content.membershipTargetUgx ?? 100000}
+                      value={content.membershipTargetUgx ?? 50000}
                       onChange={e => setContent(prev => ({ ...prev, membershipTargetUgx: Math.max(0, Number(e.target.value) || 0) }))}
                       className="w-full px-3.5 py-2 text-sm font-mono rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
                     />

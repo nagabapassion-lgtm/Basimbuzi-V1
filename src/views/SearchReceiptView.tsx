@@ -20,7 +20,7 @@ import {
 export const SearchReceiptView: React.FC = () => {
   const { transactions, setSelectedReceipt, resendReceipt, deleteTransaction, currentUser, userPermissions } = useApp();
   const [query, setQuery] = useState('');
-  const [targetUgx, setTargetUgx] = useState<number>(100000);
+  const [targetUgx, setTargetUgx] = useState<number>(50000);
   const [targetLabel, setTargetLabel] = useState<string>('2026 Season Membership Contribution');
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);

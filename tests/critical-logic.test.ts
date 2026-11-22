@@ -144,6 +144,10 @@ import {
   compareTransactions
 } from '../src/utils/ledgerReconciliation';
 import {
+  MALE_STANDARD_TARGET_UGX,
+  FEMALE_STANDARD_TARGET_UGX,
+  getStandardTargetForGender,
+  resolveMemberExpectedTarget,
   computeDuesStatus,
   parseUgxAmount,
   NTARE_SCHOOL,
@@ -224,6 +228,8 @@ describe('Financial Ledger & Member Reconciliation Tests', () => {
     assert.strictEqual(computeDuesStatus(150000, 100000), 'Paid');
     assert.strictEqual(computeDuesStatus(50000, 100000), 'Partial');
     assert.strictEqual(computeDuesStatus(0, 100000), 'Overdue');
+    assert.strictEqual(computeDuesStatus(0, 0), 'Pending Target');
+    assert.strictEqual(computeDuesStatus(50000, 0), 'Pending Target');
   });
 
   test('compareTransactions orders latest receipts ahead regardless of input order or single-digit times', () => {
@@ -262,6 +268,10 @@ describe('Expanded Membership Profile Helpers (Gender, School & Conditional Hous
     assert.strictEqual(normalizeMemberSchool("Bweranyagyi Girls\u2019 Secondary School"), BWERANYAGYI_SCHOOL);
     assert.strictEqual(normalizeMemberSchool('Other', 'Makerere College School'), 'Makerere College School');
     assert.strictEqual(normalizeMemberSchool('Other', ''), '');
+    assert.strictEqual(normalizeMemberSchool('30000'), '');
+    assert.strictEqual(normalizeMemberSchool('100,000'), '');
+    assert.strictEqual(normalizeMemberSchool('Supporter'), '');
+    assert.strictEqual(normalizeMemberSchool('INCOMPLETE'), '');
 
     assert.deepStrictEqual(resolveSchoolFormState(NTARE_SCHOOL), {
       schoolChoice: NTARE_SCHOOL,
@@ -362,7 +372,7 @@ describe('Expanded Membership Profile Helpers (Gender, School & Conditional Hous
       }
     ];
 
-    const result = mergeMemberDirectories(localMembers, remoteMembers, 100000);
+    const result = mergeMemberDirectories(localMembers, remoteMembers, 0);
     assert.strictEqual(result.changed, true);
     assert.strictEqual(result.contactUpdatedMemberIds.includes('SB-M-0200'), true);
 
@@ -371,6 +381,7 @@ describe('Expanded Membership Profile Helpers (Gender, School & Conditional Hous
     assert.strictEqual(nagaba.email, 'nagabapassion@gmail.com');
     assert.strictEqual(nagaba.address, 'Kampala road');
     assert.strictEqual(nagaba.gender, 'Male');
+    assert.strictEqual(nagaba.expectedTargetUgx, MALE_STANDARD_TARGET_UGX);
     assert.strictEqual(nagaba.school, NTARE_SCHOOL);
     assert.strictEqual(nagaba.house, 'Pioneer House');
     assert.strictEqual(nagaba.profileStatus, 'COMPLETE');
@@ -380,6 +391,118 @@ describe('Expanded Membership Profile Helpers (Gender, School & Conditional Hous
     assert.strictEqual(john.email, 'john.new@gmail.com');
     assert.strictEqual(john.address, 'Ntare');
     assert.strictEqual(john.house, 'Aggrey House');
+    assert.strictEqual(john.expectedTargetUgx, MALE_STANDARD_TARGET_UGX);
+  });
+
+  test('gender-based standard expected target assigns 50,000 for Male, 30,000 for Female, and 0 until gender is filled', () => {
+    assert.strictEqual(MALE_STANDARD_TARGET_UGX, 50000);
+    assert.strictEqual(FEMALE_STANDARD_TARGET_UGX, 30000);
+    assert.strictEqual(getStandardTargetForGender('Male'), 50000);
+    assert.strictEqual(getStandardTargetForGender('Female'), 30000);
+    assert.strictEqual(getStandardTargetForGender(''), 0);
+
+    // Legacy 100,000 with empty gender clears to 0 until gender is filled
+    assert.strictEqual(resolveMemberExpectedTarget(100000, ''), 0);
+    // Filling gender inserts standard target automatically
+    assert.strictEqual(resolveMemberExpectedTarget(0, 'Male', ''), 50000);
+    assert.strictEqual(resolveMemberExpectedTarget(0, 'Female', ''), 30000);
+    // Switching gender updates standard target
+    assert.strictEqual(resolveMemberExpectedTarget(50000, 'Female', 'Male'), 30000);
+    assert.strictEqual(resolveMemberExpectedTarget(30000, 'Male', 'Female'), 50000);
+
+    const local = [
+      {
+        id: 'SB-M-0301',
+        name: 'Pending Gender Member',
+        gender: '',
+        expectedTargetUgx: 100000,
+        historicalPaid: 10000,
+        updatedAt: '2026-11-22T09:00:00.000Z'
+      },
+      {
+        id: 'SB-M-0302',
+        name: 'Female Member Updated',
+        gender: '',
+        expectedTargetUgx: 0,
+        historicalPaid: 30000,
+        updatedAt: '2026-11-22T09:00:00.000Z'
+      }
+    ];
+    const remote = [
+      {
+        id: 'SB-M-0301',
+        name: 'Pending Gender Member',
+        gender: '',
+        expectedTargetUgx: 100000,
+        historicalPaid: 10000,
+        updatedAt: '2026-11-22T10:00:00.000Z'
+      },
+      {
+        id: 'SB-M-0302',
+        name: 'Female Member Updated',
+        gender: 'Female',
+        expectedTargetUgx: 0,
+        historicalPaid: 30000,
+        updatedAt: '2026-11-22T10:00:00.000Z'
+      }
+    ];
+
+    const merged = mergeMemberDirectories(local, remote, 0);
+    const pending = merged.members.find(m => m.id === 'SB-M-0301');
+    const female = merged.members.find(m => m.id === 'SB-M-0302');
+    assert.strictEqual(pending.expectedTargetUgx, 0);
+    assert.strictEqual(female.expectedTargetUgx, 30000);
+  });
+
+  test('mergeMemberDirectories blocks corrupted shifted Google Sheets rows from injecting Supporter/amounts into gender/school', () => {
+    const local = [
+      {
+        id: 'SB-M-0400',
+        name: 'Shifted Protection Test',
+        phone: '',
+        email: '',
+        address: '',
+        gender: '',
+        school: '',
+        house: '',
+        preNllPaid: 30000,
+        spotPaid: 0,
+        paidAfter: 0,
+        historicalPaid: 30000,
+        expectedTargetUgx: 0,
+        updatedAt: '2026-11-21T17:35:21.895Z'
+      }
+    ];
+    const corruptedRemote = [
+      {
+        id: 'SB-M-0400',
+        name: 'Shifted Protection Test',
+        phone: '+256700111222',
+        email: '',
+        address: '',
+        gender: 'Supporter',
+        school: '30000',
+        house: '',
+        preNllPaid: 0,
+        spotPaid: 30000,
+        paidAfter: 30000,
+        historicalPaid: 2026,
+        expectedTargetUgx: 100000,
+        updatedAt: '2026-11-22T18:00:00.000Z'
+      }
+    ];
+
+    const res = mergeMemberDirectories(local, corruptedRemote, 0);
+    const rec = res.members[0];
+    assert.strictEqual(rec.phone, '+256700111222');
+    assert.strictEqual(rec.gender, '');
+    assert.strictEqual(rec.school, '');
+    assert.strictEqual(rec.house, '');
+    assert.strictEqual(rec.preNllPaid, 30000);
+    assert.strictEqual(rec.spotPaid, 0);
+    assert.strictEqual(rec.paidAfter, 0);
+    assert.strictEqual(rec.historicalPaid, 30000);
+    assert.strictEqual(rec.expectedTargetUgx, 0);
   });
 
   test('isStaffOrPlaceholderEmail & mergeMemberDirectories preserve registered staff users own member emails', () => {

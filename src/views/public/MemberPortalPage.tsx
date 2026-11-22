@@ -661,8 +661,13 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
             ) : (
               <form onSubmit={handleVerifyCode} className="space-y-4">
                 {authNotice && (
-                  <div className="p-3.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-xs font-medium text-blue-800 dark:text-blue-200">
-                    {authNotice}
+                  <div className="p-3.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-xs font-medium text-blue-800 dark:text-blue-200 space-y-1">
+                    <div>{authNotice}</div>
+                    {clubEmail && (
+                      <div className="text-[11px] text-blue-700/80 dark:text-blue-300/80">
+                        Tip: Adding <span className="font-semibold">{clubEmail}</span> to your contacts prevents future club emails from landing in Spam.
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1009,7 +1014,9 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
                           : 'bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300'
                       }`}
                     >
-                      {paymentSummary.overallStatus === 'FULLY_PAID'
+                      {paymentSummary.expectedTargetUgx === 0
+                        ? 'Target Pending Gender'
+                        : paymentSummary.overallStatus === 'FULLY_PAID'
                         ? 'Fully Paid'
                         : paymentSummary.overallStatus === 'PENDING'
                         ? 'Pending Verification'
@@ -1026,14 +1033,27 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
                     </div>
                     <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700">
                       <div className="text-xs text-slate-500 dark:text-slate-400">Season Target</div>
-                      <div className="text-xl font-extrabold text-slate-950 dark:text-white font-sans tabular-nums mt-1">
-                        {paymentSummary.expectedTargetUgx.toLocaleString()} UGX
-                      </div>
+                      {paymentSummary.expectedTargetUgx > 0 ? (
+                        <div className="text-xl font-extrabold text-slate-950 dark:text-white font-sans tabular-nums mt-1">
+                          {paymentSummary.expectedTargetUgx.toLocaleString()} UGX
+                        </div>
+                      ) : (
+                        <div className="mt-1">
+                          <div className="text-sm font-extrabold text-amber-700 dark:text-amber-400">
+                            Set After Gender
+                          </div>
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                            Male: 50,000 · Female: 30,000 UGX
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700">
                       <div className="text-xs text-slate-500 dark:text-slate-400">Remaining Balance</div>
                       <div className="text-xl font-extrabold text-amber-700 dark:text-amber-400 font-sans tabular-nums mt-1">
-                        {paymentSummary.remainingUgx.toLocaleString()} UGX
+                        {paymentSummary.expectedTargetUgx > 0
+                          ? `${paymentSummary.remainingUgx.toLocaleString()} UGX`
+                          : 'Pending Target'}
                       </div>
                     </div>
                   </div>
@@ -1061,20 +1081,26 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
                     </div>
                   )}
 
-                  <div>
-                    <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 mb-1.5 tabular-nums">
-                      <span>Progress toward target</span>
-                      <span className="font-semibold text-slate-800 dark:text-slate-200">{paymentSummary.progressPercent}%</span>
+                  {paymentSummary.expectedTargetUgx > 0 ? (
+                    <div>
+                      <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 mb-1.5 tabular-nums">
+                        <span>Progress toward target</span>
+                        <span className="font-semibold text-slate-800 dark:text-slate-200">{paymentSummary.progressPercent}%</span>
+                      </div>
+                      <div className="w-full h-2.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                        <div
+                          className={`h-full transition-all ${
+                            paymentSummary.remainingUgx === 0 ? 'bg-emerald-600' : 'bg-blue-600'
+                          }`}
+                          style={{ width: `${paymentSummary.progressPercent}%` }}
+                        />
+                      </div>
                     </div>
-                    <div className="w-full h-2.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
-                      <div
-                        className={`h-full transition-all ${
-                          paymentSummary.remainingUgx === 0 ? 'bg-emerald-600' : 'bg-blue-600'
-                        }`}
-                        style={{ width: `${paymentSummary.progressPercent}%` }}
-                      />
+                  ) : (
+                    <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-200">
+                      Fill in your gender in <strong>My Contact Details</strong> above to automatically insert your season target (Male: 50,000 UGX · Female: 30,000 UGX).
                     </div>
-                  </div>
+                  )}
                 </section>
 
                 {/* Itemized Payments List */}

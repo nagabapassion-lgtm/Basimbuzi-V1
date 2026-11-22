@@ -1235,31 +1235,49 @@ function handleSendLoginOtp(email, code) {
 
   var orgName = settings.organizationName || "SC Basimbuzi";
   var orgEmail = settings.organizationEmail || "nagabapassion@gmail.com";
-  var subject = orgName + " Sign In Code: " + code;
+  var orgPhone = settings.organizationPhone || "";
+  var orgAddress = settings.organizationAddress || "Kampala, Uganda";
+  var effectiveEmail = "";
+  try {
+    effectiveEmail = String(Session.getEffectiveUser().getEmail() || "").trim().toLowerCase();
+  } catch (e) {}
+  var safeReplyTo = (!effectiveEmail || effectiveEmail === String(orgEmail).trim().toLowerCase())
+    ? String(orgEmail).trim()
+    : effectiveEmail;
+  var staffGreeting = String(auth.user.name || "Team Member").trim();
+  var subject = orgName + " — Staff portal verification";
 
-  var plainBody = "Your " + orgName + " 6-digit access code is: " + code + "\\n\\nThis code expires in 10 minutes.";
+  var plainBody = "Hello " + staffGreeting + ",\\n\\n" +
+    "You requested a one-time verification code to sign in to the " + orgName + " Treasury & Receipt Management System.\\n\\n" +
+    "Verification code: " + code + "\\n\\n" +
+    "This code expires in 10 minutes. If you did not request this sign-in, you can safely ignore this message.\\n\\n" +
+    "Regards,\\n" +
+    orgName + " Secretariat\\n" +
+    orgAddress + (orgPhone ? " | " + orgPhone : "");
 
-  var htmlBody = '<!DOCTYPE html><html><body style="font-family:-apple-system, BlinkMacSystemFont, Roboto, sans-serif; background-color:#f8fafc; padding:24px; color:#1e293b;">' +
-    '<div style="max-width:500px; margin:0 auto; background:#ffffff; border-radius:16px; border:1px solid #e2e8f0; padding:32px; text-align:center; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);">' +
-      '<h2 style="color:#1d4ed8; margin-top:0; font-size:22px; font-weight:800;">' + escapeHtmlGas(orgName) + '</h2>' +
-      '<p style="color:#64748b; font-size:14px; margin-bottom:24px;">Receipt Management System Sign In</p>' +
-      '<div style="margin:24px 0; padding:20px; background:#eff6ff; border-radius:12px; border:1px solid #bfdbfe;">' +
-        '<div style="font-size:11px; color:#1e40af; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; margin-bottom:8px;">Your 6-Digit Access Code</div>' +
-        '<div style="font-size:36px; font-weight:800; color:#1d4ed8; letter-spacing:8px; font-family:monospace;">' + escapeHtmlGas(code) + '</div>' +
-      '</div>' +
-      '<p style="font-size:13px; color:#64748b; line-height:1.6;">This code expires in 10 minutes. If you did not request this login code, you can safely disregard this message.</p>' +
-      '<div style="margin-top:24px; padding-top:16px; border-top:1px solid #f1f5f9; font-size:12px; color:#94a3b8;">' + escapeHtmlGas(orgName) + ' Security Team</div>' +
+  var htmlBody = '<!DOCTYPE html><html><body style="font-family:-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif; color:#1e293b; line-height:1.6; margin:0; padding:16px;">' +
+    '<div style="max-width:520px;">' +
+      '<p style="margin:0 0 12px 0;">Hello ' + escapeHtmlGas(staffGreeting) + ',</p>' +
+      '<p style="margin:0 0 16px 0;">You requested a one-time verification code to sign in to the ' + escapeHtmlGas(orgName) + ' Treasury &amp; Receipt Management System.</p>' +
+      '<p style="margin:0 0 16px 0; padding:12px 16px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; display:inline-block;">' +
+        'Verification code: <strong style="font-size:20px; letter-spacing:3px; color:#0f172a;">' + escapeHtmlGas(code) + '</strong>' +
+      '</p>' +
+      '<p style="margin:0 0 16px 0; font-size:14px; color:#475569;">This code expires in 10 minutes. If you did not request this sign-in, you can safely ignore this message.</p>' +
+      '<p style="margin:20px 0 0 0; font-size:13px; color:#64748b;">Regards,<br><strong>' + escapeHtmlGas(orgName) + ' Secretariat</strong><br>' +
+        escapeHtmlGas(orgAddress) + (orgPhone ? ' · ' + escapeHtmlGas(orgPhone) : '') +
+      '</p>' +
     '</div></body></html>';
 
   try {
-    MailApp.sendEmail({
+    var staffMailOpts = {
       to: auth.user.email,
       subject: subject,
       body: plainBody,
       htmlBody: htmlBody,
-      name: orgName,
-      replyTo: orgEmail
-    });
+      name: orgName
+    };
+    if (safeReplyTo) staffMailOpts.replyTo = safeReplyTo;
+    MailApp.sendEmail(staffMailOpts);
 
     try {
       writeAuditLog({
@@ -1274,11 +1292,12 @@ function handleSendLoginOtp(email, code) {
   } catch (err) {
     var errStr = err.toString();
     try {
-      GmailApp.sendEmail(auth.user.email, subject, plainBody, {
+      var staffGmailOpts = {
         htmlBody: htmlBody,
-        name: orgName,
-        replyTo: orgEmail
-      });
+        name: orgName
+      };
+      if (safeReplyTo) staffGmailOpts.replyTo = safeReplyTo;
+      GmailApp.sendEmail(auth.user.email, subject, plainBody, staffGmailOpts);
       return { success: true, message: "Access code sent to " + auth.user.email };
     } catch (fallbackErr) {
       return {
@@ -1292,9 +1311,10 @@ function handleSendLoginOtp(email, code) {
 /**
  * 5d. SEND MEMBER PORTAL LOGIN OTP (/me self-service)
  */
-function handleSendMemberOtp(email, code) {
+function handleSendMemberOtp(email, code, memberName) {
   var cleanEmail = String(email || "").trim().toLowerCase();
   var cleanCode = String(code || "").trim();
+  var greetingName = String(memberName || "").trim();
 
   if (!cleanEmail || cleanEmail.indexOf("@") === -1 || !cleanCode) {
     return { success: false, error: "Valid member email and 6-digit code are required." };
@@ -1304,6 +1324,24 @@ function handleSendMemberOtp(email, code) {
     return { success: false, error: "Placeholder emails cannot be used for member sign in." };
   }
 
+  if (!greetingName) {
+    try {
+      var ss = SpreadsheetApp.getActiveSpreadsheet();
+      var memSheet = ss.getSheetByName("Members");
+      if (memSheet && memSheet.getLastRow() > 1) {
+        var mRows = memSheet.getDataRange().getValues();
+        for (var r = 1; r < mRows.length; r++) {
+          var rowEmail = String(mRows[r][3] || "").trim().toLowerCase();
+          if (rowEmail === cleanEmail) {
+            greetingName = String(mRows[r][1] || "").trim();
+            break;
+          }
+        }
+      }
+    } catch (e) {}
+  }
+  if (!greetingName) greetingName = "Member";
+
   var settings = {};
   try {
     var settingsRes = getAppSettings();
@@ -1312,32 +1350,52 @@ function handleSendMemberOtp(email, code) {
 
   var orgName = settings.organizationName || "SC Basimbuzi";
   var orgEmail = settings.organizationEmail || "nagabapassion@gmail.com";
-  var subject = orgName + " Member Sign In Code: " + cleanCode;
+  var orgPhone = settings.organizationPhone || "";
+  var orgAddress = settings.organizationAddress || "Kampala, Uganda";
+  var effectiveEmail = "";
+  try {
+    effectiveEmail = String(Session.getEffectiveUser().getEmail() || "").trim().toLowerCase();
+  } catch (e) {}
+  // Keep Reply-To strictly aligned with the authenticated Google sender so Gmail never flags Reply-To mismatch
+  var safeReplyTo = (!effectiveEmail || effectiveEmail === String(orgEmail).trim().toLowerCase())
+    ? String(orgEmail).trim()
+    : effectiveEmail;
 
-  var plainBody = "Your " + orgName + " Member Portal 6-digit sign-in code is: " + cleanCode +
-    "\\n\\nThis code expires in 10 minutes. Use it to view your personal payments and receipts.";
+  var subject = orgName + " — Member Portal verification";
 
-  var htmlBody = '<!DOCTYPE html><html><body style="font-family:-apple-system, BlinkMacSystemFont, Roboto, sans-serif; background-color:#f8fafc; padding:24px; color:#1e293b;">' +
-    '<div style="max-width:500px; margin:0 auto; background:#ffffff; border-radius:16px; border:1px solid #e2e8f0; padding:32px; text-align:center; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);">' +
-      '<h2 style="color:#1d4ed8; margin-top:0; font-size:22px; font-weight:800;">' + escapeHtmlGas(orgName) + '</h2>' +
-      '<p style="color:#64748b; font-size:14px; margin-bottom:24px;">Member Self-Service Portal Sign In</p>' +
-      '<div style="margin:24px 0; padding:20px; background:#eff6ff; border-radius:12px; border:1px solid #bfdbfe;">' +
-        '<div style="font-size:11px; color:#1e40af; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; margin-bottom:8px;">Your 6-Digit Sign-In Code</div>' +
-        '<div style="font-size:36px; font-weight:800; color:#1d4ed8; letter-spacing:8px; font-family:monospace;">' + escapeHtmlGas(cleanCode) + '</div>' +
-      '</div>' +
-      '<p style="font-size:13px; color:#64748b; line-height:1.6;">Enter this code on the Member Login page to securely view your own payment history and receipts. This code expires in 10 minutes.</p>' +
-      '<div style="margin-top:24px; padding-top:16px; border-top:1px solid #f1f5f9; font-size:12px; color:#94a3b8;">' + escapeHtmlGas(orgName) + ' Member Services</div>' +
+  var plainBody = "Hello " + greetingName + ",\\n\\n" +
+    "You requested a one-time verification code to access your " + orgName + " Member Portal and view your personal contributions and payment receipts.\\n\\n" +
+    "Your verification code: " + cleanCode + "\\n\\n" +
+    "This code stays valid for 10 minutes. Enter it on the Member Login page to continue.\\n\\n" +
+    "If you did not request access to the " + orgName + " Member Portal, you can safely ignore this message.\\n\\n" +
+    "Warm regards,\\n" +
+    orgName + " Member Services\\n" +
+    orgAddress + (orgPhone ? " | " + orgPhone : "");
+
+  var htmlBody = '<!DOCTYPE html><html><body style="font-family:-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif; color:#1e293b; line-height:1.6; margin:0; padding:16px;">' +
+    '<div style="max-width:520px;">' +
+      '<p style="margin:0 0 12px 0;">Hello ' + escapeHtmlGas(greetingName) + ',</p>' +
+      '<p style="margin:0 0 16px 0;">You requested a one-time verification code to access your ' + escapeHtmlGas(orgName) + ' Member Portal and view your personal contributions and payment receipts.</p>' +
+      '<p style="margin:0 0 16px 0; padding:12px 16px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; display:inline-block;">' +
+        'Your verification code: <strong style="font-size:20px; letter-spacing:3px; color:#0f172a;">' + escapeHtmlGas(cleanCode) + '</strong>' +
+      '</p>' +
+      '<p style="margin:0 0 12px 0; font-size:14px; color:#475569;">This code stays valid for 10 minutes. Enter it on the Member Login page to continue.</p>' +
+      '<p style="margin:0 0 16px 0; font-size:14px; color:#475569;">If you did not request access to the ' + escapeHtmlGas(orgName) + ' Member Portal, you can safely ignore this message.</p>' +
+      '<p style="margin:20px 0 0 0; font-size:13px; color:#64748b;">Warm regards,<br><strong>' + escapeHtmlGas(orgName) + ' Member Services</strong><br>' +
+        escapeHtmlGas(orgAddress) + (orgPhone ? ' · ' + escapeHtmlGas(orgPhone) : '') +
+      '</p>' +
     '</div></body></html>';
 
   try {
-    MailApp.sendEmail({
+    var memberMailOpts = {
       to: cleanEmail,
       subject: subject,
       body: plainBody,
       htmlBody: htmlBody,
-      name: orgName,
-      replyTo: orgEmail
-    });
+      name: orgName
+    };
+    if (safeReplyTo) memberMailOpts.replyTo = safeReplyTo;
+    MailApp.sendEmail(memberMailOpts);
 
     try {
       writeAuditLog({
@@ -1352,11 +1410,12 @@ function handleSendMemberOtp(email, code) {
   } catch (err) {
     var errStr = err.toString();
     try {
-      GmailApp.sendEmail(cleanEmail, subject, plainBody, {
+      var memberGmailOpts = {
         htmlBody: htmlBody,
-        name: orgName,
-        replyTo: orgEmail
-      });
+        name: orgName
+      };
+      if (safeReplyTo) memberGmailOpts.replyTo = safeReplyTo;
+      GmailApp.sendEmail(cleanEmail, subject, plainBody, memberGmailOpts);
       return { success: true, message: "Sign-in code sent to " + cleanEmail };
     } catch (fallbackErr) {
       return {
@@ -2662,9 +2721,54 @@ function normalizeMemberNameSimpleGas(name) {
   return String(name || "").toLowerCase().replace(/[^a-z0-9\\s]/g, " ").replace(/\\s+/g, " ").trim();
 }
 
+function normalizeMemberGenderGas(raw) {
+  var g = String(raw || "").trim().toLowerCase();
+  if (g === "male" || g === "m") return "Male";
+  if (g === "female" || g === "f") return "Female";
+  return "";
+}
+
+function normalizeMemberSchoolGas(raw) {
+  var s = String(raw || "").trim().replace(/[\\u2018\\u2019\\x60]/g, "'");
+  if (!s) return "";
+  var lower = s.toLowerCase();
+  if (
+    /^\\d[\\d,.\\s]*$/.test(s) ||
+    /^(ugx|shs)?\\s*[\\d,.\\s]+$/i.test(s) ||
+    lower === "supporter" ||
+    lower === "incomplete" ||
+    lower === "complete" ||
+    lower === "pending target" ||
+    lower === "paid" ||
+    lower === "partial" ||
+    lower === "overdue"
+  ) {
+    return "";
+  }
+  if (lower === "ntare school" || lower === "ntare") return "Ntare School";
+  if (lower === "bweranyagyi girls' secondary school" || lower === "bweranyagyi girls secondary school" || lower === "bweranyagyi") {
+    return "Bweranyagyi Girls' Secondary School";
+  }
+  return s.slice(0, 120);
+}
+
 function isHouseEligibleSchoolGas(school) {
   var s = String(school || "").trim().toLowerCase().replace(/[\\u2018\\u2019\\x60]/g, "'");
   return s === "ntare school" || s === "ntare" || s === "bweranyagyi girls' secondary school" || s === "bweranyagyi girls secondary school" || s === "bweranyagyi";
+}
+
+function isShiftedLegacyMemberRowGas(row) {
+  if (!row || !row.length) return false;
+  var col5 = String(row[5] || "").trim().toLowerCase();
+  if (col5 === "supporter") return true;
+  var col6 = String(row[6] || "").trim();
+  if (col6 && /^\\d[\\d,.\\s]*$/.test(col6)) return true;
+  var col7 = String(row[7] || "").trim();
+  if (col7 && /^\\d[\\d,.\\s]*$/.test(col7)) return true;
+  var col10 = String(row[10] || "").trim().toUpperCase();
+  if (col10 === "INCOMPLETE" || col10 === "COMPLETE") return true;
+  if (row[11] instanceof Date || /^\\d{4}-\\d{2}-\\d{2}/.test(String(row[11] || "").trim())) return true;
+  return false;
 }
 
 function ensureMembersSchemaMigratedGas(membersSheet) {
@@ -2678,41 +2782,95 @@ function ensureMembersSchemaMigratedGas(membersSheet) {
 
   var col6Header = String(sheetData[0][5] || "").trim().toLowerCase();
   var isNewSchema = col6Header === "gender" && String(sheetData[0][6] || "").trim().toLowerCase() === "school";
-  if (isNewSchema) {
+  var anyRowShifted = false;
+  for (var chk = 1; chk < sheetData.length; chk++) {
+    if (!sheetData[chk][0] && !sheetData[chk][1]) continue;
+    if (isShiftedLegacyMemberRowGas(sheetData[chk])) {
+      anyRowShifted = true;
+      break;
+    }
+  }
+  if (isNewSchema && !anyRowShifted) {
     return sheetData;
   }
 
-  // Migrate legacy 16-col Members sheet (where Col 6 was Tier) to 18-col layout (Gender, School, House at Cols 6-8)
+  // Migrate legacy 16-col OR mixed-18-col shifted Members rows to exact 18-col V2 layout
   var newRows = [MEMBERS_HEADERS_V2_GAS.slice(0)];
   var isLegacyTierLayout = col6Header === "tier" || col6Header === "";
   for (var r = 1; r < sheetData.length; r++) {
     var oldRow = sheetData[r];
     if (!oldRow[0] && !oldRow[1]) continue;
-    if (isLegacyTierLayout) {
+    var rowShifted = isShiftedLegacyMemberRowGas(oldRow);
+    if (isLegacyTierLayout || rowShifted) {
+      var mName = String(oldRow[1] || "").trim();
+      var mEmail = isStaffOrPlaceholderEmailGas(oldRow[3], mName) ? "" : String(oldRow[3] || "").trim().toLowerCase();
+      var mPhone = normalizePhoneGas(oldRow[2] || "");
+      var mAddr = String(oldRow[4] || "").trim();
+      var preNll = parseSheetNumber(oldRow[6]);
+      var spot = parseSheetNumber(oldRow[7]);
+      var histTotal = parseSheetNumber(oldRow[9]);
+      var rawPaidAfter = parseSheetNumber(oldRow[8]);
+      var paidAfter = (preNll + spot === histTotal)
+        ? 0
+        : ((preNll + spot + rawPaidAfter === histTotal) ? rawPaidAfter : Math.max(0, histTotal - preNll - spot));
+      var profStatus = String(oldRow[12] || oldRow[10] || "INCOMPLETE").trim().toUpperCase() === "COMPLETE" ? "COMPLETE" : "INCOMPLETE";
+      var rawUpd13 = oldRow[13];
+      var updAt = (rawUpd13 instanceof Date || /^\\d{4}-\\d{2}-\\d{2}/.test(String(rawUpd13 || "").trim()))
+        ? String(rawUpd13)
+        : String(oldRow[11] || "");
+      var liveVal = (rowShifted && oldRow.length > 15) ? parseSheetNumber(oldRow[15]) : (oldRow.length > 13 && typeof oldRow[13] === "number" ? parseSheetNumber(oldRow[13]) : 0);
+      var totalContrib = histTotal + liveVal;
+      var tgtVal = resolveMemberExpectedTargetGas(0, "");
+      var duesVal = tgtVal <= 0 ? "Pending Target" : (totalContrib >= tgtVal ? "Paid" : (totalContrib > 0 ? "Partial" : "Overdue"));
+      newRows.push([
+        oldRow[0] || "",
+        mName,
+        mPhone,
+        mEmail,
+        mAddr,
+        "",
+        "",
+        "",
+        preNll,
+        spot,
+        paidAfter,
+        histTotal,
+        profStatus,
+        updAt,
+        tgtVal,
+        liveVal,
+        totalContrib,
+        duesVal
+      ]);
+    } else {
+      var cleanG = normalizeMemberGenderGas(oldRow[5]);
+      var cleanS = normalizeMemberSchoolGas(oldRow[6]);
+      var cleanH = isHouseEligibleSchoolGas(cleanS) ? String(oldRow[7] || "").trim() : "";
+      var histNorm = parseSheetNumber(oldRow[11]);
+      var liveNorm = oldRow.length > 15 ? parseSheetNumber(oldRow[15]) : 0;
+      var totalNorm = histNorm + liveNorm;
+      var tgtNorm = resolveMemberExpectedTargetGas(oldRow.length > 14 ? oldRow[14] : "", cleanG);
+      var duesNorm = tgtNorm <= 0 ? "Pending Target" : (totalNorm >= tgtNorm ? "Paid" : (totalNorm > 0 ? "Partial" : "Overdue"));
       newRows.push([
         oldRow[0] || "",
         oldRow[1] || "",
-        oldRow[2] || "",
-        oldRow[3] || "",
-        oldRow[4] || "",
-        "",
-        "",
-        "",
-        parseSheetNumber(oldRow[6]),
-        parseSheetNumber(oldRow[7]),
+        normalizePhoneGas(oldRow[2] || ""),
+        String(oldRow[3] || "").trim().toLowerCase(),
+        String(oldRow[4] || ""),
+        cleanG,
+        cleanS,
+        cleanH,
         parseSheetNumber(oldRow[8]),
         parseSheetNumber(oldRow[9]),
-        oldRow[10] || "INCOMPLETE",
-        oldRow[11] || "",
-        oldRow.length > 12 && oldRow[12] !== "" ? parseSheetNumber(oldRow[12]) : 100000,
-        oldRow.length > 13 ? parseSheetNumber(oldRow[13]) : 0,
-        oldRow.length > 14 ? parseSheetNumber(oldRow[14]) : 0,
-        oldRow[15] || ""
+        parseSheetNumber(oldRow[10]),
+        histNorm,
+        String(oldRow[12] || "INCOMPLETE"),
+        String(oldRow[13] || ""),
+        tgtNorm,
+        liveNorm,
+        totalNorm,
+        duesNorm
       ]);
-    } else {
-      var normalized = oldRow.slice(0, 18);
-      while (normalized.length < 18) normalized.push("");
-      newRows.push(normalized);
     }
   }
 
@@ -2725,16 +2883,33 @@ function ensureMembersSchemaMigratedGas(membersSheet) {
   return newRows;
 }
 
+function resolveMemberExpectedTargetGas(rawTarget, genderVal) {
+  var g = String(genderVal || "").trim().toLowerCase();
+  if (g !== "male" && g !== "female") {
+    return 0;
+  }
+  var standard = g === "male" ? 50000 : 30000;
+  if (rawTarget === undefined || rawTarget === null || rawTarget === "") {
+    return standard;
+  }
+  var num = parseSheetNumber(rawTarget);
+  if (num <= 0 || num === 100000) {
+    return standard;
+  }
+  return num;
+}
+
 function formatMemberRowGas(m) {
   var mName = String(m.name || "").trim();
   var mEmail = isStaffOrPlaceholderEmailGas(m.email, mName) ? "" : String(m.email || "").trim().toLowerCase();
-  var mGender = String(m.gender || "").trim();
-  var mSchool = String(m.school || "").trim();
+  var mGender = normalizeMemberGenderGas(m.gender);
+  var mSchool = normalizeMemberSchoolGas(m.school);
   var mHouse = isHouseEligibleSchoolGas(mSchool) ? String(m.house || "").trim() : "";
   var histVal = parseSheetNumber(m.historicalPaid !== undefined ? m.historicalPaid : m.totalContributed);
   var liveVal = parseSheetNumber(m.livePaid);
   var totalVal = m.totalContributed !== undefined ? parseSheetNumber(m.totalContributed) : (histVal + liveVal);
-  var targetVal = m.expectedTargetUgx !== undefined ? parseSheetNumber(m.expectedTargetUgx) : 100000;
+  var targetVal = resolveMemberExpectedTargetGas(m.expectedTargetUgx, mGender);
+  var duesVal = targetVal <= 0 ? "Pending Target" : (totalVal >= targetVal ? "Paid" : (totalVal > 0 ? "Partial" : "Overdue"));
   return [
     String(m.id || m.memberId || ""),
     mName,
@@ -2753,7 +2928,7 @@ function formatMemberRowGas(m) {
     targetVal,
     liveVal,
     totalVal,
-    String(m.duesStatus || "")
+    String(m.duesStatus || duesVal)
   ];
 }
 
@@ -2861,7 +3036,8 @@ function handleGetMemberDirectory(operatorEmail) {
     var histTotalNew = parseSheetNumber(row[11]);
     var livePaidNew = row.length > 15 ? parseSheetNumber(row[15]) : 0;
     var totalContribNew = row.length > 16 && row[16] !== "" ? parseSheetNumber(row[16]) : (histTotalNew + livePaidNew);
-    var schoolVal = String(row[6] || "").trim();
+    var schoolVal = normalizeMemberSchoolGas(row[6]);
+    var genderVal = normalizeMemberGenderGas(row[5]);
     var houseVal = isHouseEligibleSchoolGas(schoolVal) ? String(row[7] || "").trim() : "";
     var entry = {
       id: String(row[0] || ""),
@@ -2870,7 +3046,7 @@ function handleGetMemberDirectory(operatorEmail) {
       phone: normalizePhoneGas(row[2] || ""),
       email: safeEm,
       address: String(row[4] || ""),
-      gender: String(row[5] || ""),
+      gender: genderVal,
       school: schoolVal,
       house: houseVal,
       preNllPaid: parseSheetNumber(row[8]),
@@ -2880,10 +3056,13 @@ function handleGetMemberDirectory(operatorEmail) {
       profileStatus: String(row[12] || "INCOMPLETE"),
       updatedAt: String(row[13] || "")
     };
-    if (row.length > 14 && row[14] !== "") entry.expectedTargetUgx = parseSheetNumber(row[14]);
+    var rawTargetCell = row.length > 14 ? row[14] : "";
+    entry.expectedTargetUgx = resolveMemberExpectedTargetGas(rawTargetCell, entry.gender);
     if (row.length > 15 && row[15] !== "") entry.livePaid = livePaidNew;
     entry.totalContributed = totalContribNew;
-    if (row.length > 17 && row[17]) entry.duesStatus = String(row[17]);
+    entry.duesStatus = entry.expectedTargetUgx <= 0
+      ? "Pending Target"
+      : (totalContribNew >= entry.expectedTargetUgx ? "Paid" : (totalContribNew > 0 ? "Partial" : "Overdue"));
     list.push(entry);
   }
   putChunkedCache(cacheKeyDir, JSON.stringify(list), 300);
@@ -2993,13 +3172,15 @@ function handleSyncMembersAndHistorical(data, operatorEmail) {
       var eRow = existingSheetRows[er];
       var eId = String(eRow[0] || "").trim().toLowerCase();
       var eName = normalizeMemberNameSimpleGas(eRow[1] || "");
+      var eSchoolClean = isShiftedLegacyMemberRowGas(eRow) ? "" : normalizeMemberSchoolGas(eRow[6]);
+      var eGenderClean = isShiftedLegacyMemberRowGas(eRow) ? "" : normalizeMemberGenderGas(eRow[5]);
       var eObj = {
         phone: normalizePhoneGas(eRow[2] || ""),
         email: isStaffOrPlaceholderEmailGas(eRow[3], eRow[1]) ? "" : String(eRow[3] || "").trim().toLowerCase(),
         address: String(eRow[4] || "").trim(),
-        gender: String(eRow[5] || "").trim(),
-        school: String(eRow[6] || "").trim(),
-        house: String(eRow[7] || "").trim(),
+        gender: eGenderClean,
+        school: eSchoolClean,
+        house: isHouseEligibleSchoolGas(eSchoolClean) ? String(eRow[7] || "").trim() : "",
         updatedAt: String(eRow[13] || "").trim()
       };
       if (eId) existingByKeyGas["id:" + eId] = eObj;
@@ -3018,9 +3199,10 @@ function handleSyncMembersAndHistorical(data, operatorEmail) {
       if (!nextObj.phone && prev.phone) nextObj.phone = prev.phone;
       if (!nextObj.email && prev.email) nextObj.email = prev.email;
       if (!nextObj.address && prev.address) nextObj.address = prev.address;
-      if (!nextObj.gender && prev.gender) nextObj.gender = prev.gender;
-      if (!nextObj.school && prev.school) nextObj.school = prev.school;
-      if (!nextObj.house && prev.house && isHouseEligibleSchoolGas(nextObj.school || prev.school)) nextObj.house = prev.house;
+      if (!normalizeMemberGenderGas(nextObj.gender) && prev.gender) nextObj.gender = prev.gender;
+      if (!normalizeMemberSchoolGas(nextObj.school) && prev.school) nextObj.school = prev.school;
+      var finalSchoolGas = normalizeMemberSchoolGas(nextObj.school);
+      if (!nextObj.house && prev.house && isHouseEligibleSchoolGas(finalSchoolGas)) nextObj.house = prev.house;
       return nextObj;
     });
 
@@ -3261,7 +3443,7 @@ ActionRegistry.register("sendLoginOtp", function(data) {
 });
 
 ActionRegistry.register("sendMemberOtp", function(data) {
-  return handleSendMemberOtp(data.email, data.code);
+  return handleSendMemberOtp(data.email, data.code, data.memberName);
 });
 
 ActionRegistry.register("recordTransaction", function(data, email) {

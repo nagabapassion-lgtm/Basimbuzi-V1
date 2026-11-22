@@ -69,6 +69,19 @@ export function normalizeMemberSchool(rawSchool: unknown, rawOtherSchool?: unkno
   const clean = String(rawSchool || '').trim().replace(/[\u2018\u2019`]/g, "'");
   if (!clean) return '';
   const lower = clean.toLowerCase();
+  if (
+    /^\d[\d,.\s]*$/.test(clean) ||
+    /^(ugx|shs)?\s*[\d,.\s]+$/i.test(clean) ||
+    lower === 'supporter' ||
+    lower === 'incomplete' ||
+    lower === 'complete' ||
+    lower === 'pending target' ||
+    lower === 'paid' ||
+    lower === 'partial' ||
+    lower === 'overdue'
+  ) {
+    return '';
+  }
   if (lower === 'ntare school' || lower === 'ntare') {
     return NTARE_SCHOOL;
   }
@@ -80,7 +93,8 @@ export function normalizeMemberSchool(rawSchool: unknown, rawOtherSchool?: unkno
     return BWERANYAGYI_SCHOOL;
   }
   if (lower === 'other') {
-    return String(rawOtherSchool || '').trim().slice(0, 120);
+    const otherClean = String(rawOtherSchool || '').trim().slice(0, 120);
+    return /^\d[\d,.\s]*$/.test(otherClean) ? '' : otherClean;
   }
   return clean.slice(0, 120);
 }
@@ -185,8 +199,46 @@ export function parseRfc4180Csv(csvText: string): string[][] {
   return rows.filter(r => r.some(cell => cell !== ''));
 }
 
+export const MALE_STANDARD_TARGET_UGX = 50_000;
+export const FEMALE_STANDARD_TARGET_UGX = 30_000;
+
+export function getStandardTargetForGender(gender: unknown): number {
+  const clean = normalizeMemberGender(gender);
+  if (clean === 'Male') return MALE_STANDARD_TARGET_UGX;
+  if (clean === 'Female') return FEMALE_STANDARD_TARGET_UGX;
+  return 0;
+}
+
+export function resolveMemberExpectedTarget(
+  rawTarget: unknown,
+  gender: unknown,
+  prevGender?: unknown
+): number {
+  const cleanGender = normalizeMemberGender(gender);
+  if (!cleanGender) {
+    return 0;
+  }
+  const standard = getStandardTargetForGender(cleanGender);
+  const num = rawTarget !== undefined && rawTarget !== null && rawTarget !== '' ? Number(rawTarget) : NaN;
+  if (prevGender !== undefined) {
+    const cleanPrev = normalizeMemberGender(prevGender);
+    if (cleanGender !== cleanPrev) {
+      const prevStandard = getStandardTargetForGender(cleanPrev);
+      if (!Number.isFinite(num) || num <= 0 || num === 100000 || num === prevStandard) {
+        return standard;
+      }
+      return Math.max(0, num);
+    }
+  }
+  if (!Number.isFinite(num) || num <= 0 || num === 100000) {
+    return standard;
+  }
+  return Math.max(0, num);
+}
+
 export function computeDuesStatus(totalPaid: number, targetUgx: number): DuesStatus {
-  if (targetUgx > 0 && totalPaid >= targetUgx) return 'Paid';
+  if (targetUgx <= 0) return 'Pending Target';
+  if (totalPaid >= targetUgx) return 'Paid';
   if (totalPaid > 0) return 'Partial';
   return 'Overdue';
 }
@@ -207,7 +259,7 @@ export function parseTreasuryMembersCsv(
   csvText: string,
   options?: { defaultTargetUgx?: number; sourceReference?: string }
 ): ParsedTreasuryCsvResult {
-  const defaultTargetUgx = Math.max(0, Number(options?.defaultTargetUgx ?? 100000));
+  const defaultTargetUgx = Math.max(0, Number(options?.defaultTargetUgx ?? 0));
   const sourceRef = options?.sourceReference || '0771254454 - Barigye Samson';
   const rows = parseRfc4180Csv(csvText);
 
@@ -343,7 +395,8 @@ export function parseTreasuryMembersCsv(
     const house = colMap.house >= 0 ? normalizeMemberHouse(row[colMap.house], school) : '';
 
     const profileComplete = isMemberProfileComplete({ name: rawName, email, phone, address });
-    const remainingUgx = defaultTargetUgx > 0 ? Math.max(0, defaultTargetUgx - effectiveTotal) : 0;
+    const rowTargetUgx = gender ? getStandardTargetForGender(gender) : defaultTargetUgx;
+    const remainingUgx = rowTargetUgx > 0 ? Math.max(0, rowTargetUgx - effectiveTotal) : 0;
 
     const member: Member = {
       id: memberId,
@@ -361,9 +414,9 @@ export function parseTreasuryMembersCsv(
       historicalPaid: effectiveTotal,
       livePaid: 0,
       totalContributed: effectiveTotal,
-      expectedTargetUgx: defaultTargetUgx,
+      expectedTargetUgx: rowTargetUgx,
       remainingUgx,
-      duesStatus: computeDuesStatus(effectiveTotal, defaultTargetUgx),
+      duesStatus: computeDuesStatus(effectiveTotal, rowTargetUgx),
       profileStatus: profileComplete ? 'COMPLETE' : 'INCOMPLETE',
       paymentCount: (preNll > 0 ? 1 : 0) + (spot > 0 ? 1 : 0) + (paidAfter > 0 ? 1 : 0),
       lastPaymentDate: paidAfter > 0 ? '2026-09-15' : spot > 0 ? '2026-08-01' : preNll > 0 ? '2026-06-01' : '',
@@ -489,10 +542,20 @@ function stripLegacyTierField<T extends Record<string, any>>(record: T): Omit<T,
   return rest;
 }
 
+function isCorruptedLegacyRemoteMember(rawRemote: any): boolean {
+  if (!rawRemote || typeof rawRemote !== 'object') return false;
+  const rawGender = String(rawRemote.gender || '').trim().toLowerCase();
+  if (rawGender === 'supporter') return true;
+  const rawSchool = String(rawRemote.school || '').trim();
+  if (rawSchool && /^\d[\d,.\s]*$/.test(rawSchool)) return true;
+  if (Number(rawRemote.historicalPaid) === 2026) return true;
+  return false;
+}
+
 export function mergeMemberDirectories(
   localMembers: any[],
   remoteMembers: any[],
-  defaultTargetUgx: number = 100000,
+  defaultTargetUgx: number = 0,
   staffEmails: string[] = [],
   staffOwners?: Record<string, string>
 ): MergedDirectoryResult {
@@ -538,6 +601,7 @@ export function mergeMemberDirectories(
     const remoteName = String(rawRemote.name || '').trim();
     if (!remoteName) continue;
 
+    const corruptedRemote = isCorruptedLegacyRemoteMember(rawRemote);
     const remoteIdRaw = String(rawRemote.id || rawRemote.memberId || '').trim();
     const remoteIdKey = remoteIdRaw.toLowerCase();
     const remoteEmail = isStaffOrPlaceholderEmail(rawRemote.email, remoteName, staffEmails, staffOwners)
@@ -545,9 +609,9 @@ export function mergeMemberDirectories(
       : String(rawRemote.email || '').trim().toLowerCase();
     const remotePhone = cleanPhoneNumber(rawRemote.phone || '');
     const remoteAddress = String(rawRemote.address || '').trim();
-    const remoteGender = normalizeMemberGender(rawRemote.gender);
-    const remoteSchool = normalizeMemberSchool(rawRemote.school);
-    const remoteHouse = normalizeMemberHouse(rawRemote.house, remoteSchool);
+    const remoteGender = corruptedRemote ? '' : normalizeMemberGender(rawRemote.gender);
+    const remoteSchool = corruptedRemote ? '' : normalizeMemberSchool(rawRemote.school);
+    const remoteHouse = corruptedRemote ? '' : normalizeMemberHouse(rawRemote.house, remoteSchool);
     const remoteCanon = resolveCanonicalMemberNameKey(remoteName);
     const remoteNorm = normalizePersonName(remoteName);
 
@@ -582,7 +646,7 @@ export function mergeMemberDirectories(
       const localHasContact = Boolean(localEmail || localPhone);
       const remoteHasContact = Boolean(remoteEmail || remotePhone);
       // Local wins if local has contact info and remote doesn't, or if local was updated more recently
-      const remoteNewer = remoteTs > 0 && remoteTs > localTs && (!localHasContact || remoteHasContact);
+      const remoteNewer = !corruptedRemote && remoteTs > 0 && remoteTs > localTs && (!localHasContact || remoteHasContact);
 
       const pickStr = (localVal: string, remoteVal: string): string => {
         if (localVal && !remoteVal) return localVal;
@@ -605,18 +669,25 @@ export function mergeMemberDirectories(
       const nextHouse = normalizeMemberHouse(rawHousePick, nextSchool);
 
       const localHist = Math.max(0, Number(local.historicalPaid ?? local.totalContributed) || 0);
-      const remoteHist = Math.max(0, Number(rawRemote.historicalPaid ?? rawRemote.totalContributed) || 0);
-      const nextPreNll = Math.max(0, Number(local.preNllPaid) || Number(rawRemote.preNllPaid) || 0);
-      const nextSpot = Math.max(0, Number(local.spotPaid) || Number(rawRemote.spotPaid) || 0);
-      const nextPaidAfter = Math.max(0, Number(local.paidAfter) || Number(rawRemote.paidAfter) || 0);
+      const remoteHist = corruptedRemote ? 0 : Math.max(0, Number(rawRemote.historicalPaid ?? rawRemote.totalContributed) || 0);
+      const nextPreNll = localHist > 0
+        ? Math.max(0, Number(local.preNllPaid) || 0)
+        : (corruptedRemote ? 0 : Math.max(0, Number(rawRemote.preNllPaid) || 0));
+      const nextSpot = localHist > 0
+        ? Math.max(0, Number(local.spotPaid) || 0)
+        : (corruptedRemote ? 0 : Math.max(0, Number(rawRemote.spotPaid) || 0));
+      const nextPaidAfter = localHist > 0
+        ? Math.max(0, Number(local.paidAfter) || 0)
+        : (corruptedRemote ? 0 : Math.max(0, Number(rawRemote.paidAfter) || 0));
       const nextHist = localHist > 0 ? localHist : remoteHist;
-      const nextLive = Math.max(0, Number(local.livePaid) || Number(rawRemote.livePaid) || 0);
-      const nextTarget =
-        remoteNewer && rawRemote.expectedTargetUgx !== undefined && Number(rawRemote.expectedTargetUgx) >= 0
+      const nextLive = Math.max(0, Number(local.livePaid) || 0) || (corruptedRemote ? 0 : Math.max(0, Number(rawRemote.livePaid) || 0));
+      const rawPickedTarget =
+        !corruptedRemote && remoteNewer && rawRemote.expectedTargetUgx !== undefined && Number(rawRemote.expectedTargetUgx) >= 0
           ? Number(rawRemote.expectedTargetUgx)
           : local.expectedTargetUgx !== undefined && Number(local.expectedTargetUgx) >= 0
           ? Number(local.expectedTargetUgx)
-          : Math.max(0, Number(rawRemote.expectedTargetUgx ?? defaultTargetUgx) || 0);
+          : (corruptedRemote ? 0 : Math.max(0, Number(rawRemote.expectedTargetUgx ?? defaultTargetUgx) || 0));
+      const nextTarget = resolveMemberExpectedTarget(rawPickedTarget, nextGender);
       const nextTotal = nextHist + nextLive;
       const nextProfileStatus = isMemberProfileComplete({
         name: nextName,
@@ -636,6 +707,9 @@ export function mergeMemberDirectories(
         nextGender !== localGender ||
         nextSchool !== localSchool ||
         nextHouse !== localHouse ||
+        nextPreNll !== (Number(local.preNllPaid) || 0) ||
+        nextSpot !== (Number(local.spotPaid) || 0) ||
+        nextPaidAfter !== (Number(local.paidAfter) || 0) ||
         nextTarget !== (Number(local.expectedTargetUgx) || 0) ||
         nextProfileStatus !== String(local.profileStatus || 'INCOMPLETE') ||
         'tier' in (localMembers[matchIdx] || {});
@@ -673,13 +747,15 @@ export function mergeMemberDirectories(
         remoteIdRaw && !remoteIdRaw.toUpperCase().startsWith('SB-LIVE-')
           ? remoteIdRaw
           : `SB-M-${String(merged.length + 1).padStart(4, '0')}`;
-      const preNllPaid = Math.max(0, Number(rawRemote.preNllPaid) || 0);
-      const spotPaid = Math.max(0, Number(rawRemote.spotPaid) || 0);
-      const paidAfter = Math.max(0, Number(rawRemote.paidAfter) || 0);
-      const historicalPaid = Math.max(0, Number(rawRemote.historicalPaid ?? (preNllPaid + spotPaid + paidAfter)) || 0);
-      const livePaid = Math.max(0, Number(rawRemote.livePaid) || 0);
+      const preNllPaid = corruptedRemote ? 0 : Math.max(0, Number(rawRemote.preNllPaid) || 0);
+      const spotPaid = corruptedRemote ? 0 : Math.max(0, Number(rawRemote.spotPaid) || 0);
+      const paidAfter = corruptedRemote ? 0 : Math.max(0, Number(rawRemote.paidAfter) || 0);
+      const historicalPaid = corruptedRemote
+        ? Math.max(0, Number(rawRemote.totalContributed) || 0)
+        : Math.max(0, Number(rawRemote.historicalPaid ?? (preNllPaid + spotPaid + paidAfter)) || 0);
+      const livePaid = corruptedRemote ? 0 : Math.max(0, Number(rawRemote.livePaid) || 0);
       const totalContributed = historicalPaid + livePaid;
-      const expectedTargetUgx = Math.max(0, Number(rawRemote.expectedTargetUgx ?? defaultTargetUgx) || 0);
+      const expectedTargetUgx = resolveMemberExpectedTarget(corruptedRemote ? 0 : (rawRemote.expectedTargetUgx ?? defaultTargetUgx), remoteGender);
       const nowIso = String(rawRemote.updatedAt || new Date().toISOString());
 
       const added = stripLegacyTierField({

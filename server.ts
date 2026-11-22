@@ -5,13 +5,15 @@ import crypto from 'crypto';
 import { createServer as createViteServer } from 'vite';
 import {
   computeDuesStatus,
+  getStandardTargetForGender,
   isHouseEligibleSchool,
   isMemberProfileComplete,
   mergeMemberDirectories,
   normalizeMemberGender,
   normalizeMemberHouse,
   normalizeMemberSchool,
-  parseTreasuryMembersCsv
+  parseTreasuryMembersCsv,
+  resolveMemberExpectedTarget
 } from './src/utils/memberImport';
 import {
   cleanPhoneNumber,
@@ -1576,8 +1578,7 @@ async function startServer() {
   const runTreasuryReconciliation = () => {
     const members = readJsonArray(MEMBERS_FILE);
     const histTxs = readJsonArray(HISTORICAL_TXS_FILE);
-    const site = readPublicSiteContent();
-    const defaultTargetUgx = Math.max(0, Number(site.membershipTargetUgx) || 100000);
+    const defaultTargetUgx = 0;
     const nowIso = new Date().toISOString();
 
     let staffEmailsStripped = 0;
@@ -1767,10 +1768,9 @@ async function startServer() {
     if (existingMembers.length === 0 || existingHist.length === 0) {
       if (fs.existsSync(BUNDLED_TREASURY_CSV)) {
         try {
-          const site = readPublicSiteContent();
           const csvText = fs.readFileSync(BUNDLED_TREASURY_CSV, 'utf-8');
           const parsed = parseTreasuryMembersCsv(csvText, {
-            defaultTargetUgx: Number(site.membershipTargetUgx) || 100000
+            defaultTargetUgx: 0
           });
           if (parsed.members.length > 0) {
             if (existingMembers.length === 0) {
@@ -1784,6 +1784,77 @@ async function startServer() {
           console.warn('Could not auto-seed Treasury CSV:', err);
         }
       }
+    }
+    // Sanitize gender/school/house, repair historical phase amounts from ledger, and update gender-based targets
+    const currentMembers = readJsonArray(MEMBERS_FILE);
+    const allHistTxs = readJsonArray(HISTORICAL_TXS_FILE);
+    const histByMember = new Map<string, { pre: number; spot: number; after: number; total: number }>();
+    for (const tx of allHistTxs) {
+      const mId = String(tx?.memberId || '').trim();
+      const recNo = String(tx?.receiptNumber || '').trim().toUpperCase();
+      if (!mId || !recNo.startsWith('HIST-')) continue;
+      const amt = Math.max(0, Number(tx?.amount) || 0);
+      if (!histByMember.has(mId)) {
+        histByMember.set(mId, { pre: 0, spot: 0, after: 0, total: 0 });
+      }
+      const bucket = histByMember.get(mId)!;
+      bucket.total += amt;
+      if (recNo.endsWith('-PRE')) bucket.pre += amt;
+      else if (recNo.endsWith('-SPOT')) bucket.spot += amt;
+      else if (recNo.endsWith('-AFTER') || recNo.endsWith('-ADJ')) bucket.after += amt;
+    }
+
+    let targetMigrated = false;
+    for (let i = 0; i < currentMembers.length; i++) {
+      const cur = currentMembers[i];
+      if (!cur || typeof cur !== 'object') continue;
+      const mId = String(cur.id || cur.memberId || '').trim();
+      const ledgerBreakdown = mId ? histByMember.get(mId) : undefined;
+      const nextPre = ledgerBreakdown ? ledgerBreakdown.pre : Math.max(0, Number(cur.preNllPaid) || 0);
+      const nextSpot = ledgerBreakdown ? ledgerBreakdown.spot : Math.max(0, Number(cur.spotPaid) || 0);
+      const nextAfter = ledgerBreakdown ? ledgerBreakdown.after : Math.max(0, Number(cur.paidAfter) || 0);
+      const nextHist = ledgerBreakdown ? ledgerBreakdown.total : Math.max(0, Number(cur.historicalPaid ?? cur.totalContributed) || 0);
+
+      const cleanGender = normalizeMemberGender(cur.gender);
+      const cleanSchool = normalizeMemberSchool(cur.school);
+      const cleanHouse = normalizeMemberHouse(cur.house, cleanSchool);
+      const nextLive = Math.max(0, Number(cur.livePaid) || 0);
+      const totalContributed = nextHist + nextLive;
+      const nextTarget = resolveMemberExpectedTarget(cur.expectedTargetUgx, cleanGender);
+      const nextRemaining = nextTarget > 0 ? Math.max(0, nextTarget - totalContributed) : 0;
+      const nextDues = computeDuesStatus(totalContributed, nextTarget);
+      if (
+        String(cur.gender || '') !== cleanGender ||
+        String(cur.school || '') !== cleanSchool ||
+        String(cur.house || '') !== cleanHouse ||
+        Number(cur.preNllPaid ?? -1) !== nextPre ||
+        Number(cur.spotPaid ?? -1) !== nextSpot ||
+        Number(cur.paidAfter ?? -1) !== nextAfter ||
+        Number(cur.historicalPaid ?? -1) !== nextHist ||
+        Number(cur.totalContributed ?? -1) !== totalContributed ||
+        Number(cur.expectedTargetUgx ?? -1) !== nextTarget ||
+        Number(cur.remainingUgx ?? -1) !== nextRemaining ||
+        String(cur.duesStatus || '') !== nextDues
+      ) {
+        currentMembers[i] = {
+          ...cur,
+          gender: cleanGender,
+          school: cleanSchool,
+          house: cleanHouse,
+          preNllPaid: nextPre,
+          spotPaid: nextSpot,
+          paidAfter: nextAfter,
+          historicalPaid: nextHist,
+          totalContributed,
+          expectedTargetUgx: nextTarget,
+          remainingUgx: nextRemaining,
+          duesStatus: nextDues
+        };
+        targetMigrated = true;
+      }
+    }
+    if (targetMigrated) {
+      writeJsonArray(MEMBERS_FILE, currentMembers);
     }
     if (!fs.existsSync(RECONCILIATION_FILE) && readJsonArray(MEMBERS_FILE).length > 0) {
       try {
@@ -1825,14 +1896,15 @@ async function startServer() {
       : null;
   };
 
-  const sanitizeMemberForClient = (m: any, defaultTargetUgx: number) => {
+  const sanitizeMemberForClient = (m: any, _defaultTargetUgx: number = 0) => {
     const preNllPaid = Math.max(0, Number(m.preNllPaid) || 0);
     const spotPaid = Math.max(0, Number(m.spotPaid) || 0);
     const paidAfter = Math.max(0, Number(m.paidAfter) || 0);
     const historicalPaid = Math.max(0, Number(m.historicalPaid ?? m.totalContributed) || 0);
     const livePaid = Math.max(0, Number(m.livePaid) || 0);
     const totalContributed = historicalPaid + livePaid;
-    const expectedTargetUgx = Math.max(0, Number(m.expectedTargetUgx ?? defaultTargetUgx) || 0);
+    const cleanGender = normalizeMemberGender(m.gender);
+    const expectedTargetUgx = resolveMemberExpectedTarget(m.expectedTargetUgx, cleanGender);
     const remainingUgx = expectedTargetUgx > 0 ? Math.max(0, expectedTargetUgx - totalContributed) : 0;
     const cleanSchool = normalizeMemberSchool(m.school);
     const cleanHouse = normalizeMemberHouse(m.house, cleanSchool);
@@ -2314,7 +2386,7 @@ async function startServer() {
                 paidAfter: 0,
                 historicalPaid: 0,
                 livePaid: amt,
-                expectedTargetUgx: defaultTargetUgx,
+                expectedTargetUgx: 0,
                 paymentCount: 1,
                 lastPaymentDate: String(tx?.date || ''),
                 lastPurpose: String(tx?.paymentPurpose || 'Membership'),
@@ -2454,14 +2526,16 @@ async function startServer() {
 
       if (existingIdx !== -1) {
         const { tier: _dropLegacyTier, ...current } = members[existingIdx] || {};
-        const nextExpected =
-          incoming.expectedTargetUgx !== undefined && Number(incoming.expectedTargetUgx) >= 0
-            ? Number(incoming.expectedTargetUgx)
-            : current.expectedTargetUgx ?? defaultTargetUgx;
+        const prevGender = normalizeMemberGender(current.gender);
+        const nextGender = incoming.gender !== undefined ? cleanGender : prevGender;
+        const nextExpected = resolveMemberExpectedTarget(
+          incoming.expectedTargetUgx !== undefined ? incoming.expectedTargetUgx : current.expectedTargetUgx,
+          nextGender,
+          prevGender
+        );
         const histPaid = Math.max(0, Number(current.historicalPaid ?? current.totalContributed) || 0);
         const livePaid = Math.max(0, Number(current.livePaid) || 0);
         const totalContributed = histPaid + livePaid;
-        const nextGender = incoming.gender !== undefined ? cleanGender : normalizeMemberGender(current.gender);
         const nextSchool = incoming.school !== undefined ? cleanSchool : normalizeMemberSchool(current.school);
         const nextHouse = isHouseEligibleSchool(nextSchool)
           ? (incoming.house !== undefined ? cleanHouse : normalizeMemberHouse(current.house, nextSchool))
@@ -2522,6 +2596,7 @@ async function startServer() {
 
       const nextSeq = members.length + 1;
       const newId = `SB-M-${String(nextSeq).padStart(4, '0')}-${crypto.randomBytes(2).toString('hex').toUpperCase()}`;
+      const newExpectedTarget = resolveMemberExpectedTarget(incoming.expectedTargetUgx, cleanGender);
       const newRecord = {
         id: newId,
         memberId: newId,
@@ -2538,10 +2613,9 @@ async function startServer() {
         historicalPaid: 0,
         livePaid: 0,
         totalContributed: 0,
-        expectedTargetUgx:
-          incoming.expectedTargetUgx !== undefined && Number(incoming.expectedTargetUgx) >= 0
-            ? Number(incoming.expectedTargetUgx)
-            : defaultTargetUgx,
+        expectedTargetUgx: newExpectedTarget,
+        remainingUgx: newExpectedTarget,
+        duesStatus: computeDuesStatus(0, newExpectedTarget),
         profileStatus: isMemberProfileComplete({
           name: cleanName,
           email: cleanEmail,
@@ -2598,9 +2672,7 @@ async function startServer() {
         return;
       }
 
-      const site = readPublicSiteContent();
-      const defaultTargetUgx = Math.max(0, Number(site.membershipTargetUgx) || 100000);
-      const parsed = parseTreasuryMembersCsv(csvText, { defaultTargetUgx });
+      const parsed = parseTreasuryMembersCsv(csvText, { defaultTargetUgx: 0 });
 
       if (parsed.members.length === 0) {
         res.status(400).json({
@@ -2784,7 +2856,8 @@ async function startServer() {
       }
       primary.phone = cleanPhoneNumber(primary.phone || '');
       primary.totalContributed = (Number(primary.historicalPaid) || 0) + (Number(primary.livePaid) || 0);
-      const targetUgx = Math.max(0, Number(primary.expectedTargetUgx ?? defaultTargetUgx) || 0);
+      const targetUgx = resolveMemberExpectedTarget(primary.expectedTargetUgx, primary.gender);
+      primary.expectedTargetUgx = targetUgx;
       primary.remainingUgx = targetUgx > 0 ? Math.max(0, targetUgx - primary.totalContributed) : 0;
       primary.duesStatus = computeDuesStatus(primary.totalContributed, targetUgx);
       primary.profileStatus = isMemberProfileComplete(primary) ? 'COMPLETE' : 'INCOMPLETE';
@@ -2920,10 +2993,15 @@ async function startServer() {
           }
         }
 
+        const prevGender = normalizeMemberGender(members[memIdx].gender);
         const cleanPhone = cleanPhoneNumber(sub.submittedPhone || members[memIdx].phone || '');
         const cleanSchool = normalizeMemberSchool(sub.submittedSchool || members[memIdx].school);
         const cleanGender = normalizeMemberGender(sub.submittedGender || members[memIdx].gender);
         const cleanHouse = normalizeMemberHouse(sub.submittedHouse || members[memIdx].house, cleanSchool);
+        const nextTarget = resolveMemberExpectedTarget(members[memIdx].expectedTargetUgx, cleanGender, prevGender);
+        const histPaid = Math.max(0, Number(members[memIdx].historicalPaid ?? members[memIdx].totalContributed) || 0);
+        const livePaid = Math.max(0, Number(members[memIdx].livePaid) || 0);
+        const totalContributed = histPaid + livePaid;
         const updatedMember = {
           ...members[memIdx],
           name: sub.submittedName || members[memIdx].name,
@@ -2933,6 +3011,9 @@ async function startServer() {
           gender: cleanGender,
           school: cleanSchool,
           house: cleanHouse,
+          expectedTargetUgx: nextTarget,
+          remainingUgx: nextTarget > 0 ? Math.max(0, nextTarget - totalContributed) : 0,
+          duesStatus: computeDuesStatus(totalContributed, nextTarget),
           claimTokenHash: undefined,
           claimTokenExpiresAt: undefined,
           updatedAt: nowIso
@@ -3375,7 +3456,8 @@ async function startServer() {
         body: JSON.stringify({
           action: 'sendMemberOtp',
           email: cleanEmail,
-          code: otpCode
+          code: otpCode,
+          memberName: lookup.memberName
         }),
         redirect: 'follow'
       })
@@ -3411,7 +3493,7 @@ async function startServer() {
 
       res.json({
         success: true,
-        message: `A 6-digit sign-in code has been sent to ${cleanEmail}. Please check your email inbox.`
+        message: `A 6-digit verification code has been sent to ${cleanEmail}. Check your Inbox — if you do not see it within 1 minute, check your Spam or Promotions folder and mark it "Not spam".`
       });
     } catch {
       res.status(500).json({
@@ -3560,19 +3642,20 @@ async function startServer() {
         };
       });
 
-      const memberTarget =
-        lookup.memberRecord?.expectedTargetUgx !== undefined
-          ? Math.max(0, Number(lookup.memberRecord.expectedTargetUgx) || 0)
-          : configuredTarget;
-      const expectedTargetUgx = memberTarget > 0 ? memberTarget : totalPaidUgx + pendingUgx;
+      const resolvedGender = normalizeMemberGender(lookup.memberRecord?.gender);
+      const expectedTargetUgx = lookup.memberRecord
+        ? resolveMemberExpectedTarget(lookup.memberRecord.expectedTargetUgx, resolvedGender)
+        : 0;
       const remainingUgx = expectedTargetUgx > 0 ? Math.max(0, expectedTargetUgx - totalPaidUgx) : 0;
-      const progressPercent = expectedTargetUgx > 0 ? Math.min(100, Math.round((totalPaidUgx / expectedTargetUgx) * 100)) : 100;
+      const progressPercent = expectedTargetUgx > 0 ? Math.min(100, Math.round((totalPaidUgx / expectedTargetUgx) * 100)) : 0;
 
       let overallStatus: 'FULLY_PAID' | 'PARTIAL' | 'PENDING' = 'PARTIAL';
       if (totalPaidUgx === 0 && pendingUgx > 0) {
         overallStatus = 'PENDING';
-      } else if (remainingUgx === 0 && totalPaidUgx > 0) {
+      } else if (expectedTargetUgx > 0 && remainingUgx === 0 && totalPaidUgx > 0) {
         overallStatus = 'FULLY_PAID';
+      } else if (expectedTargetUgx === 0 && totalPaidUgx === 0) {
+        overallStatus = 'PENDING';
       }
 
       const oldestDate = lookup.inflows.reduce((earliest: string, tx: any) => {
@@ -3682,6 +3765,11 @@ async function startServer() {
       const affectedHistTxs: any[] = [];
       if (idx !== -1) {
         const { tier: _dropLegacyTier, ...existingClean } = members[idx] || {};
+        const prevGender = normalizeMemberGender(existingClean.gender);
+        const nextTarget = resolveMemberExpectedTarget(existingClean.expectedTargetUgx, cleanGender, prevGender);
+        const histPaid = Math.max(0, Number(existingClean.historicalPaid ?? existingClean.totalContributed) || 0);
+        const livePaid = Math.max(0, Number(existingClean.livePaid) || 0);
+        const totalContributed = histPaid + livePaid;
         savedRecord = {
           ...existingClean,
           name: cleanName,
@@ -3690,6 +3778,9 @@ async function startServer() {
           gender: cleanGender,
           school: cleanSchool,
           house: cleanHouse,
+          expectedTargetUgx: nextTarget,
+          remainingUgx: nextTarget > 0 ? Math.max(0, nextTarget - totalContributed) : 0,
+          duesStatus: computeDuesStatus(totalContributed, nextTarget),
           updatedAt: nowIso
         };
         savedRecord.profileStatus = isMemberProfileComplete(savedRecord) ? 'COMPLETE' : 'INCOMPLETE';
@@ -3710,6 +3801,7 @@ async function startServer() {
         }
       } else {
         const newId = `SB-M-${String(members.length + 1).padStart(4, '0')}`;
+        const standardTarget = getStandardTargetForGender(cleanGender);
         savedRecord = {
           id: newId,
           memberId: newId,
@@ -3726,7 +3818,9 @@ async function startServer() {
           historicalPaid: 0,
           livePaid: 0,
           totalContributed: 0,
-          expectedTargetUgx: defaultTargetUgx,
+          expectedTargetUgx: standardTarget,
+          remainingUgx: standardTarget,
+          duesStatus: computeDuesStatus(0, standardTarget),
           profileStatus: isMemberProfileComplete({
             name: cleanName,
             email: member.email,
