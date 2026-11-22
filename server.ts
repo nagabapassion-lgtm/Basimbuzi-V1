@@ -2118,7 +2118,6 @@ async function startServer() {
       const site = readPublicSiteContent();
       const defaultTargetUgx = Math.max(0, Number(site.membershipTargetUgx) || 100000);
 
-      await syncMembersFromGasDirectory(false);
       const members = readJsonArray(MEMBERS_FILE);
       const targetId = String(incoming.id || incoming.memberId || '').trim();
       let existingIdx = -1;

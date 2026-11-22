@@ -293,20 +293,24 @@ export function getTransactionSortTimestampMs(tx: SortableTransactionLike): numb
     if (!Number.isNaN(parsedCreated)) {
       if (!dateStr) return parsedCreated;
       const createdDateUtc = new Date(parsedCreated).toISOString().slice(0, 10);
-      // Only trust createdAt when it corresponds to the transaction's nominal date (±1 day for TZ)
       const nominalDayMs = Date.parse(`${dateStr}T12:00:00Z`);
       const createdDayMs = Date.parse(`${createdDateUtc}T12:00:00Z`);
-      if (!Number.isNaN(nominalDayMs) && Math.abs(createdDayMs - nominalDayMs) <= 86_400_000) {
+      // Allow up to ±3 days tolerance for timezone / backdating differences
+      if (!Number.isNaN(nominalDayMs) && Math.abs(createdDayMs - nominalDayMs) <= 3 * 86_400_000) {
         return parsedCreated;
       }
+      // If createdAt is valid timestamp, trust it even if dateStr differs slightly
+      return parsedCreated;
     }
   }
   if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
     const timeStr = normalizeTimeStr(tx?.time);
     const parsedLocal = Date.parse(`${dateStr}T${timeStr}Z`);
     if (!Number.isNaN(parsedLocal)) return parsedLocal;
+    const parsedDateOnly = Date.parse(`${dateStr}T00:00:00Z`);
+    if (!Number.isNaN(parsedDateOnly)) return parsedDateOnly;
   }
-  return 0;
+  return Date.now();
 }
 
 export function compareTransactions(

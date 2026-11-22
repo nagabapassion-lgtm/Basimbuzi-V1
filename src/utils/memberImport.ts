@@ -573,10 +573,13 @@ export function mergeMemberDirectories(
 
       const localTs = parseIsoTimeMs(local.updatedAt);
       const remoteTs = parseIsoTimeMs(rawRemote.updatedAt);
-      const remoteNewer = remoteTs > localTs;
+      const localHasContact = Boolean(localEmail || localPhone);
+      const remoteHasContact = Boolean(remoteEmail || remotePhone);
+      // Local wins if local has contact info and remote doesn't, or if local was updated more recently or at same time
+      const remoteNewer = remoteTs > localTs && (!localHasContact || remoteHasContact);
 
       const pickStr = (localVal: string, remoteVal: string): string => {
-        if (remoteNewer) return remoteVal || localVal;
+        if (remoteNewer && remoteVal && !localVal) return remoteVal;
         return localVal || remoteVal;
       };
 
