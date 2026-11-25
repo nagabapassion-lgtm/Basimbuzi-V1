@@ -80,12 +80,14 @@ const DEFAULT_SEED_SETTINGS: AppSettings = {
 
 export const SYSTEM_OWNER_EMAIL = 'nagabapassion@gmail.com';
 
+// SECURITY: no hardcoded password here. The Owner password lives ONLY in the
+// Google Sheets Users sheet (and is set/rotated by the system owner).
 export const SYSTEM_OWNER_USER: User = {
   name: 'Nagaba Passion',
   email: 'nagabapassion@gmail.com',
   role: 'OWNER',
   status: 'ACTIVE',
-  password: 'Passion@2026',
+  password: '',
   permissions: getDefaultPermissions('OWNER'),
   createdAt: '2026-01-01T08:00:00.000Z'
 };
@@ -94,69 +96,9 @@ const DEFAULT_SEED_USERS: User[] = [
   SYSTEM_OWNER_USER
 ];
 
-// Default seed member payment transactions so returning payer search is immediately functional
-const DEFAULT_SEED_TRANSACTIONS: Transaction[] = [
-  {
-    receiptNumber: 'SB-2026-00001',
-    date: '2026-08-10',
-    time: '10:30:00',
-    payerName: 'Sarah Namubiru',
-    phone: '+256772123456',
-    email: 'sarah.namubiru@gmail.com',
-    amount: 50000,
-    paymentPurpose: 'Membership',
-    paymentMethod: 'Mobile Money',
-    paymentReference: 'MM-78921',
-    notes: 'Annual membership contribution',
-    generatedBy: 'Eng. Ronald B.',
-    operatorEmail: 'ronald.b@scbasimbuzi.org',
-    paymentStatus: 'COMPLETED',
-    emailStatus: 'SENT',
-    syncStatus: 'SYNCED',
-    createdAt: '2026-08-10T10:30:00Z',
-    type: 'INFLOW'
-  },
-  {
-    receiptNumber: 'SB-2026-00002',
-    date: '2026-08-14',
-    time: '14:15:00',
-    payerName: 'David Ssemwogerere',
-    phone: '+256701987654',
-    email: 'david.ssemwo@yahoo.com',
-    amount: 100000,
-    paymentPurpose: 'Monthly Contribution',
-    paymentMethod: 'Bank Transfer',
-    paymentReference: 'FT-44210',
-    notes: 'Q3 Club support',
-    generatedBy: 'Eng. Ronald B.',
-    operatorEmail: 'ronald.b@scbasimbuzi.org',
-    paymentStatus: 'COMPLETED',
-    emailStatus: 'SENT',
-    syncStatus: 'SYNCED',
-    createdAt: '2026-08-14T14:15:00Z',
-    type: 'INFLOW'
-  },
-  {
-    receiptNumber: 'SB-2026-00003',
-    date: '2026-08-20',
-    time: '16:00:00',
-    payerName: 'Grace Nakato',
-    phone: '+256755432109',
-    email: 'grace.nakato@outlook.com',
-    amount: 75000,
-    paymentPurpose: 'Special Event',
-    paymentMethod: 'Mobile Money',
-    paymentReference: 'MM-88431',
-    notes: 'Community tournament fund',
-    generatedBy: 'Eng. Ronald B.',
-    operatorEmail: 'ronald.b@scbasimbuzi.org',
-    paymentStatus: 'COMPLETED',
-    emailStatus: 'SENT',
-    syncStatus: 'SYNCED',
-    createdAt: '2026-08-20T16:00:00Z',
-    type: 'INFLOW'
-  }
-];
+// SECURITY: seed transactions removed — real payer records must come from the
+// live backend (Google Sheets / GAS), never from the public JS bundle.
+const DEFAULT_SEED_TRANSACTIONS: Transaction[] = [];
 
 const DEFAULT_SEED_AUDIT: AuditLogEntry[] = [
   {
@@ -393,7 +335,7 @@ class ApiClient {
         ...users[ownerIndex],
         role: 'OWNER',
         status: 'ACTIVE',
-        password: users[ownerIndex].password || SYSTEM_OWNER_USER.password || 'Passion@2026',
+        password: users[ownerIndex].password || SYSTEM_OWNER_USER.password || '',
         permissions: getDefaultPermissions('OWNER')
       };
     }
@@ -983,13 +925,12 @@ class ApiClient {
       };
     }
 
+    // SECURITY: password is validated ONLY against the stored record
+    // (synced from the Google Sheets Users sheet). No hardcoded master password.
     const expectedPassword = (matched.password || '').trim();
-    const isMatched = (expectedPassword && (
-      cleanPassword === expectedPassword || 
+    const isMatched = Boolean(expectedPassword) && (
+      cleanPassword === expectedPassword ||
       cleanPassword.toLowerCase() === expectedPassword.toLowerCase()
-    )) || (
-      cleanEmail === SYSTEM_OWNER_EMAIL.toLowerCase() && 
-      (cleanPassword === 'Passion@2026' || cleanPassword.toLowerCase() === 'passion@2026')
     );
 
     if (!isMatched) {

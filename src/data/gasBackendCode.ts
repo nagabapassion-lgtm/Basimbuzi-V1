@@ -518,29 +518,12 @@ function checkUserAuth(email) {
     }
   }
 
-  // If this email is the Google account owner, auto-provision as OWNER
-  var effectiveEmail = "";
-  try {
-    effectiveEmail = Session.getEffectiveUser().getEmail().toLowerCase();
-  } catch (e) {}
-
-  if (cleanEmail === "nagabapassion@gmail.com" || (effectiveEmail && cleanEmail === effectiveEmail)) {
-    var nowIso = new Date().toISOString();
-    userSheet.appendRow(["Nagaba Passion", cleanEmail, "OWNER", "ACTIVE", nowIso, "Passion@2026", ""]);
-    clearBackendCache();
-    return {
-      success: true,
-      authorized: true,
-      user: {
-        name: "Nagaba Passion",
-        email: cleanEmail,
-        role: "OWNER",
-        status: "ACTIVE",
-        createdAt: nowIso
-      }
-    };
-  }
-
+  // SECURITY FIX: The previous auto-provision block here authorized ANY anonymous
+  // caller who declared the owner email (Session.getEffectiveUser() in an
+  // "execute as me" web app always returns the deploying account, so the check
+  // matched client-supplied input and granted a full OWNER session with no
+  // password). Removed. Authorization now requires an existing ACTIVE row in
+  // the Users sheet, and the owner is provisioned by setupSpreadsheet().
   return {
     success: false,
     authorized: false,
@@ -585,10 +568,9 @@ function handleVerifyUserPassword(email, enteredPassword) {
       }
 
       var storedPassword = String(data[i][5] || "").trim();
-      // System Owner fallback password if not yet populated in sheet column 6
-      if (!storedPassword && cleanEmail === "nagabapassion@gmail.com") {
-        storedPassword = "Passion@2026";
-      }
+      // SECURITY FIX: no fallback master password. If the sheet has no password
+      // for an account, that account cannot log in until the owner sets one in
+      // the Users sheet (column 6).
 
       if (storedPassword && storedPassword === cleanPassword) {
         var perms = parsePermissionsGas(data[i][6]);
@@ -616,25 +598,10 @@ function handleVerifyUserPassword(email, enteredPassword) {
     }
   }
 
-  // Auto-provision owner if clean spreadsheet
-  if (cleanEmail === "nagabapassion@gmail.com" && cleanPassword === "Passion@2026") {
-    var ownerIso = new Date().toISOString();
-    userSheet.appendRow(["Nagaba Passion", cleanEmail, "OWNER", "ACTIVE", ownerIso, "Passion@2026", ""]);
-    clearBackendCache();
-    return {
-      success: true,
-      authorized: true,
-      user: {
-        name: "Nagaba Passion",
-        email: cleanEmail,
-        role: "OWNER",
-        status: "ACTIVE",
-        password: "Passion@2026",
-        createdAt: ownerIso
-      }
-    };
-  }
-
+  // SECURITY FIX: the hardcoded owner auto-provision (email + known master
+  // password) was removed. New owner rows are created by setupSpreadsheet()
+  // with an empty password; the owner must set/rotate the password in the
+  // Users sheet before password login works.
   return {
     success: false,
     authorized: false,
@@ -2605,13 +2572,15 @@ function setupSpreadsheet() {
 
   if (!ownerRegistered) {
     var primaryOwner = effectiveEmail || targetOwnerEmail;
+    // SECURITY FIX: owner is seeded with an EMPTY password. Set the real
+    // password in the Users sheet (column 6) after first deployment.
     userSheet.appendRow([
       "Nagaba Passion",
       primaryOwner.toLowerCase(),
       "OWNER",
       "ACTIVE",
       new Date().toISOString(),
-      "Passion@2026",
+      "",
       ""
     ]);
   }

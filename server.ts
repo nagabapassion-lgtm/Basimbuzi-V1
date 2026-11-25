@@ -460,6 +460,8 @@ async function startServer() {
       }
 
       // Ensure system owner exists if database is new
+      // SECURITY FIX: owner is created with an EMPTY password — it must be set
+      // (e.g. via /api/users/password) before password login works.
       let user = currentUsers.find(u => (u.email || '').trim().toLowerCase() === cleanEmail);
       if (!user && cleanEmail === SYSTEM_OWNER_EMAIL.toLowerCase()) {
         user = {
@@ -467,7 +469,7 @@ async function startServer() {
           email: SYSTEM_OWNER_EMAIL,
           role: 'OWNER',
           status: 'ACTIVE',
-          password: 'Passion@2026',
+          password: '',
           createdAt: new Date().toISOString()
         };
         currentUsers.unshift(user);
@@ -486,12 +488,11 @@ async function startServer() {
         }
 
         const storedPassword = (user.password || '').trim();
-        const isPasswordMatch = (storedPassword && (
-          storedPassword === cleanPassword || 
+        // SECURITY FIX: password validated only against the stored record.
+        // The hardcoded master-password bypass was removed.
+        const isPasswordMatch = Boolean(storedPassword) && (
+          storedPassword === cleanPassword ||
           storedPassword.toLowerCase() === cleanPassword.toLowerCase()
-        )) || (
-          cleanEmail === SYSTEM_OWNER_EMAIL.toLowerCase() && 
-          (cleanPassword === 'Passion@2026' || cleanPassword.toLowerCase() === 'passion@2026')
         );
 
         // If user already has a password and matches

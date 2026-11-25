@@ -4,7 +4,7 @@
     "email": "nagabapassion@gmail.com",
     "role": "OWNER",
     "status": "ACTIVE",
-    "password": "Passion@2026",
+    "password": "",
     "createdAt": "2026-08-24T20:28:53.555Z"
   },
   {
@@ -12,7 +12,7 @@
     "email": "jotham.itungo@gmail.com",
     "role": "ISSUER",
     "status": "ACTIVE",
-    "password": "Jotham@2026",
+    "password": "",
     "createdAt": "2026-09-12T09:40:23.335Z"
   },
   {
@@ -20,7 +20,7 @@
     "email": "passionwork94@gmail.com",
     "role": "ISSUER",
     "status": "ACTIVE",
-    "password": "PR@2026",
+    "password": "",
     "createdAt": "2026-09-13T12:18:44.416Z"
   },
   {
@@ -28,7 +28,7 @@
     "email": "hildanamy7@gmail.com",
     "role": "ISSUER",
     "status": "ACTIVE",
-    "password": "Staff@2026",
+    "password": "",
     "createdAt": "2026-10-02T17:47:25.980Z"
   }
 ]

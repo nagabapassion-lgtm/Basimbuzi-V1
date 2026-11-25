@@ -1,100 +1,12 @@
 {
-  "coveredReceiptNumbers": [
-    "SB-2026-00004",
-    "SB-2026-00005",
-    "SB-2026-00006",
-    "SB-2026-00007",
-    "SB-2026-00008",
-    "SB-2026-00009",
-    "SB-2026-00010",
-    "SB-2026-00012",
-    "SB-2026-00013",
-    "SB-2026-00014",
-    "SB-2026-00015",
-    "SB-2026-00017",
-    "SB-2026-00018",
-    "SB-2026-00019",
-    "SB-2026-00020",
-    "SB-2026-00021",
-    "SB-2026-00022",
-    "SB-2026-00024",
-    "SB-2026-00026",
-    "SB-2026-00028",
-    "SB-2026-00030",
-    "SB-2026-00032",
-    "SB-2026-00033",
-    "SB-2026-00035",
-    "SB-2026-00036",
-    "SB-2026-00037",
-    "SB-2026-00038",
-    "SB-2026-00039",
-    "SB-2026-00040",
-    "SB-2026-00042",
-    "SB-2026-00043",
-    "SB-2026-00045",
-    "SB-2026-00049",
-    "SB-2026-00054",
-    "SB-2026-00055",
-    "SB-2026-00056",
-    "SB-2026-00057",
-    "SB-2026-00063"
-  ],
-  "coveredReceiptCount": 38,
-  "coveredAmountUgx": 629000,
-  "unrecordedReceipts": [
-    {
-      "receiptNumber": "SB-2026-00011",
-      "gasName": "Anglin Ankunda",
-      "canonicalName": "Anglin Ankunda",
-      "amount": 10000
-    },
-    {
-      "receiptNumber": "SB-2026-00034",
-      "gasName": "Malual Dut",
-      "canonicalName": "Malual Dut",
-      "amount": 11000
-    },
-    {
-      "receiptNumber": "SB-2026-00058",
-      "gasName": "Armstrong Butaahobweishe",
-      "canonicalName": "Armstrong Butaahobweishe",
-      "amount": 30000
-    },
-    {
-      "receiptNumber": "SB-2026-00059",
-      "gasName": "Grace Mpora",
-      "canonicalName": "Mpora Grace",
-      "amount": 20000
-    },
-    {
-      "receiptNumber": "SB-2026-00061",
-      "gasName": "Ahumuza Martha Joy",
-      "canonicalName": "Martha Joy",
-      "amount": 30000
-    },
-    {
-      "receiptNumber": "SB-2026-00062",
-      "gasName": "Mwesigwa Alvin",
-      "canonicalName": "Alvin Mwesigwa",
-      "amount": 25000
-    },
-    {
-      "receiptNumber": "SB-2026-00064",
-      "gasName": "Atukunda Blessed Pearl",
-      "canonicalName": "Atukunda Blessed Pearl",
-      "amount": 30000
-    },
-    {
-      "receiptNumber": "SB-2026-00065",
-      "gasName": "Manzi Gloire",
-      "canonicalName": "Manzi Gloire",
-      "amount": 400000
-    }
-  ],
-  "unrecordedLiveCount": 8,
-  "unrecordedAmountUgx": 556000,
+  "coveredReceiptNumbers": [],
+  "coveredReceiptCount": 0,
+  "coveredAmountUgx": 0,
+  "unrecordedReceipts": [],
+  "unrecordedLiveCount": 0,
+  "unrecordedAmountUgx": 0,
   "staffEmailsStripped": 0,
-  "realEmailsRecovered": 9,
-  "phonesRecovered": 42,
-  "reconciledAt": "2026-11-22T12:34:36.570Z"
+  "realEmailsRecovered": 0,
+  "phonesRecovered": 0,
+  "reconciledAt": ""
 }
