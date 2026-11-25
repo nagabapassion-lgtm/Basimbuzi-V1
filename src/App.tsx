@@ -166,6 +166,9 @@ const MainLayout: React.FC = () => {
       case 'audit':
         return <AuditLogsView />;
       case 'setup':
+        if (currentUser?.role === 'ISSUER' || (currentUser?.role !== 'OWNER' && !userPermissions.canEditSettings)) {
+          return <AccessDenied />;
+        }
         return <SetupGuideView />;
       default:
         return <DashboardView />;

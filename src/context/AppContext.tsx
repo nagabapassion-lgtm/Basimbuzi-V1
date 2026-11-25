@@ -325,10 +325,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, []);
 
   const setGasUrl = useCallback((url: string) => {
-    api.setGasUrl(url);
+    const isOwner = currentUser?.role === 'OWNER' || (currentUser?.email || '').toLowerCase() === SYSTEM_OWNER_EMAIL.toLowerCase();
+    const perms = resolveUserPermissions(currentUser);
+    if (currentUser?.role === 'ISSUER' || (!isOwner && !perms.canEditSettings)) {
+      addToast('Unauthorized: Receipt Issuers cannot modify Google Apps Script backend configuration.', 'error');
+      return;
+    }
+    api.setGasUrl(url, currentUser?.email);
     setGasUrlState(url);
     setIsLiveBackend(api.isConnectedToLiveBackend());
-  }, []);
+  }, [currentUser, addToast]);
 
   const loadDataForUser = useCallback(async (user: User, showFullSpinner: boolean = false) => {
     try {

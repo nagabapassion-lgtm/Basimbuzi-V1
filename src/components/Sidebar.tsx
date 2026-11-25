@@ -67,7 +67,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpenPublicS
     onClose();
   };
 
-  const navItems: Array<{ tab: ActiveTab; label: string; icon: React.ComponentType<{ className?: string }>; ownerOnly?: boolean; websiteOnly?: boolean; financeOnly?: boolean }> = [
+  const navItems: Array<{ tab: ActiveTab; label: string; icon: React.ComponentType<{ className?: string }>; ownerOnly?: boolean; websiteOnly?: boolean; financeOnly?: boolean; settingsOnly?: boolean }> = [
     { tab: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, financeOnly: true },
     { tab: 'generate', label: 'Issue Receipt', icon: Receipt, financeOnly: true },
     { tab: 'transactions', label: 'Transaction Ledger', icon: ListOrdered, financeOnly: true },
@@ -77,7 +77,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpenPublicS
     { tab: 'users', label: 'Administrators', icon: Users, ownerOnly: true },
     { tab: 'audit', label: 'Audit Logs', icon: History, ownerOnly: true },
     { tab: 'settings', label: 'Settings & Appearance', icon: SettingsIcon, ownerOnly: true },
-    { tab: 'setup', label: 'Apps Script Backend', icon: Code2, financeOnly: true }
+    { tab: 'setup', label: 'Apps Script Backend', icon: Code2, settingsOnly: true }
   ];
 
   return (
@@ -152,16 +152,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpenPublicS
             )}
           </div>
           
-          <a
-            href="#/setup"
-            onClick={(e) => {
-              e.preventDefault();
-              handleNavClick('setup');
-            }}
-            className="text-[11px] text-blue-400 hover:text-blue-300 font-semibold underline cursor-pointer"
-          >
-            {isLiveBackend ? 'Config' : 'Connect'}
-          </a>
+          {(isOwner || (userPermissions.canEditSettings && currentUser?.role !== 'ISSUER')) && (
+            <a
+              href="#/setup"
+              onClick={(e) => {
+                e.preventDefault();
+                handleNavClick('setup');
+              }}
+              className="text-[11px] text-blue-400 hover:text-blue-300 font-semibold underline cursor-pointer"
+            >
+              {isLiveBackend ? 'Config' : 'Connect'}
+            </a>
+          )}
         </div>
 
         {/* Navigation Items - Clean high-performance tabs */}
@@ -170,6 +172,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpenPublicS
             if (item.ownerOnly && !isOwner) return null;
             if (item.websiteOnly && !canManageWebsite) return null;
             if (item.financeOnly && isMediaOnly) return null;
+            if (item.settingsOnly && (currentUser?.role === 'ISSUER' || (!isOwner && !userPermissions.canEditSettings))) return null;
 
             const isActive = activeTab === item.tab;
             const Icon = item.icon;

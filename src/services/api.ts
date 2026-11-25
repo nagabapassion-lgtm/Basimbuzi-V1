@@ -213,15 +213,19 @@ class ApiClient {
     return this.gasUrl;
   }
 
-  public setGasUrl(url: string): void {
+  public setGasUrl(url: string, operatorEmail?: string): void {
     this.gasUrl = url.trim();
     localStorage.setItem(STORAGE_KEYS.GAS_URL, this.gasUrl);
     this.invalidateTransactionCaches(true);
     // Broadcast configured GAS URL to server so all devices/staff get it automatically
+    const email = (operatorEmail || this.getStoredAuthUser()?.email || '').trim().toLowerCase();
     fetch('/api/config', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ gasUrl: this.gasUrl })
+      headers: {
+        'Content-Type': 'application/json',
+        ...(email ? { 'X-Operator-Email': email } : {})
+      },
+      body: JSON.stringify({ gasUrl: this.gasUrl, operatorEmail: email })
     }).catch(() => null);
   }
 

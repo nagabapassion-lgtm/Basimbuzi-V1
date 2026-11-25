@@ -59,8 +59,10 @@ type FilterTab = 'ALL' | 'PENDING_APPROVALS' | 'INCOMPLETE' | 'MISSING_EMAIL' | 
 const PAGE_SIZE = 25;
 
 export const MembersView: React.FC = () => {
-  const { currentUser, addToast, syncMembersSnapshot, isLiveBackend } = useApp();
+  const { currentUser, userPermissions, addToast, syncMembersSnapshot, isLiveBackend } = useApp();
   const operatorEmail = currentUser?.email || '';
+  const isOwner = currentUser?.role === 'OWNER';
+  const canEditMembers = isOwner || Boolean(userPermissions.canEditMembers);
 
   const [loading, setLoading] = useState(true);
   const [directory, setDirectory] = useState<MembersDirectoryPayload | null>(null);
@@ -165,6 +167,10 @@ export const MembersView: React.FC = () => {
   };
 
   const openEditModal = (m?: Member) => {
+    if (!canEditMembers) {
+      addToast('You do not have permission to edit or add member details.', 'error');
+      return;
+    }
     setMemberFormError(null);
     if (m) {
       const resolvedSchool = resolveSchoolFormState(m.school);
@@ -196,6 +202,10 @@ export const MembersView: React.FC = () => {
 
   const handleSaveMember = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canEditMembers) {
+      addToast('You do not have permission to edit or add member details.', 'error');
+      return;
+    }
     if (!editingMember || !operatorEmail) return;
     setMemberFormError(null);
 
@@ -252,6 +262,10 @@ export const MembersView: React.FC = () => {
   };
 
   const handleCommitCsvImport = async (useBundled: boolean) => {
+    if (!canEditMembers) {
+      addToast('You do not have permission to import or modify member records.', 'error');
+      return;
+    }
     if (!operatorEmail) return;
     setImportingCsv(true);
     const res = await api.importMembersCsv(
@@ -326,6 +340,10 @@ export const MembersView: React.FC = () => {
   };
 
   const handleReviewSubmission = async (sub: MemberProfileSubmission, decision: 'APPROVE' | 'REJECT') => {
+    if (!canEditMembers) {
+      addToast('You do not have permission to approve or change member profile submissions.', 'error');
+      return;
+    }
     if (!operatorEmail) return;
     setReviewingId(sub.id);
     const res = await api.reviewMemberSubmission(sub.id, decision, '', operatorEmail);
@@ -353,6 +371,10 @@ export const MembersView: React.FC = () => {
   };
 
   const handleConfirmMerge = async () => {
+    if (!canEditMembers) {
+      addToast('You do not have permission to merge member profiles.', 'error');
+      return;
+    }
     if (!operatorEmail || !primaryMergeId) return;
     const dupIds = selectedIds.filter(id => id !== primaryMergeId);
     if (dupIds.length === 0) return;
@@ -720,24 +742,32 @@ export const MembersView: React.FC = () => {
                   </div>
 
                   <div className="flex items-center gap-2.5 shrink-0">
-                    <button
-                      type="button"
-                      disabled={reviewingId === sub.id}
-                      onClick={() => handleReviewSubmission(sub, 'APPROVE')}
-                      className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer disabled:opacity-50"
-                    >
-                      <Check className="w-4 h-4" />
-                      <span>Approve & Sync /me</span>
-                    </button>
-                    <button
-                      type="button"
-                      disabled={reviewingId === sub.id}
-                      onClick={() => handleReviewSubmission(sub, 'REJECT')}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 text-xs font-bold cursor-pointer disabled:opacity-50"
-                    >
-                      <XCircle className="w-4 h-4" />
-                      <span>Reject</span>
-                    </button>
+                    {canEditMembers ? (
+                      <>
+                        <button
+                          type="button"
+                          disabled={reviewingId === sub.id}
+                          onClick={() => handleReviewSubmission(sub, 'APPROVE')}
+                          className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer disabled:opacity-50"
+                        >
+                          <Check className="w-4 h-4" />
+                          <span>Approve & Sync /me</span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={reviewingId === sub.id}
+                          onClick={() => handleReviewSubmission(sub, 'REJECT')}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 text-xs font-bold cursor-pointer disabled:opacity-50"
+                        >
+                          <XCircle className="w-4 h-4" />
+                          <span>Reject</span>
+                        </button>
+                      </>
+                    ) : (
+                      <span className="text-xs text-slate-500 dark:text-slate-400 italic">
+                        Approval requires member edit permission
+                      </span>
+                    )}
                   </div>
                 </div>
               ))}
@@ -882,14 +912,16 @@ export const MembersView: React.FC = () => {
 
                         <td className="py-3.5 pl-3 pr-4 align-top text-right">
                           <div className="inline-flex items-center justify-end gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => openEditModal(member)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold cursor-pointer"
-                            >
-                              <Edit3 className="w-3.5 h-3.5" />
-                              <span>Edit</span>
-                            </button>
+                            {canEditMembers && (
+                              <button
+                                type="button"
+                                onClick={() => openEditModal(member)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold cursor-pointer"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                                <span>Edit</span>
+                              </button>
+                            )}
 
                             <button
                               type="button"

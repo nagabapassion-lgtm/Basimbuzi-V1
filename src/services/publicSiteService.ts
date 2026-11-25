@@ -38,7 +38,7 @@ export const DEFAULT_PUBLIC_SITE_CONTENT: PublicSiteContent = {
   heroHeadline: 'Pride of the Community. Built on Unity and Football.',
   heroSubheadline:
     'Follow SC Basimbuzi matchday updates, club announcements, youth academy milestones, and official supporter membership across the season.',
-  heroImageUrl: 'preset:hero',
+  heroImageUrl: '/src/assets/images/hero_club_pitch_1795277918886.jpg',
   aboutTitle: 'Rooted in Passion, Driven by Discipline',
   aboutText:
     'SC Basimbuzi brings together senior squad competition, structured youth development, and an active supporter membership network. Every contribution and matchday turnout helps sustain training operations, equipment, and community football outreach.',
@@ -56,7 +56,7 @@ export const DEFAULT_PUBLIC_SITE_CONTENT: PublicSiteContent = {
         'A disciplined second-half display and clinical counter-attacks sealed three vital points in front of a lively home crowd.',
       content:
         'SC Basimbuzi started the home fixture on the front foot, pressing high and controlling midfield possession from the opening whistle.\n\nAfter an even first thirty minutes, the breakthrough arrived from a sweeping wide move finished cleanly into the far corner. Two further goals after the interval put the result beyond doubt despite a late consolation from the visitors.\n\nHead Coach and technical staff praised the squad fitness and thanked supporters who turned out in full club colours.',
-      coverImage: 'preset:matchday',
+      coverImage: '/src/assets/images/news_matchday_action_1795277903178.jpg',
       author: 'SC Basimbuzi Media Desk',
       publishedAt: '2026-11-15',
       featured: true,
@@ -70,7 +70,7 @@ export const DEFAULT_PUBLIC_SITE_CONTENT: PublicSiteContent = {
         'Supporters and prospective academy players can now submit membership inquiries online ahead of the upcoming tournament cycle.',
       content:
         'The club executive committee invites returning members, new supporters, and youth prospects to register for the current season.\n\nRegistered members enjoy priority matchday updates, official digital receipts for all club contributions, and direct participation in annual club meetings and community initiatives.\n\nUse the Join Club section below to submit your contact details and our Membership Coordinator will follow up promptly.',
-      coverImage: 'preset:supporters',
+      coverImage: '/src/assets/images/news_community_supporters_1795277904224.jpg',
       author: 'Club Secretariat',
       publishedAt: '2026-11-10',
       featured: false,
@@ -84,7 +84,7 @@ export const DEFAULT_PUBLIC_SITE_CONTENT: PublicSiteContent = {
         'Over 120 young players participated in Saturday morning clinics and exhibition matches hosted at Basimbuzi Community Ground.',
       content:
         'Our youth development coaches hosted an open community football morning aimed at identifying emerging talent and promoting sportsmanship.\n\nSupporters and parents gathered pitchside to cheer on the under-15 and under-17 exhibition fixtures, followed by a brief club briefing on upcoming fixtures and kit distribution.',
-      coverImage: 'preset:hero',
+      coverImage: '/src/assets/images/news_matchday_action_1795277903178.jpg',
       author: 'Academy Outreach',
       publishedAt: '2026-11-04',
       featured: false,
@@ -145,7 +145,7 @@ export const DEFAULT_PUBLIC_SITE_CONTENT: PublicSiteContent = {
       name: 'Official 2026 Preseason Jersey',
       priceUgx: 65000,
       description: 'Breathable royal blue matchday jersey with gold trim and woven SC Basimbuzi crest.',
-      imageUrl: 'preset:jersey',
+      imageUrl: '/src/assets/images/merch_home_jersey_1795277903802.jpg',
       sizes: ['S', 'M', 'L', 'XL', 'XXL'],
       inStock: true
     }
@@ -230,7 +230,7 @@ export const publicSiteService = {
         const serverTs = parseValidTimestampMs(serverPayload.content?.updatedAt);
         const cachedTs = parseValidTimestampMs(cached?.updatedAt);
 
-        if (cached && cachedTs > 0 && cachedTs > serverTs) {
+        if (includeDrafts && cached && cachedTs > 0 && cachedTs > serverTs) {
           return {
             content: cached,
             organization: serverPayload.organization || defaultOrg,

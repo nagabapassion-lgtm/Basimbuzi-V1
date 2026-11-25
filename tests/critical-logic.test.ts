@@ -89,6 +89,7 @@ describe('User Permissions & RBAC Tests', () => {
     assert.strictEqual(perms.canViewReports, true);
     assert.strictEqual(perms.canManageUsers, true);
     assert.strictEqual(perms.canEditSettings, true);
+    assert.strictEqual(perms.canEditMembers, true);
   });
 
   test('Admin can view reports and delete transactions but cannot edit settings or manage users by default', () => {
@@ -105,9 +106,10 @@ describe('User Permissions & RBAC Tests', () => {
     assert.strictEqual(perms.canViewReports, true);
     assert.strictEqual(perms.canManageUsers, false);
     assert.strictEqual(perms.canEditSettings, false);
+    assert.strictEqual(perms.canEditMembers, true);
   });
 
-  test('Issuer can only issue receipts and search', () => {
+  test('Issuer can only issue receipts and search; cannot edit settings/backend or member details by default', () => {
     const issuer: User = {
       name: 'Cashier',
       email: 'cashier@scbasimbuzi.org',
@@ -121,6 +123,29 @@ describe('User Permissions & RBAC Tests', () => {
     assert.strictEqual(perms.canViewReports, false);
     assert.strictEqual(perms.canManageUsers, false);
     assert.strictEqual(perms.canEditSettings, false);
+    assert.strictEqual(perms.canEditMembers, false);
+  });
+
+  test('Issuer with custom permission capability can be granted member edit privileges', () => {
+    const customIssuer: User = {
+      name: 'Senior Cashier',
+      email: 'seniorcashier@scbasimbuzi.org',
+      role: 'ISSUER',
+      status: 'ACTIVE',
+      permissions: {
+        canIssueReceipts: true,
+        canDeleteTransactions: false,
+        canViewReports: false,
+        canManageUsers: false,
+        canEditSettings: false,
+        canEditMembers: true
+      },
+      createdAt: '2026-01-01'
+    };
+    const perms = resolveUserPermissions(customIssuer);
+    assert.strictEqual(perms.canIssueReceipts, true);
+    assert.strictEqual(perms.canEditSettings, false);
+    assert.strictEqual(perms.canEditMembers, true);
   });
 
   test('Unauthenticated user has zero permissions', () => {
@@ -130,6 +155,7 @@ describe('User Permissions & RBAC Tests', () => {
     assert.strictEqual(perms.canViewReports, false);
     assert.strictEqual(perms.canManageUsers, false);
     assert.strictEqual(perms.canEditSettings, false);
+    assert.strictEqual(perms.canEditMembers, false);
   });
 });
 

@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { api, SYSTEM_OWNER_EMAIL } from '../services/api';
 import { HARDCODED_LOGO_URL } from '../assets/brandLogo';
 import { 
   ShieldCheck, 
@@ -15,15 +14,8 @@ import {
   CheckCircle2, 
   RefreshCw, 
   Lock, 
-  CloudCheck, 
-  Settings, 
-  X, 
-  Play, 
   Eye, 
-  EyeOff, 
-  UserCheck,
-  Sparkles,
-  HelpCircle
+  EyeOff
 } from 'lucide-react';
 
 interface LoginViewProps {
@@ -38,11 +30,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onBackToPublicSite }) => {
     theme, 
     toggleTheme, 
     settings, 
-    gasUrl, 
-    setGasUrl, 
-    isLiveBackend, 
-    addToast, 
-    refreshData 
+    addToast 
   } = useApp();
 
   // Auth method: 'password' (primary) or 'otp'
@@ -64,35 +52,13 @@ export const LoginView: React.FC<LoginViewProps> = ({ onBackToPublicSite }) => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successInfo, setSuccessInfo] = useState<string | null>(null);
 
-  // Backend config modal
-  const [showConfigModal, setShowConfigModal] = useState(false);
-  const [configUrl, setConfigUrl] = useState(gasUrl);
-  const [testingConfig, setTestingConfig] = useState(false);
-  const [configStatus, setConfigStatus] = useState<{ success: boolean; message: string } | null>(null);
-
-  // Password reset modal state
-  const [showResetModal, setShowResetModal] = useState(false);
-  const [resetEmail, setResetEmail] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showResetPassword, setShowResetPassword] = useState(false);
-  const [resetLoading, setResetLoading] = useState(false);
-  const [resetError, setResetError] = useState<string | null>(null);
-
   const digitInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  // Keep configUrl synchronized
-  useEffect(() => {
-    setConfigUrl(gasUrl);
-  }, [gasUrl]);
-
-  // Load remembered email on mount or prefill with registered owner email
+  // Load remembered email on mount only if user previously checked remember me
   useEffect(() => {
     const saved = localStorage.getItem('sc_basimbuzi_remembered_email');
     if (saved) {
       setEmail(saved);
-    } else {
-      setEmail(SYSTEM_OWNER_EMAIL);
     }
   }, []);
 
@@ -103,36 +69,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onBackToPublicSite }) => {
       return () => clearTimeout(timer);
     }
   }, [resendCooldown]);
-
-  const handleSaveAndTestConfig = async () => {
-    const cleanUrl = configUrl.trim();
-    if (!cleanUrl) {
-      setErrorMessage('Please enter your Google Apps Script Web App URL');
-      return;
-    }
-
-    setTestingConfig(true);
-    setConfigStatus(null);
-
-    const result = await api.testConnection(cleanUrl);
-    setTestingConfig(false);
-    setConfigStatus(result);
-
-    if (result.success) {
-      setGasUrl(cleanUrl);
-      addToast('Connected to Google Apps Script backend!', 'success');
-      try {
-        await refreshData();
-      } catch {
-        // Non-blocking
-      }
-      setTimeout(() => {
-        setShowConfigModal(false);
-      }, 1200);
-    } else {
-      addToast('Connection failed: ' + result.message, 'error');
-    }
-  };
 
   // 1. Password Login Handler
   const handlePasswordSubmit = async (e: React.FormEvent) => {
@@ -296,74 +232,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onBackToPublicSite }) => {
     }
   };
 
-  // Quick fill registered owner credentials
-  const handleQuickFillOwner = () => {
-    setEmail(SYSTEM_OWNER_EMAIL);
-    setPassword('Passion@2026');
-    setAuthMethod('password');
-    setErrorMessage(null);
-    addToast('Filled registered owner credentials (Passion)', 'info');
-  };
-
-  // Open reset password modal
-  const handleOpenResetModal = () => {
-    setResetEmail(email.trim() || SYSTEM_OWNER_EMAIL);
-    setNewPassword('');
-    setConfirmPassword('');
-    setResetError(null);
-    setShowResetModal(true);
-  };
-
-  // Handle password reset
-  const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setResetError(null);
-
-    const cleanEmail = resetEmail.trim().toLowerCase();
-    const cleanPass = newPassword.trim();
-    const cleanConfirm = confirmPassword.trim();
-
-    if (!cleanEmail) {
-      setResetError('Please enter your registered email address.');
-      return;
-    }
-
-    if (cleanPass.length < 4) {
-      setResetError('New password must be at least 4 characters.');
-      return;
-    }
-
-    if (cleanPass !== cleanConfirm) {
-      setResetError('Passwords do not match. Please verify both fields.');
-      return;
-    }
-
-    setResetLoading(true);
-    try {
-      const res = await fetch('/api/users/password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: cleanEmail, password: cleanPass })
-      }).then(r => r.json());
-
-      if (res.success) {
-        addToast('Password updated successfully! Logging you in...', 'success');
-        setShowResetModal(false);
-        setEmail(cleanEmail);
-        setPassword(cleanPass);
-        // Automatically authenticate with the newly chosen password
-        await loginWithPassword(cleanEmail, cleanPass);
-      } else {
-        setResetError(res.error || 'Failed to update password.');
-      }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setResetError(msg || 'An error occurred while resetting password.');
-    } finally {
-      setResetLoading(false);
-    }
-  };
-
   return (
     <div className="min-h-screen w-full flex flex-col justify-between bg-gradient-to-br from-slate-50 via-blue-50/20 to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200 relative overflow-hidden">
       
@@ -386,9 +254,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onBackToPublicSite }) => {
             <h1 className="font-bold text-base tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
               {settings.organizationName || 'SC Basimbuzi'}
             </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-              Digital Payment &amp; Official Receipt Management
-            </p>
           </div>
         </div>
 
@@ -403,20 +268,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onBackToPublicSite }) => {
               <span className="hidden sm:inline">Back to Club Website</span>
             </button>
           )}
-
-          {/* Backend Settings Button */}
-          <button
-            type="button"
-            onClick={() => {
-              setConfigStatus(null);
-              setShowConfigModal(true);
-            }}
-            aria-label="Google Apps Script backend configuration"
-            title="Google Apps Script Backend Configuration"
-            className="p-2.5 rounded-xl text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white bg-white/80 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800/80 shadow-xs transition-colors cursor-pointer backdrop-blur-xs"
-          >
-            <Settings className="w-4 h-4" />
-          </button>
 
           {/* Theme Toggle Button */}
           <button
@@ -439,23 +290,11 @@ export const LoginView: React.FC<LoginViewProps> = ({ onBackToPublicSite }) => {
           {/* Elevated Card Container */}
           <div className="bg-white/95 dark:bg-slate-900/90 backdrop-blur-xl rounded-3xl border border-slate-200/80 dark:border-slate-800/80 shadow-2xl shadow-slate-300/40 dark:shadow-none p-6 sm:p-8 transition-all">
             
-            {/* Header Badge */}
+            {/* Header Title */}
             <div className="text-center mb-6">
-              <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-500/10 to-indigo-500/10 dark:from-blue-500/20 dark:to-indigo-500/20 text-blue-600 dark:text-blue-400 border border-blue-200/60 dark:border-blue-800/50 mb-3 shadow-xs">
-                {authMethod === 'password' ? <Lock className="w-6 h-6" /> : <KeyRound className="w-6 h-6" />}
-              </div>
               <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-                {authMethod === 'password' 
-                  ? 'System Sign In' 
-                  : otpStep === 'email' ? 'Email OTP Sign In' : 'Enter 6-Digit Code'}
+                Log in
               </h2>
-              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-                {authMethod === 'password' 
-                  ? 'Enter your registered email and password to access the portal'
-                  : otpStep === 'email'
-                  ? 'Receive a one-time verification code sent to your email'
-                  : `Enter the 6-digit access code sent to ${email}`}
-              </p>
             </div>
 
             {/* Authentication Method Selector Tabs */}
@@ -521,15 +360,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onBackToPublicSite }) => {
                     <label htmlFor="login-email-input" className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
                       Official Email Address
                     </label>
-                    {email.trim().toLowerCase() !== SYSTEM_OWNER_EMAIL.toLowerCase() && (
-                      <button
-                        type="button"
-                        onClick={handleQuickFillOwner}
-                        className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline font-medium cursor-pointer"
-                      >
-                        Use Owner Email
-                      </button>
-                    )}
                   </div>
                   <div className="relative">
                     <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500 pointer-events-none" />
@@ -553,13 +383,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onBackToPublicSite }) => {
                     <label htmlFor="login-password-input" className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
                       Password
                     </label>
-                    <button
-                      type="button"
-                      onClick={handleOpenResetModal}
-                      className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline font-medium cursor-pointer"
-                    >
-                      Forgot / Reset password?
-                    </button>
                   </div>
                   <div className="relative">
                     <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500 pointer-events-none" />
@@ -585,7 +408,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onBackToPublicSite }) => {
                   </div>
                 </div>
 
-                {/* Remember Me Checkbox & Quick Fill */}
+                {/* Remember Me Checkbox */}
                 <div className="flex items-center justify-between pt-1">
                   <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-600 dark:text-slate-400 select-none">
                     <input
@@ -596,16 +419,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onBackToPublicSite }) => {
                     />
                     <span>Remember my email</span>
                   </label>
-
-                  <button
-                    type="button"
-                    onClick={handleQuickFillOwner}
-                    className="text-[11px] text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition cursor-pointer flex items-center gap-1"
-                    title="Quick-fill system owner credentials"
-                  >
-                    <Sparkles className="w-3 h-3 text-amber-500" />
-                    <span>Auto-fill Owner</span>
-                  </button>
                 </div>
 
                 {/* Submit Button */}
@@ -754,218 +567,9 @@ export const LoginView: React.FC<LoginViewProps> = ({ onBackToPublicSite }) => {
               </>
             )}
 
-            {/* Bottom Security Note */}
-            <div className="mt-6 pt-5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-400 dark:text-slate-500">
-              <span className="flex items-center gap-1">
-                <ShieldCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                Role-Protected Access
-              </span>
-              <button
-                type="button"
-                onClick={handleOpenResetModal}
-                className="hover:text-blue-600 dark:hover:text-blue-400 transition cursor-pointer"
-              >
-                Reset Password
-              </button>
-            </div>
           </div>
         </div>
       </main>
-
-      {/* -------------------- RESET PASSWORD MODAL -------------------- */}
-      {showResetModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 sm:p-7 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
-                  <KeyRound className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                    Reset Account Password
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Set a new password for your registered email
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowResetModal(false)}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:bg-slate-800 transition cursor-pointer"
-                aria-label="Close dialog"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {resetError && (
-              <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 text-red-700 dark:text-red-300 text-xs flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-500" />
-                <div className="flex-1">{resetError}</div>
-              </div>
-            )}
-
-            <form onSubmit={handleResetPassword} className="space-y-3.5">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                  Registered Email Address
-                </label>
-                <div className="relative">
-                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input
-                    type="email"
-                    required
-                    value={resetEmail}
-                    onChange={e => setResetEmail(e.target.value)}
-                    placeholder="e.g. nagabapassion@gmail.com"
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-600 outline-none transition"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                  New Password (min 4 characters)
-                </label>
-                <div className="relative">
-                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input
-                    type={showResetPassword ? 'text' : 'password'}
-                    required
-                    value={newPassword}
-                    onChange={e => setNewPassword(e.target.value)}
-                    placeholder="Enter new password"
-                    className="w-full pl-10 pr-10 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-600 outline-none transition"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowResetPassword(p => !p)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition p-0.5 cursor-pointer"
-                  >
-                    {showResetPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                  Confirm New Password
-                </label>
-                <div className="relative">
-                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  <input
-                    type={showResetPassword ? 'text' : 'password'}
-                    required
-                    value={confirmPassword}
-                    onChange={e => setConfirmPassword(e.target.value)}
-                    placeholder="Re-type new password"
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-blue-600 outline-none transition"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowResetModal(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={resetLoading || !resetEmail.trim() || !newPassword.trim() || !confirmPassword.trim()}
-                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition inline-flex items-center gap-2 shadow-xs shadow-blue-600/20 cursor-pointer"
-                >
-                  {resetLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                  <span>{resetLoading ? 'Updating...' : 'Save & Sign In'}</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* -------------------- BACKEND URL CONFIGURATION MODAL -------------------- */}
-      {showConfigModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 sm:p-7 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
-                  <CloudCheck className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                    Google Apps Script Backend URL
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Required for 2-way Google Sheets sync &amp; receipt emailing
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowConfigModal(false)}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:bg-slate-800 transition cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-              Paste your deployed Google Apps Script Web App URL below (must end in <code className="font-sans bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded text-slate-800 dark:text-slate-200">/exec</code>).
-            </p>
-
-            <div className="space-y-3">
-              <input
-                type="url"
-                value={configUrl}
-                onChange={e => setConfigUrl(e.target.value)}
-                placeholder="https://script.google.com/macros/s/AKfycb.../exec"
-                className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl text-xs sm:text-sm font-sans focus:ring-2 focus:ring-blue-600 outline-none transition"
-              />
-
-              {configStatus && (
-                <div className={`p-3 rounded-xl text-xs flex items-start gap-2 ${
-                  configStatus.success 
-                    ? 'bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-300' 
-                    : 'bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 text-red-900 dark:text-red-300'
-                }`}>
-                  {configStatus.success ? (
-                    <CheckCircle2 className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
-                  ) : (
-                    <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
-                  )}
-                  <div>
-                    <p className="font-bold">{configStatus.success ? 'Backend Connected Successfully!' : 'Connection Failed'}</p>
-                    <p className="mt-0.5">{configStatus.message}</p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowConfigModal(false)}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveAndTestConfig}
-                disabled={testingConfig || !configUrl.trim()}
-                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition inline-flex items-center gap-2 shadow-xs shadow-blue-600/20 cursor-pointer"
-              >
-                {testingConfig ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-white" />}
-                <span>{testingConfig ? 'Testing...' : 'Test & Save URL'}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Footer */}
       <footer className="w-full py-4 text-center text-xs text-slate-400 dark:text-slate-500 border-t border-slate-200/80 dark:border-slate-800/80 relative z-10 backdrop-blur-sm">

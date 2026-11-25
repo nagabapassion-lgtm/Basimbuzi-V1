@@ -721,9 +721,8 @@ export const PublicSiteView: React.FC<PublicSiteViewProps> = ({ onNavigateAdmin 
                       </div>
                     ) : (
                       <div className="absolute inset-x-0 bottom-0 p-6 sm:p-7 text-white">
-                        <div className="text-xs font-medium text-blue-300 mb-1">Home Ground</div>
-                        <div className="text-xl font-bold">{siteContent.homeGround}</div>
-                        <div className="text-xs text-slate-200 mt-1">{siteContent.trainingSchedule}</div>
+                        <div className="text-xs font-medium text-blue-300 mb-1">Official Hub</div>
+                        <div className="text-xl font-bold">{clubName} Matchday Center</div>
                       </div>
                     )}
                   </div>
@@ -986,14 +985,6 @@ export const PublicSiteView: React.FC<PublicSiteViewProps> = ({ onNavigateAdmin 
 
                   <dl className="pt-4 border-t border-slate-200 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-2 gap-5 text-sm">
                     <div>
-                      <dt className="text-xs text-slate-500 dark:text-slate-400">Training Ground</dt>
-                      <dd className="font-semibold text-slate-900 dark:text-white mt-0.5">{siteContent.homeGround}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs text-slate-500 dark:text-slate-400">Training Days</dt>
-                      <dd className="font-semibold text-slate-900 dark:text-white mt-0.5">{siteContent.trainingSchedule}</dd>
-                    </div>
-                    <div>
                       <dt className="text-xs text-slate-500 dark:text-slate-400">Club Office</dt>
                       <dd className="font-semibold text-slate-900 dark:text-white mt-0.5">{orgProfile.organizationAddress}</dd>
                     </div>
@@ -1147,35 +1138,7 @@ export const PublicSiteView: React.FC<PublicSiteViewProps> = ({ onNavigateAdmin 
       {/* Quiet Footer (Secretive admin portal access via Ctrl+Shift+A, /admin URL, or double-clicking footer emblem) */}
       <footer className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 py-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-8 space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-3 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50/70 dark:bg-slate-900/70 divide-y sm:divide-y-0 sm:divide-x divide-slate-200 dark:divide-slate-800">
-            <div className="p-4 sm:p-5">
-              <div className="text-xs text-slate-500 dark:text-slate-400">Home Ground</div>
-              <div className="mt-1 text-sm sm:text-base font-bold text-slate-900 dark:text-white truncate">
-                {siteContent.homeGround}
-              </div>
-            </div>
-            <div className="p-4 sm:p-5">
-              <div className="text-xs text-slate-500 dark:text-slate-400">Training Sessions</div>
-              <div className="mt-1 text-sm sm:text-base font-bold text-slate-900 dark:text-white truncate">
-                {siteContent.trainingSchedule}
-              </div>
-            </div>
-            <div className="p-4 sm:p-5 flex items-center justify-between gap-3">
-              <div>
-                <div className="text-xs text-slate-500 dark:text-slate-400">Member Portal</div>
-                <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">
-                  Personal Ledger
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => navigateToPublicPath('/me')}
-                className="text-xs font-semibold text-blue-700 dark:text-blue-400 hover:underline whitespace-nowrap shrink-0 cursor-pointer"
-              >
-                Sign In (/me)
-              </button>
-            </div>
-          </div>
+          {/* Personal sign in block removed per request */}
 
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-2 border-t border-slate-100 dark:border-slate-900">
             <div className="flex items-center gap-3">

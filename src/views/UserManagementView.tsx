@@ -593,6 +593,11 @@ export const UserManagementView: React.FC = () => {
                             Website CMS
                           </span>
                         )}
+                        {perms.canEditMembers && (
+                          <span className="text-[10px] bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded">
+                            Edit Members
+                          </span>
+                        )}
                       </div>
                     </td>
 
@@ -901,6 +906,16 @@ export const UserManagementView: React.FC = () => {
                     />
                     <span>Can Publish Club News, Fixtures &amp; Website Content</span>
                   </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer text-slate-800 dark:text-slate-200">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(permissions.canEditMembers)}
+                      onChange={(e) => setPermissions(p => ({ ...p, canEditMembers: e.target.checked }))}
+                      className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4"
+                    />
+                    <span>Can Edit Club Member Details &amp; Directory Profiles</span>
+                  </label>
                 </div>
               </div>
 
@@ -1125,6 +1140,17 @@ export const UserManagementView: React.FC = () => {
                       className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4"
                     />
                     <span>Can Publish Club News, Fixtures &amp; Website Content</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer text-slate-800 dark:text-slate-200">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(editPermissions.canEditMembers)}
+                      disabled={editingUser.role === 'OWNER'}
+                      onChange={(e) => setEditPermissions(p => ({ ...p, canEditMembers: e.target.checked }))}
+                      className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4"
+                    />
+                    <span>Can Edit Club Member Details &amp; Directory Profiles</span>
                   </label>
                 </div>
               </div>

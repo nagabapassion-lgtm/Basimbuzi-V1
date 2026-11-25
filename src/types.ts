@@ -11,6 +11,7 @@ export interface UserPermissions {
   canManageUsers: boolean;
   canEditSettings: boolean;
   canManageWebsite?: boolean;
+  canEditMembers?: boolean;
 }
 
 export interface User {
@@ -398,7 +399,8 @@ export const getDefaultPermissions = (role: UserRole): UserPermissions => {
         canViewReports: true,
         canManageUsers: true,
         canEditSettings: true,
-        canManageWebsite: true
+        canManageWebsite: true,
+        canEditMembers: true
       };
     case 'ADMIN':
       return {
@@ -407,7 +409,8 @@ export const getDefaultPermissions = (role: UserRole): UserPermissions => {
         canViewReports: true,
         canManageUsers: false,
         canEditSettings: false,
-        canManageWebsite: true
+        canManageWebsite: true,
+        canEditMembers: true
       };
     case 'MEDIA':
       return {
@@ -416,7 +419,8 @@ export const getDefaultPermissions = (role: UserRole): UserPermissions => {
         canViewReports: false,
         canManageUsers: false,
         canEditSettings: false,
-        canManageWebsite: true
+        canManageWebsite: true,
+        canEditMembers: false
       };
     case 'ISSUER':
     default:
@@ -426,7 +430,8 @@ export const getDefaultPermissions = (role: UserRole): UserPermissions => {
         canViewReports: false,
         canManageUsers: false,
         canEditSettings: false,
-        canManageWebsite: false
+        canManageWebsite: false,
+        canEditMembers: false
       };
   }
 };
@@ -439,7 +444,8 @@ export const resolveUserPermissions = (user: User | null | undefined): UserPermi
       canViewReports: false,
       canManageUsers: false,
       canEditSettings: false,
-      canManageWebsite: false
+      canManageWebsite: false,
+      canEditMembers: false
     };
   }
   if (user.role === 'OWNER') {

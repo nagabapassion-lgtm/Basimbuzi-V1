@@ -16,12 +16,29 @@ import {
 } from 'lucide-react';
 
 export const SetupGuideView: React.FC = () => {
-  const { gasUrl, setGasUrl, isLiveBackend, addToast, refreshData } = useApp();
+  const { gasUrl, setGasUrl, isLiveBackend, addToast, refreshData, currentUser, userPermissions } = useApp();
+
+  const isOwner = currentUser?.role === 'OWNER';
+  const canAccessBackend = isOwner || (userPermissions.canEditSettings && currentUser?.role !== 'ISSUER');
 
   const [inputUrl, setInputUrl] = useState(gasUrl);
   const [copied, setCopied] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string; timestamp?: string } | null>(null);
+
+  if (!canAccessBackend) {
+    return (
+      <div className="p-8 max-w-xl mx-auto text-center space-y-4">
+        <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
+          <AlertCircle className="w-10 h-10 text-red-500 mx-auto" />
+          <h2 className="text-lg font-bold text-slate-900 dark:text-white">Access Restricted</h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+            Receipt Issuers and unauthorized staff do not have access to the Google Apps Script backend configuration. Please contact the System Owner.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // Test email state
   const [testEmailAddress, setTestEmailAddress] = useState('nagabapassion@gmail.com');

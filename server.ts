@@ -179,9 +179,29 @@ async function startServer() {
     }
   });
 
-  // API: Save shared backend configuration (Google Apps Script Web App URL)
   app.post('/api/config', (req, res) => {
     try {
+      const operatorEmail = String(req.headers['x-operator-email'] || req.body?.operatorEmail || '').trim().toLowerCase();
+      if (operatorEmail) {
+        let currentUsers: any[] = [];
+        if (fs.existsSync(USERS_FILE)) {
+          try {
+            currentUsers = JSON.parse(fs.readFileSync(USERS_FILE, 'utf-8'));
+          } catch {
+            currentUsers = [];
+          }
+        }
+        const match = currentUsers.find((u: any) => String(u?.email || '').trim().toLowerCase() === operatorEmail);
+        if (match) {
+          const role = String(match.role || '').toUpperCase();
+          const canEditSettings = role === 'OWNER' || match?.permissions?.canEditSettings === true;
+          if (role === 'ISSUER' || !canEditSettings) {
+            res.status(403).json({ success: false, error: 'Unauthorized: Receipt Issuers cannot modify Google Apps Script backend configuration.' });
+            return;
+          }
+        }
+      }
+
       const { gasUrl } = req.body;
       if (gasUrl !== undefined && typeof gasUrl !== 'string') {
         res.status(400).json({ success: false, error: 'Invalid URL format' });
@@ -769,7 +789,7 @@ async function startServer() {
     heroHeadline: 'Pride of the Community. Built on Unity and Football.',
     heroSubheadline:
       'Follow SC Basimbuzi matchday updates, club announcements, youth academy milestones, and official supporter membership across the season.',
-    heroImageUrl: 'preset:hero',
+    heroImageUrl: '/src/assets/images/hero_club_pitch_1795277918886.jpg',
     aboutTitle: 'Rooted in Passion, Driven by Discipline',
     aboutText:
       'SC Basimbuzi brings together senior squad competition, structured youth development, and an active supporter membership network. Every contribution and matchday turnout helps sustain training operations, equipment, and community football outreach.',
@@ -787,7 +807,7 @@ async function startServer() {
           'A disciplined second-half display and clinical counter-attacks sealed three vital points in front of a lively home crowd.',
         content:
           'SC Basimbuzi started the home fixture on the front foot, pressing high and controlling midfield possession from the opening whistle.\n\nAfter an even first thirty minutes, the breakthrough arrived from a sweeping wide move finished cleanly into the far corner. Two further goals after the interval put the result beyond doubt despite a late consolation from the visitors.\n\nHead Coach and technical staff praised the squad fitness and thanked supporters who turned out in full club colours.',
-        coverImage: 'preset:matchday',
+        coverImage: '/src/assets/images/news_matchday_action_1795277903178.jpg',
         author: 'SC Basimbuzi Media Desk',
         publishedAt: '2026-11-15',
         featured: true,
@@ -801,7 +821,7 @@ async function startServer() {
           'Supporters and prospective academy players can now submit membership inquiries online ahead of the upcoming tournament cycle.',
         content:
           'The club executive committee invites returning members, new supporters, and youth prospects to register for the current season.\n\nRegistered members enjoy priority matchday updates, official digital receipts for all club contributions, and direct participation in annual club meetings and community initiatives.\n\nUse the Join Club section below to submit your contact details and our Membership Coordinator will follow up promptly.',
-        coverImage: 'preset:supporters',
+        coverImage: '/src/assets/images/news_community_supporters_1795277904224.jpg',
         author: 'Club Secretariat',
         publishedAt: '2026-11-10',
         featured: false,
@@ -815,7 +835,7 @@ async function startServer() {
           'Over 120 young players participated in Saturday morning clinics and exhibition matches hosted at Basimbuzi Community Ground.',
         content:
           'Our youth development coaches hosted an open community football morning aimed at identifying emerging talent and promoting sportsmanship.\n\nSupporters and parents gathered pitchside to cheer on the under-15 and under-17 exhibition fixtures, followed by a brief club briefing on upcoming fixtures and kit distribution.',
-        coverImage: 'preset:hero',
+        coverImage: '/src/assets/images/news_matchday_action_1795277903178.jpg',
         author: 'Academy Outreach',
         publishedAt: '2026-11-04',
         featured: false,
@@ -876,7 +896,7 @@ async function startServer() {
         name: 'Official 2026 Preseason Jersey',
         priceUgx: 65000,
         description: 'Breathable royal blue matchday jersey with gold trim and woven SC Basimbuzi crest.',
-        imageUrl: 'preset:jersey',
+        imageUrl: '/src/assets/images/merch_home_jersey_1795277903802.jpg',
         sizes: ['S', 'M', 'L', 'XL', 'XXL'],
         inStock: true
       }
@@ -1148,14 +1168,10 @@ async function startServer() {
     try {
       res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
       let content = readPublicSiteContent();
-      const gasSite = await fetchPublicSiteFromGasCached(req.query.refresh === '1');
+      const gasSite = await fetchPublicSiteFromGasCached(true);
       if (gasSite) {
-        const localTs = parseValidSiteTs(content?.updatedAt);
-        const gasTs = parseValidSiteTs(gasSite?.updatedAt);
-        if (gasTs > localTs) {
-          content = gasSite;
-          writePublicSiteToAllTargets(content);
-        }
+        content = gasSite;
+        writePublicSiteToAllTargets(content);
       }
       const isAdminRequest = req.query.mode === 'admin' && Boolean(await getAuthorizedWebsiteOperatorAsync(req));
       const filteredNews = isAdminRequest
@@ -1896,6 +1912,14 @@ async function startServer() {
       : null;
   };
 
+  const canOperatorEditMembers = (operator: { role: string; permissions?: Record<string, any> } | null): boolean => {
+    if (!operator) return false;
+    if (operator.role === 'OWNER') return true;
+    if (operator.permissions?.canEditMembers === true) return true;
+    if (operator.role === 'ADMIN' && operator.permissions?.canEditMembers !== false) return true;
+    return false;
+  };
+
   const sanitizeMemberForClient = (m: any, _defaultTargetUgx: number = 0) => {
     const preNllPaid = Math.max(0, Number(m.preNllPaid) || 0);
     const spotPaid = Math.max(0, Number(m.spotPaid) || 0);
@@ -2189,6 +2213,26 @@ async function startServer() {
       const operator = getAuthorizedFinanceOperator(req);
       if (!operator) {
         res.status(403).json({ success: false, error: 'Unauthorized: Finance staff sign-in required.' });
+        return;
+      }
+      if (!canOperatorEditMembers(operator)) {
+        res.status(403).json({ success: false, error: 'Unauthorized: You do not have permission to review or change member submissions.' });
+        return;
+      }
+      if (!canOperatorEditMembers(operator)) {
+        res.status(403).json({ success: false, error: 'Unauthorized: You do not have permission to merge member profiles.' });
+        return;
+      }
+      if (!canOperatorEditMembers(operator)) {
+        res.status(403).json({ success: false, error: 'Unauthorized: You do not have permission to import or modify member records.' });
+        return;
+      }
+      if (!canOperatorEditMembers(operator)) {
+        res.status(403).json({ success: false, error: 'Unauthorized: You do not have permission to edit or add member details.' });
+        return;
+      }
+      if (!canOperatorEditMembers(operator)) {
+        res.status(403).json({ success: false, error: 'Unauthorized: Receipt Issuers cannot modify member ledger records without member edit permission.' });
         return;
       }
       const canDelete =
