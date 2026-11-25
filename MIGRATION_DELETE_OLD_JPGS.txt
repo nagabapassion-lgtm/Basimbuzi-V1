@@ -1,0 +1,10 @@
+After extracting this zip, delete these old image files from your clone
+(they have been replaced by optimized .webp versions):
+
+  src/assets/images/hero_club_pitch_1795277918886.jpg
+  src/assets/images/merch_home_jersey_1795277903802.jpg
+  src/assets/images/news_community_supporters_1795277904224.jpg
+  src/assets/images/news_matchday_action_1795277903178.jpg
+  src/assets/images/sc_basimbuzi_logo_1790938819742.jpg
+
+(In GitHub Desktop you will then see those deletions ready to commit.)

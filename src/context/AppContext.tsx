@@ -453,6 +453,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const logout = useCallback(() => {
     localStorage.removeItem(AUTH_STORAGE_KEY);
+    api.clearStoredAuthToken();
     setCurrentUser(null);
     setIsAuthenticated(false);
     setIsAccessDenied(false);

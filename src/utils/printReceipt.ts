@@ -1,4 +1,3 @@
-import html2canvas from 'html2canvas-pro';
 
 /**
  * Detects if the current application window is running inside an iframe
@@ -48,6 +47,7 @@ export async function downloadReceiptImage(
       )
     );
 
+    const { default: html2canvas } = await import('html2canvas-pro');
     const canvas = await html2canvas(receiptEl, {
       useCORS: true,
       allowTaint: false,

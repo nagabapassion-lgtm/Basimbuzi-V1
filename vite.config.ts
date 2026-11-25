@@ -11,6 +11,20 @@ export default defineConfig(() => {
         '@': path.resolve(__dirname, '.'),
       },
     },
+    build: {
+      rollupOptions: {
+        output: {
+          // Split heavyweight vendor libraries into cacheable chunks so the
+          // app core stays small and repeat visits hit the browser cache.
+          manualChunks: {
+            'react-vendor': ['react', 'react-dom'],
+            'charts': ['recharts'],
+            'motion': ['framer-motion', 'motion'],
+            'icons': ['lucide-react'],
+          },
+        },
+      },
+    },
     server: {
       port: 3000,
       host: '0.0.0.0',

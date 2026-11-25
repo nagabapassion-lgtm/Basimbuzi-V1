@@ -27,7 +27,6 @@ import {
   Smartphone
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import html2canvas from 'html2canvas-pro';
 
 export const SuccessView: React.FC = () => {
   const { 
@@ -154,6 +153,7 @@ export const SuccessView: React.FC = () => {
         )
       );
 
+      const { default: html2canvas } = await import('html2canvas-pro');
       const canvas = await html2canvas(receiptCardRef.current, {
         useCORS: true,
         allowTaint: false,

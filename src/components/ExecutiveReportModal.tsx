@@ -1,8 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { Transaction, AppSettings, User } from '../types';
 import { HARDCODED_LOGO_URL } from '../assets/brandLogo';
-import html2canvas from 'html2canvas-pro';
-import { jsPDF } from 'jspdf';
 import { useApp } from '../context/AppContext';
 import { isRunningInIframe } from '../utils/printReceipt';
 import { 
@@ -98,6 +96,7 @@ export const ExecutiveReportModal: React.FC<ExecutiveReportModalProps> = ({
     await new Promise((resolve) => setTimeout(resolve, 400));
 
     try {
+      const { default: html2canvas } = await import('html2canvas-pro');
       const canvas = await html2canvas(reportRef.current, {
         useCORS: true,
         allowTaint: false,
@@ -110,6 +109,7 @@ export const ExecutiveReportModal: React.FC<ExecutiveReportModalProps> = ({
       return canvas;
     } catch (primaryErr) {
       console.warn('html2canvas primary attempt failed, retrying with fallback settings:', primaryErr);
+      const { default: html2canvas } = await import('html2canvas-pro');
       const canvas = await html2canvas(reportRef.current, {
         useCORS: true,
         allowTaint: true,
@@ -132,6 +132,7 @@ export const ExecutiveReportModal: React.FC<ExecutiveReportModalProps> = ({
       const canvas = await generateReportCanvas();
       const dataUrl = canvas.toDataURL('image/png', 1.0);
 
+      const { jsPDF } = await import('jspdf');
       const pdf = new jsPDF({
         orientation: 'p',
         unit: 'mm',

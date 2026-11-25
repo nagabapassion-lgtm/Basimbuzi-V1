@@ -1,4 +1,3 @@
-import html2canvas from 'html2canvas-pro';
 import { Transaction, AppSettings } from '../types';
 import { HARDCODED_LOGO_URL } from '../assets/brandLogo';
 
@@ -173,6 +172,7 @@ export async function renderReceiptToImage(
     await new Promise((resolve) => setTimeout(resolve, 600));
 
     // 3. Render with html2canvas using CORS options
+    const { default: html2canvas } = await import('html2canvas-pro');
     const canvas = await html2canvas(container, {
       useCORS: true,
       allowTaint: false,
@@ -348,6 +348,7 @@ export async function captureReceiptAsImage(element: HTMLElement): Promise<{
     )
   );
 
+  const { default: html2canvas } = await import('html2canvas-pro');
   const canvas = await html2canvas(element, {
     useCORS: true,
     allowTaint: false,
