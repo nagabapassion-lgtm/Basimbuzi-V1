@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { getDb } from '../db';
+import { getDb, getAuthVerifier } from '../db';
 import { issueOtp, requireStaff, signToken, verifyOtp, getBearer, verifyToken } from '../auth';
 import { logAudit, SYSTEM_OWNER_EMAIL } from '../store';
 import { mapUserRow } from '../map';
@@ -8,12 +8,16 @@ import type { HandlerCtx, HandlerResult, StaffUser } from '../types';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// Errors are deliberately NOT swallowed here: a silent null used to masquerade
+// as "no account registered" / "Server authentication error" and hid the real
+// cause (permission denied) from both the user and the health check.
 const loadUserRow = async (email: string) => {
-  const { data } = await getDb()
+  const { data, error } = await getDb()
     .from('app_users')
     .select('id, name, email, role, status, permissions, created_at')
     .eq('email', email)
     .maybeSingle();
+  if (error) throw new Error(`Profile lookup failed: ${error.message}`);
   return data || null;
 };
 
@@ -31,11 +35,12 @@ const provisionProfile = async (email: string, authUserId?: string) => {
     permissions: null,
     created_at: new Date().toISOString()
   };
-  const { data } = await getDb()
+  const { data, error } = await getDb()
     .from('app_users')
     .upsert(insert, { onConflict: 'email' })
     .select()
     .single();
+  if (error) throw new Error(`Profile provisioning failed: ${error.message}`);
   return data;
 };
 
@@ -69,7 +74,11 @@ export const login = async (ctx: HandlerCtx): Promise<HandlerResult> => {
     const cleanEmail = email.trim().toLowerCase();
     const cleanPassword = password.trim();
 
-    const { data: authData, error: authError } = await getDb().auth.signInWithPassword({
+    // MUST use the dedicated verifier client (never the shared service
+    // client): signInWithPassword makes supabase-js hold the user session in
+    // memory, and a shared client would then send all later table queries as
+    // role `authenticated` (permission denied) instead of `service_role`.
+    const { data: authData, error: authError } = await getAuthVerifier().auth.signInWithPassword({
       email: cleanEmail,
       password: cleanPassword
     });

@@ -78,6 +78,20 @@ var db = new Proxy({}, {
     return typeof value === "function" ? value.bind(real) : value;
   }
 });
+var authVerifier = null;
+var getAuthVerifier = () => {
+  if (!authVerifier) {
+    if (!isBackendConfigured()) {
+      throw new Error(
+        "Supabase backend is not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY."
+      );
+    }
+    authVerifier = (0, import_supabase_js.createClient)(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false }
+    });
+  }
+  return authVerifier;
+};
 
 // lib/backend/auth.ts
 var import_crypto = __toESM(require("crypto"));
@@ -1284,7 +1298,8 @@ var errorResult = (err) => ({
 // lib/backend/handlers/auth.ts
 var EMAIL_REGEX2 = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 var loadUserRow = async (email) => {
-  const { data } = await getDb().from("app_users").select("id, name, email, role, status, permissions, created_at").eq("email", email).maybeSingle();
+  const { data, error } = await getDb().from("app_users").select("id, name, email, role, status, permissions, created_at").eq("email", email).maybeSingle();
+  if (error) throw new Error(`Profile lookup failed: ${error.message}`);
   return data || null;
 };
 var provisionProfile = async (email, authUserId) => {
@@ -1300,7 +1315,8 @@ var provisionProfile = async (email, authUserId) => {
     permissions: null,
     created_at: (/* @__PURE__ */ new Date()).toISOString()
   };
-  const { data } = await getDb().from("app_users").upsert(insert, { onConflict: "email" }).select().single();
+  const { data, error } = await getDb().from("app_users").upsert(insert, { onConflict: "email" }).select().single();
+  if (error) throw new Error(`Profile provisioning failed: ${error.message}`);
   return data;
 };
 var findAuthUserByEmail = async (email) => {
@@ -1329,7 +1345,7 @@ var login = async (ctx) => {
     }
     const cleanEmail = email.trim().toLowerCase();
     const cleanPassword = password.trim();
-    const { data: authData, error: authError } = await getDb().auth.signInWithPassword({
+    const { data: authData, error: authError } = await getAuthVerifier().auth.signInWithPassword({
       email: cleanEmail,
       password: cleanPassword
     });
