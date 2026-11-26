@@ -1,22 +1,26 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { routeApiRequest } from '../lib/backend/router';
-import type { HandlerCtx, HandlerResult } from '../lib/backend/types';
+import { routeApiRequest } from './router';
+import type { HandlerCtx, HandlerResult } from './types';
 
 /**
- * THE single Vercel Serverless Function for this project.
+ * Vercel Serverless Function entrypoint — DO NOT DELETE.
  *
- * Vercel's Hobby plan allows a maximum of 12 functions per deployment, so all
- * /api/* traffic is funneled here through the rewrite in vercel.json:
- *     source: "/api/(.*)"  destination: "/api/router?_route=$1"
- * The original request path arrives in the `_route` query parameter (and the
- * original query string is preserved alongside it). As a fallback we also
- * accept the path directly on req.url, so the function works with or without
- * the rewrite.
+ * This file is NOT deployed directly. `npm run build` compiles it with esbuild
+ * (--bundle) into a single self-contained plain-JavaScript file at
+ * `api/router.js`, and THAT generated file is the one Vercel Function.
  *
- * Every endpoint previously had its own file (api/auth/login.ts, ...); the
- * same handlers now run through lib/backend/router.ts — same URLs, same
- * behavior, one function.
+ * Why the indirection? The Vercel Node builder compiles each TypeScript file
+ * one-by-one and preserves import specifiers verbatim. With ESM output that
+ * breaks at runtime ("ERR_MODULE_NOT_FOUND: Cannot find module
+ * '/var/task/lib/backend/router' imported from '/var/task/api/router.js'")
+ * because Node's ESM loader never infers file extensions. Pre-bundling here
+ * removes every relative import from the deployed artifact, so nothing is left
+ * for the lambda to resolve: one file, node_modules only.
+ *
+ * If you edit this handler, re-run `npm run build` (or just push — Vercel runs
+ * the same build command in the cloud).
  */
+
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   // Vercel kills an invocation that exceeds the plan timeout (10s on Hobby) and
   // shows the visitor an opaque FUNCTION_INVOCATION_FAILED page. We answer
