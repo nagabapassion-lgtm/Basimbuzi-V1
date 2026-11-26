@@ -1,4 +1,5 @@
 import { getDb } from '../db';
+import { isBackendConfigured } from '../env';
 import { requireStaff } from '../auth';
 import {
   getSettings,
@@ -14,7 +15,23 @@ import { fail, ok, errorResult } from '../types';
 import type { HandlerCtx, HandlerResult } from '../types';
 
 // GET /api/health
+// Always answers (never throws, never hangs): this endpoint is the app's
+// connection diagnostic, so it must produce a readable result even when the
+// database is unreachable. `status` tells you exactly what is wrong:
+//   ok           — function + database both working
+//   unconfigured — the Vercel environment variables are missing
+//   unavailable  — env vars set, but the database did not respond
 export const health = async (_ctx: HandlerCtx): Promise<HandlerResult> => {
+  const timestamp = new Date().toISOString();
+  if (!isBackendConfigured()) {
+    return ok({
+      success: true,
+      status: 'unconfigured',
+      message:
+        'The function is running, but the database environment variables are NOT set. In Vercel → your project → Settings → Environment Variables, add SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY and SESSION_SECRET, then Deployments → Redeploy.',
+      timestamp
+    });
+  }
   try {
     const { error } = await getDb().from('settings').select('id').limit(1);
     if (error) throw new Error(error.message);
@@ -22,19 +39,17 @@ export const health = async (_ctx: HandlerCtx): Promise<HandlerResult> => {
       success: true,
       status: 'ok',
       message: 'Central database connected',
-      timestamp: new Date().toISOString()
+      timestamp
     });
   } catch (err) {
-    return {
-      status: 503,
-      body: {
-        success: false,
-        status: 'unavailable',
-        message: 'Database unavailable',
-        error: err instanceof Error ? err.message : String(err),
-        timestamp: new Date().toISOString()
-      }
-    };
+    return ok({
+      success: true,
+      status: 'unavailable',
+      message:
+        'The function is running and the environment variables are set, but the database did not respond. Check that the Supabase project is active (not paused) and that SUPABASE_URL is exactly your project URL.',
+      error: err instanceof Error ? err.message : String(err),
+      timestamp
+    });
   }
 };
 

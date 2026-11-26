@@ -18,6 +18,39 @@ import type { HandlerCtx, HandlerResult } from '../lib/backend/types';
  * behavior, one function.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
+  // Vercel kills an invocation that exceeds the plan timeout (10s on Hobby) and
+  // shows the visitor an opaque FUNCTION_INVOCATION_FAILED page. We answer
+  // ourselves just before that, so the cause stays visible in JSON.
+  const INVOCATION_TIMEOUT_MS = 8_500;
+  const withTimeout = (work: Promise<HandlerResult>): Promise<HandlerResult> =>
+    new Promise<HandlerResult>(resolve => {
+      const timer = setTimeout(
+        () =>
+          resolve({
+            status: 503,
+            body: {
+              success: false,
+              error:
+                'The request took too long. Check SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY in Vercel → Settings → Environment Variables, and that the Supabase project is active (not paused).'
+            }
+          }),
+        INVOCATION_TIMEOUT_MS
+      );
+      work.then(
+        r => {
+          clearTimeout(timer);
+          resolve(r);
+        },
+        e => {
+          clearTimeout(timer);
+          resolve({
+            status: 500,
+            body: { success: false, error: e instanceof Error ? e.message : String(e) }
+          });
+        }
+      );
+    });
+
   const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
 
   // Original query string, excluding the routing helper param.
@@ -58,7 +91,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
 
   let result: HandlerResult;
   try {
-    result = await routeApiRequest(apiPath, ctx);
+    result = await withTimeout(routeApiRequest(apiPath, ctx));
   } catch (err) {
     result = {
       status: 500,
