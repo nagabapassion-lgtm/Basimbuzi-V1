@@ -1961,24 +1961,79 @@ var health = async (_ctx) => {
       timestamp
     });
   }
-  try {
-    const { error } = await getDb().from("settings").select("id").limit(1);
-    if (error) throw new Error(error.message);
-    return ok({
-      success: true,
-      status: "ok",
-      message: "Central database connected",
-      timestamp
-    });
-  } catch (err) {
-    return ok({
-      success: true,
-      status: "unavailable",
-      message: "The function is running and the environment variables are set, but the database did not respond. Check that the Supabase project is active (not paused) and that SUPABASE_URL is exactly your project URL.",
-      error: err instanceof Error ? err.message : String(err),
-      timestamp
-    });
-  }
+  const url = process.env.SUPABASE_URL || "";
+  const projectRef = (url.replace(/^https?:\/\//, "").split(".")[0] || "").slice(0, 30);
+  const db2 = getDb();
+  const checks = { projectRef };
+  const failures = [];
+  const PROBE_TIMEOUT_MS = 3e3;
+  const withTimeout = (p, ms) => new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`no response within ${ms}ms`)), ms);
+    p.then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(timer);
+        reject(e instanceof Error ? e : new Error(String(e)));
+      }
+    );
+  });
+  const probe = (name, work) => (async () => {
+    try {
+      await withTimeout(work(), PROBE_TIMEOUT_MS);
+      checks[name] = "ok";
+    } catch (err) {
+      checks[name] = err instanceof Error ? err.message : String(err);
+      failures.push(name);
+    }
+  })();
+  await Promise.all([
+    probe("table_settings", async () => {
+      const { error } = await db2.from("settings").select("id").limit(1);
+      if (error) throw new Error(error.message);
+    }),
+    probe("table_app_users", async () => {
+      const { error, count } = await db2.from("app_users").select("id", { count: "exact", head: true });
+      if (error) throw new Error(error.message);
+      checks.appUsersCount = count ?? null;
+      const { data: owner, error: ownerErr } = await db2.from("app_users").select("email, role, status").eq("email", "nagabapassion@gmail.com").maybeSingle();
+      if (ownerErr) throw new Error(ownerErr.message);
+      checks.ownerProfile = owner ? `${owner.role}/${owner.status}` : "MISSING (owner row not in app_users)";
+    }),
+    probe("table_members", async () => {
+      const { error, count } = await db2.from("members").select("id", { count: "exact", head: true });
+      if (error) throw new Error(error.message);
+      checks.membersCount = count ?? null;
+    }),
+    probe("table_transactions", async () => {
+      const { error, count } = await db2.from("transactions").select("receipt_number", { count: "exact", head: true });
+      if (error) throw new Error(error.message);
+      checks.transactionsCount = count ?? null;
+    }),
+    probe("auth_service", async () => {
+      const { data, error } = await db2.auth.admin.listUsers({ page: 1, perPage: 200 });
+      if (error) throw new Error(error.message);
+      const emails = (data?.users || []).map(
+        (u) => String(u.email || "").toLowerCase()
+      );
+      checks.authUsersCount = emails.length;
+      checks.staffAccountsPresent = {
+        "nagabapassion@gmail.com": emails.includes("nagabapassion@gmail.com"),
+        "jotham.itungo@gmail.com": emails.includes("jotham.itungo@gmail.com"),
+        "passionwork94@gmail.com": emails.includes("passionwork94@gmail.com"),
+        "hildanamy7@gmail.com": emails.includes("hildanamy7@gmail.com")
+      };
+    })
+  ]);
+  return ok({
+    success: true,
+    status: failures.length === 0 ? "ok" : "unavailable",
+    message: failures.length === 0 ? "Central database connected \u2014 all layers healthy." : `Failing layer(s): ${failures.join(", ")}. Details in "checks".`,
+    checks,
+    timestamp
+  });
 };
 var bootstrap = async (ctx) => {
   try {

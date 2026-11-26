@@ -20,7 +20,11 @@ import type { HandlerCtx, HandlerResult } from '../types';
 // database is unreachable. `status` tells you exactly what is wrong:
 //   ok           — function + database both working
 //   unconfigured — the Vercel environment variables are missing
-//   unavailable  — env vars set, but the database did not respond
+//   unavailable  — env vars set, but one or more database layers failed
+// The `checks` object reports each layer separately, so a single look shows
+// exactly which piece (project ref, auth service, individual table, owner
+// profile) is failing — including INTERMITTENT failures, because the failing
+// probe is named in the response instead of being swallowed by one summary.
 export const health = async (_ctx: HandlerCtx): Promise<HandlerResult> => {
   const timestamp = new Date().toISOString();
   if (!isBackendConfigured()) {
@@ -32,25 +36,101 @@ export const health = async (_ctx: HandlerCtx): Promise<HandlerResult> => {
       timestamp
     });
   }
-  try {
-    const { error } = await getDb().from('settings').select('id').limit(1);
-    if (error) throw new Error(error.message);
-    return ok({
-      success: true,
-      status: 'ok',
-      message: 'Central database connected',
-      timestamp
+
+  const url = process.env.SUPABASE_URL || '';
+  const projectRef = (url.replace(/^https?:\/\//, '').split('.')[0] || '').slice(0, 30);
+  const db = getDb();
+  const checks: Record<string, unknown> = { projectRef };
+  const failures: string[] = [];
+  // Each probe is capped so a dead/slow database cannot exceed the function's
+  // own 8.5s invocation safety net (supabase-js retries failed fetches, which
+  // would otherwise burn the whole budget). Probes run in parallel: worst
+  // case wall time ≈ PROBE_TIMEOUT_MS, not the sum.
+  const PROBE_TIMEOUT_MS = 3_000;
+  const withTimeout = <T>(p: Promise<T>, ms: number): Promise<T> =>
+    new Promise<T>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error(`no response within ${ms}ms`)), ms);
+      p.then(
+        v => {
+          clearTimeout(timer);
+          resolve(v);
+        },
+        e => {
+          clearTimeout(timer);
+          reject(e instanceof Error ? e : new Error(String(e)));
+        }
+      );
     });
-  } catch (err) {
-    return ok({
-      success: true,
-      status: 'unavailable',
-      message:
-        'The function is running and the environment variables are set, but the database did not respond. Check that the Supabase project is active (not paused) and that SUPABASE_URL is exactly your project URL.',
-      error: err instanceof Error ? err.message : String(err),
-      timestamp
-    });
-  }
+  const probe = (name: string, work: () => Promise<void>) =>
+    (async () => {
+      try {
+        await withTimeout(work(), PROBE_TIMEOUT_MS);
+        checks[name] = 'ok';
+      } catch (err) {
+        checks[name] = err instanceof Error ? err.message : String(err);
+        failures.push(name);
+      }
+    })();
+
+  await Promise.all([
+    probe('table_settings', async () => {
+      const { error } = await db.from('settings').select('id').limit(1);
+      if (error) throw new Error(error.message);
+    }),
+    probe('table_app_users', async () => {
+      const { error, count } = await db
+        .from('app_users')
+        .select('id', { count: 'exact', head: true });
+      if (error) throw new Error(error.message);
+      checks.appUsersCount = count ?? null;
+      const { data: owner, error: ownerErr } = await db
+        .from('app_users')
+        .select('email, role, status')
+        .eq('email', 'nagabapassion@gmail.com')
+        .maybeSingle();
+      if (ownerErr) throw new Error(ownerErr.message);
+      checks.ownerProfile = owner
+        ? `${owner.role}/${owner.status}`
+        : 'MISSING (owner row not in app_users)';
+    }),
+    probe('table_members', async () => {
+      const { error, count } = await db.from('members').select('id', { count: 'exact', head: true });
+      if (error) throw new Error(error.message);
+      checks.membersCount = count ?? null;
+    }),
+    probe('table_transactions', async () => {
+      const { error, count } = await db
+        .from('transactions')
+        .select('receipt_number', { count: 'exact', head: true });
+      if (error) throw new Error(error.message);
+      checks.transactionsCount = count ?? null;
+    }),
+    probe('auth_service', async () => {
+      const { data, error } = await db.auth.admin.listUsers({ page: 1, perPage: 200 });
+      if (error) throw new Error(error.message);
+      const emails = (data?.users || []).map((u: { email?: string }) =>
+        String(u.email || '').toLowerCase()
+      );
+      checks.authUsersCount = emails.length;
+      checks.staffAccountsPresent = {
+        'nagabapassion@gmail.com': emails.includes('nagabapassion@gmail.com'),
+        'jotham.itungo@gmail.com': emails.includes('jotham.itungo@gmail.com'),
+        'passionwork94@gmail.com': emails.includes('passionwork94@gmail.com'),
+        'hildanamy7@gmail.com': emails.includes('hildanamy7@gmail.com')
+      };
+    })
+  ]);
+
+  return ok({
+    success: true,
+    status: failures.length === 0 ? 'ok' : 'unavailable',
+    message:
+      failures.length === 0
+        ? 'Central database connected — all layers healthy.'
+        : `Failing layer(s): ${failures.join(', ')}. Details in "checks".`,
+    checks,
+    timestamp
+  });
 };
 
 // GET /api/bootstrap — everything the staff dashboard needs on first paint
