@@ -7,6 +7,5 @@ coverage/
 .env*
 !.env.example
 .vercel/
-# Generated Vercel function bundle (built by `npm run build`, never commit it)
-api/router.js
-api/router.js.map
+# NOTE: api/router.js (+ .map) IS committed on purpose — it is the pre-built
+# Vercel function. `npm run build` regenerates it from lib/backend/vercel-entry.ts.
