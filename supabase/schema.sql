@@ -238,4 +238,21 @@ alter table public.site_content        enable row level security;
 alter table public.inquiries           enable row level security;
 alter table public.otp_codes           enable row level security;
 
+-- ---------------------------------------------------------------------
+-- 13. SERVER PRIVILEGES (service_role)
+--     The app's API server (Vercel functions / Express / the import
+--     script) connects with the service_role key. On newer projects,
+--     tables created via the SQL Editor do NOT automatically receive
+--     table-level privileges for service_role, which shows up as
+--     "permission denied for table ..." during the data import.
+--     These grants make it explicit and cover future tables too.
+--     (Safe to re-run — GRANT statements are idempotent.)
+-- ---------------------------------------------------------------------
+grant usage on schema public to service_role;
+grant all on all tables in schema public to service_role;
+grant all on all sequences in schema public to service_role;
+grant execute on function public.next_receipt_number(text) to service_role;
+alter default privileges in schema public grant all on tables to service_role;
+alter default privileges in schema public grant all on sequences to service_role;
+
 -- Done. Next step: import your data (see MIGRATION_GUIDE.md).

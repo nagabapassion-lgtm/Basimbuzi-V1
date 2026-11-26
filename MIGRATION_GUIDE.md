@@ -131,6 +131,26 @@ Your existing Sheets keep all historical data as they are. The treasurer's live 
 
 Everything is in git. If anything misbehaves: GitHub Desktop → **History** → revert the migration commit and push — the old Apps Script deployment is untouched.
 
+## Troubleshooting — errors already fixed in this repo
+
+**1. "No more than 12 Serverless Functions can be added to a Deployment on the Hobby plan"**
+The first migration drop shipped one function file per endpoint (34 functions). Vercel's Hobby plan allows 12. **Fixed:** all `/api/*` traffic now flows through ONE function (`api/router.ts`) via a rewrite in `vercel.json`, and a central route table (`lib/backend/router.ts`) dispatches it to the same handlers. All URLs are unchanged. When applying the fix package, **delete the old `api` folder first** (see `API-CLEANUP-NOTE.md`), otherwise the deleted files stay in git and still count as functions.
+
+**2. `IMPORT FAILED: members upsert: permission denied for table members`**
+On newer Supabase projects, tables created in the SQL Editor don't automatically get table privileges for the `service_role` key used by the importer/app. **Fixed:** `supabase/schema.sql` now ends with a "SERVER PRIVILEGES" section granting service_role access to all tables/sequences (idempotent — safe to re-run the whole file). If you already ran the manual GRANTs from the import session, your database is already fine; re-running the updated `schema.sql` does no harm.
+
+**3. After importing, how do I verify the data landed?**
+Supabase dashboard → **Table Editor** → pick a table and check the row count:
+| Table | Expected rows |
+|---|---|
+| `members` | 275 |
+| `transactions` | 361 |
+| `app_users` | 4 |
+`transactions` should total **UGX 8,385,000** (all Mobile Money, 2026-06-01 → 2026-09-15). Payments recorded after 15 Sep 2026 live in your Google Sheets — send them over and we'll top up with a second import (never duplicates).
+
+**4. The deployment failed but the site still shows old data**
+Until the push succeeds AND the three Vercel environment variables are set (Step 5), the app runs in fallback mode from the bundled static files — numbers will look wrong. The fix is always: finish the push, set the env vars, **Deployments → Redeploy**.
+
 ## Next phases (unchanged plan)
 
 - **Brevo email** — receipt emails + OTP codes by email (the code hooks are already in place).
